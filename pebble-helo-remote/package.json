@@ -1,0 +1,58 @@
+{
+  "name": "helo-remote",
+  "author": "Mike Heissen",
+  "version": "1.0.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
+  "pebble": {
+    "displayName": "HELO Remote",
+    "uuid": "2d250b0c-a72f-4830-b6a7-b16adf357abe",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery",
+      "basalt",
+      "diorite"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "capabilities": [
+      "configurable"
+    ],
+    "messageKeys": [
+      "CMD",
+      "CONN",
+      "REC_STATE",
+      "REC_NAME",
+      "REC_DUR",
+      "STREAM_STATE",
+      "STREAM_NAME",
+      "STREAM_DUR",
+      "MEDIA_PCT",
+      "TEMP_C",
+      "SYS_NAME",
+      "MESSAGE",
+      "VIBRATE",
+      "HELO_HOST",
+      "HELO_PORT",
+      "HELO_PASSWORD",
+      "POLL_INTERVAL"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "png",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/menu_icon.png",
+          "menuIcon": true
+        }
+      ]
+    }
+  }
+}
