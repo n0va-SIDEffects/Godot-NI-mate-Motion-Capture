@@ -1,0 +1,19 @@
+{
+  "skill_name": "pebble-app-dev",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Bau mir eine App für meine Pebble Time 2: einen Pausenwecker. Mit UP/DOWN wähle ich die Dauer (5, 10, 15, 20 Minuten), SELECT startet den Countdown bzw. stoppt ihn wieder. Die Restzeit soll groß und gut lesbar sein, bei Ablauf soll die Uhr vibrieren und 'Pause vorbei' anzeigen. Bitte als kompletter Projektordner, der mit `pebble build` gebaut werden kann.",
+      "expected_output": "A complete Pebble project (package.json with uuid/targetPlatforms incl. emery, wscript, src/c/*.c) that compiles per platform with the SDK warning flags, uses a large numbers font, app_timer or tick service for the countdown, vibes on finish, and layout derived from layer bounds.",
+      "assertions": [
+        "package.json exists, is valid JSON, has pebble.uuid, pebble.targetPlatforms including emery, and watchapp.watchface false",
+        "wscript exists and calls ctx.pbl_build / ctx.pbl_bundle",
+        "all C files compile for aplite, basalt, chalk, diorite and emery via scripts/check_compile.sh with zero errors",
+        "countdown uses tick_timer_service_subscribe or app_timer_register, and vibes_* is called when the countdown reaches zero",
+        "layout is derived from layer_get_bounds or PBL_DISPLAY_WIDTH/HEIGHT rather than hard-coded 144x168 only",
+        "NOTES.md states honestly which verification ran"
+      ],
+      "files": []
+    }
+  ]
+}
