@@ -1,0 +1,42 @@
+{
+  "name": "pebble-toggl-track",
+  "author": "Mike Heissen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Toggl Track",
+    "uuid": "f71873c5-ed3c-40d7-9f27-ef8cf9e15c80",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery",
+      "flint",
+      "gabbro"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "capabilities": ["configurable"],
+    "messageKeys": [
+      "CMD",
+      "RUNNING",
+      "DESCRIPTION",
+      "PROJECT_ID",
+      "PROJECT_NAME",
+      "PROJECT_COLOR",
+      "START_TIME",
+      "INDEX",
+      "COUNT",
+      "MESSAGE"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}
