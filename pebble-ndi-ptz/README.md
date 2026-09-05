@@ -168,6 +168,45 @@ steht. Ein Gyroskop würde nur Drehraten liefern und wegdriften. Die App
 filtert die Rohdaten (50 Hz, Tiefpass) und ignoriert Samples während der
 Vibration.
 
+## Teststand
+
+Was bisher verifiziert wurde (Stand: Entwicklung, ohne echte Hardware):
+
+| Ebene | Test | Ergebnis |
+|-------|------|----------|
+| Watch-App | Vollständiger `pebble build` (SDK aus PebbleOS `main` generiert) für emery, basalt, diorite | ✅ baut ohne Warnungen, `pebble-ndi-ptz.pbw` |
+| Watch-App | Läuft im Pebble-Emulator (basalt + diorite, echte Firmware in QEMU) | ✅ |
+| Ende-zu-Ende | Emulator → PebbleKit JS (pypkjs) → HTTP → Mock-Bridge: Kameraliste, Tasten-Fahrbefehle mit Keepalive und Stopp, Achsenwechsel, Zoom, Fokus | ✅ |
+| Ende-zu-Ende | Motion-Modus mit simuliertem Beschleunigungssensor (`pebble emu-accel`): Pan/Tilt und Zoom, Nullpunkt beim Drücken, Stopp beim Loslassen | ✅ |
+| Ende-zu-Ende | Optionen: Tempo, Preset abrufen, Home, Autofokus, Kameras neu suchen | ✅ |
+| Bridge | REST-API, Koaleszieren, Watchdog, chunked Bodies, ungültiges JSON → 400 | ✅ (Mock-Modus) |
+| Bridge | Echte NDI-PTZ-Kamera über NDI-SDK | ⏳ noch nicht getestet, ctypes-Bindung folgt der NDI-SDK-Dokumentation (v5/v6) |
+| Watch-App | Auf echter Pebble Time 2 (emery) | ⏳ noch nicht getestet; der emery-Emulator der alten Robert-Hardware ist im aktuellen QEMU nicht portiert |
+
+### Screenshots (Emulator, basalt 144×168; die Time 2 hat 200×228)
+
+| Kameraliste | Tastenmodus Tilt | Tastenmodus Pan | Optionen |
+|---|---|---|---|
+| ![](docs/screenshots/01_kameraliste.png) | ![](docs/screenshots/02_tasten_tilt.png) | ![](docs/screenshots/03_tasten_pan.png) | ![](docs/screenshots/04_optionen.png) |
+
+| Motion bereit | Motion aktiv (Pan/Tilt) | Presets | Diorite (s/w) |
+|---|---|---|---|
+| ![](docs/screenshots/05_motion_bereit.png) | ![](docs/screenshots/06_motion_pan_tilt_aktiv.png) | ![](docs/screenshots/07_presets.png) | ![](docs/screenshots/08_diorite_zoom.png) |
+
+### Selbst im Emulator testen
+
+```bash
+python bridge/ndi_ptz_bridge.py --mock            # Terminal 1
+pebble build && pebble install --emulator basalt  # Terminal 2
+pebble emu-app-config --emulator basalt           # Bridge-Host 127.0.0.1 eintragen
+pebble emu-button --emulator basalt click select  # Kamera öffnen
+pebble emu-button --emulator basalt push up; sleep 1; pebble emu-button --emulator basalt release up
+pebble emu-accel --emulator basalt tilt-right     # Handgelenk simulieren (im Motion-Modus)
+pebble screenshot --emulator basalt
+```
+
+Die Bridge protokolliert jeden Befehl; mit `-v` auch jeden HTTP-Request.
+
 ## Fehlersuche
 
 | Anzeige auf der Uhr | Ursache / Lösung |

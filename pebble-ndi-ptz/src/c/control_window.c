@@ -294,7 +294,7 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   const bool big = bounds.size.w >= 180;      /* Pebble Time 2 (200x228) */
   const int16_t header_h = big ? 28 : 24;
-  const int16_t bar_w = big ? 36 : 30;
+  const int16_t bar_w = big ? 36 : 34;
   const int16_t footer_h = big ? 40 : 34;
 
   GColor accent = PBL_IF_COLOR_ELSE(GColorDarkCandyAppleRed, GColorBlack);
@@ -424,7 +424,8 @@ static void prv_canvas_update(Layer *layer, GContext *ctx) {
   GRect zb = GRect(boxr.origin.x + box + (big ? 6 : 4), boxr.origin.y, big ? 8 : 6, box);
   graphics_context_set_stroke_color(ctx, GColorBlack);
   graphics_draw_rect(ctx, zb);
-  int16_t zval = (s.motion_mode && s.engaged == ENGAGE_ZOOM) ? s.motion_y : (int16_t)-s.zoom;
+  /* zoom in fills upwards (in motion mode: live wrist pitch, forward = in) */
+  int16_t zval = (s.motion_mode && s.engaged == ENGAGE_ZOOM) ? (int16_t)-s.motion_y : (int16_t)-s.zoom;
   int16_t zc = zb.origin.y + zb.size.h / 2;
   int16_t zlen = zval * (zb.size.h / 2 - 2) / 100;
   graphics_context_set_fill_color(ctx, s.zoom ? engaged_col : accent);
