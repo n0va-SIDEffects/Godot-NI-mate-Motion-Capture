@@ -225,6 +225,34 @@ app_glance_reload(prv_glance, "Läuft: Probe");   // typically in deinit
 
 Template strings support `{time_until(...)}`; strip `{}` from user text.
 
+## Wakeup: alarms that survive leaving the app
+
+Pebble suspends the app when it is not in the foreground, so a running
+countdown dies on BACK. Persist the end time and let the firmware relaunch you:
+
+```c
+#define KEY_END_TIME 1
+#define WAKEUP_REASON_DONE 1
+
+time_t end = time(NULL) + minutes * 60;
+persist_write_int(KEY_END_TIME, end);
+WakeupId id = wakeup_schedule(end, WAKEUP_REASON_DONE, true /*notify if missed*/);
+if (id < 0) { /* E_RANGE: another app owns that minute; try end + 60 */ }
+persist_write_int(KEY_WAKEUP_ID, id);
+
+// in init:
+if (launch_reason() == APP_LAUNCH_WAKEUP) {
+  WakeupId id; int32_t reason;
+  wakeup_get_launch_event(&id, &reason);      // go straight to the "done" screen
+}
+// when the user cancels: wakeup_cancel(id); persist_delete(KEY_END_TIME);
+// when relaunched mid-countdown: remaining = persisted end - time(NULL);
+//   if wakeup_query(id, NULL) is false the wakeup is gone -> reschedule.
+```
+
+Vibration on finish: `vibes_enqueue_custom_pattern((VibePattern){ .durations = d, .num_segments = n })`,
+optionally repeated with an `app_timer`. Stop it with `vibes_cancel()`.
+
 ## Other services
 
 - Vibration: `vibes_short_pulse()`, `vibes_double_pulse()`, `vibes_long_pulse()`.

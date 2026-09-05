@@ -61,6 +61,11 @@ than a few KB of data belongs in JS; the watch only renders and reacts.
   `#ifndef PBL_PLATFORM_APLITE` / `#ifdef PBL_COLOR` / `PBL_IF_*_ELSE`.
 - `time(NULL)` is UTC; use `localtime()` for display. `time_t` is 32-bit.
 - `snprintf` on the watch has no `%f` and no `%lld`; cast to `int` and use `%d`.
+  `-Werror=format-truncation` fires when a `%d` could overflow the buffer:
+  clamp the value (e.g. minutes ≤ 99) or size the buffer for the worst case.
+- Apps are killed when the user presses BACK. A countdown or alarm that must
+  fire anyway needs `wakeup_schedule()` plus a persisted end timestamp and a
+  `launch_reason() == APP_LAUNCH_WAKEUP` branch (see `references/c-api.md`).
 - String buffers are fixed-size bytes. Cut strings on the phone on UTF-8
   boundaries before sending (umlauts are 2 bytes) so `strncpy` never splits a
   character.
