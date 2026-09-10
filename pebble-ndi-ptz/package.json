@@ -1,0 +1,44 @@
+{
+  "name": "ndi-ptz-remote",
+  "author": "Mike Heissen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
+  "pebble": {
+    "displayName": "NDI PTZ Remote",
+    "uuid": "6f1c2a4e-9b3d-4c7a-8e15-2d9f0a7b3c61",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": ["emery", "basalt", "diorite"],
+    "watchapp": {
+      "watchface": false
+    },
+    "capabilities": ["configurable"],
+    "messageKeys": [
+      "CMD",
+      "CAM_INDEX",
+      "PAN",
+      "TILT",
+      "ZOOM",
+      "PRESET",
+      "CAM_COUNT",
+      "CAM_NAME",
+      "CAM_PTZ",
+      "STATUS",
+      "STATUS_TEXT",
+      "CFG_HOST",
+      "CFG_PORT",
+      "CFG_INVERT_PAN",
+      "CFG_INVERT_TILT",
+      "CFG_SENSITIVITY",
+      "CFG_SPEED",
+      "CFG_DEADZONE"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}

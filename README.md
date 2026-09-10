@@ -35,3 +35,6 @@ In Blender, you can ensure this is the case by displaying bone axes and checking
 If any of them aren't facing forward, select all bones in Edit mode and do **Armature > Bone Roll > Recalculate Roll > Global +/- X/Y/Z Axis**. You'll most likely be using **Global -Y Axis** if the armature faces forward relative to the world.
 
 ![](https://github.com/Iron-Stag-Games/Godot-NI-mate-Motion-Capture/blob/master/recalculate_roll.png?raw=true)
+## Weitere Projekte in diesem Repository
+
+- [`pebble-ndi-ptz/`](pebble-ndi-ptz/) – **NDI PTZ Remote**: Pebble-Time-2-App zur Fernsteuerung von NDI-PTZ-Kameras (Tasten oder Bewegungssteuerung per Handgelenk) inklusive Python-Bridge zum NDI-SDK.
