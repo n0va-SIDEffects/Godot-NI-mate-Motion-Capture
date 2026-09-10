@@ -78,6 +78,11 @@ GET  /api/status
 
 ## 2. Watch-App bauen und installieren
 
+Fertig gebaut liegt die App unter [`dist/ndi-ptz-remote.pbw`](dist/ndi-ptz-remote.pbw)
+(Emery, Basalt, Diorite). Auf dem Handy öffnen (z. B. per Download-Link oder
+AirDrop), die Pebble-App übernimmt die Installation. Alternativ selbst bauen:
+
+
 Voraussetzung: das aktuelle Pebble-SDK von Core Devices
 (`uv tool install pebble-tool` und `pebble sdk install latest`, siehe
 [developer.repebble.com](https://developer.repebble.com)).
