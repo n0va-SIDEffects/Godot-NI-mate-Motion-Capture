@@ -43,6 +43,14 @@ Kein offizielles Toggl-Produkt.
 * **Sprachen:** Deutsch, Englisch, Französisch, Italienisch, Spanisch. Die App
   folgt der Sprache der Uhr; alles andere fällt auf Englisch zurück.
 
+| Status (Pebble Time 2) | Favoriten | Liste |
+|---|---|---|
+| ![Status auf emery](docs/screenshots/emery-status.png) | ![Favoriten auf emery](docs/screenshots/emery-favorites.png) | ![Liste auf emery](docs/screenshots/emery-list.png) |
+
+| Pebble Time (basalt) | Liste auf basalt |
+|---|---|
+| ![Status auf basalt](docs/screenshots/basalt-status.png) | ![Liste auf basalt](docs/screenshots/basalt-list.png) |
+
 Die Uhr spricht nur mit dem Handy (PebbleKit JS); das Handy spricht mit der
 [Toggl Track API v9](https://engineering.toggl.com/docs/). Der API-Token bleibt
 im lokalen Speicher der Pebble-App auf dem Handy.
