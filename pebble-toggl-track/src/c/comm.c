@@ -25,8 +25,35 @@ enum {
 #define INBOX_SIZE  1024
 #define OUTBOX_SIZE 256
 #define CONFIRM_MS  2500
+#define REPLY_MS    12000   // give up waiting for the phone after this
 
 static AppTimer *s_confirm_timer;
+static AppTimer *s_reply_timer;
+
+static void prv_reply_timeout(void *context) {
+  s_reply_timer = NULL;
+  AppModel *m = model_get();
+  if (m->pending != PENDING_NONE) {
+    m->pending = PENDING_NONE;
+    model_set_message(STR(S_NO_REPLY), true);
+    status_window_refresh();
+  }
+}
+
+static void prv_expect_reply(void) {
+  if (s_reply_timer) {
+    app_timer_reschedule(s_reply_timer, REPLY_MS);
+  } else {
+    s_reply_timer = app_timer_register(REPLY_MS, prv_reply_timeout, NULL);
+  }
+}
+
+static void prv_reply_received(void) {
+  if (s_reply_timer) {
+    app_timer_cancel(s_reply_timer);
+    s_reply_timer = NULL;
+  }
+}
 
 static void prv_copy_string(char *dst, size_t dst_len, DictionaryIterator *iter, uint32_t key) {
   Tuple *t = dict_find(iter, key);
@@ -190,6 +217,9 @@ static void prv_handle_message(DictionaryIterator *iter, bool is_error) {
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   int32_t cmd = prv_get_int(iter, MESSAGE_KEY_CMD, 0);
+  if (cmd == CMD_STATUS || cmd == CMD_ERROR) {
+    prv_reply_received();   // the phone is alive and answered our action
+  }
   switch (cmd) {
     case CMD_STATUS:   prv_handle_status(iter); break;
     case CMD_PROJECT:  prv_handle_project(iter); break;
@@ -255,6 +285,7 @@ void comm_deinit(void) {
     app_timer_cancel(s_confirm_timer);
     s_confirm_timer = NULL;
   }
+  prv_reply_received();
 }
 
 void comm_send_refresh(void) {
@@ -263,15 +294,18 @@ void comm_send_refresh(void) {
 
 void comm_send_start(int32_t project_id, const char *description) {
   model_get()->pending = PENDING_START;
+  prv_expect_reply();
   prv_send(CMD_START, project_id, description);
 }
 
 void comm_send_stop(void) {
   model_get()->pending = PENDING_STOP;
+  prv_expect_reply();
   prv_send(CMD_STOP, 0, NULL);
 }
 
 void comm_send_previous(void) {
   model_get()->pending = PENDING_START;
+  prv_expect_reply();
   prv_send(CMD_PREVIOUS, 0, NULL);
 }

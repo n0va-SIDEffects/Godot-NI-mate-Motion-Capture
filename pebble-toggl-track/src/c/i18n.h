@@ -20,6 +20,7 @@ typedef enum {
   S_PLEASE_WAIT,
   S_SEND_ERROR,
   S_NO_PHONE,
+  S_NO_REPLY,
   S_STARTED,          // "Gestartet: %s"
   S_STOPPED,
   S_TIMER,

@@ -24,6 +24,7 @@ static const char *const s_strings[S_COUNT][L_COUNT] = {
   [S_PLEASE_WAIT]     = { "Please wait…", "Bitte warten…", "Patientez…", "Attendere…", "Espera…" },
   [S_SEND_ERROR]      = { "Send error", "Sendefehler", "Erreur d'envoi", "Errore di invio", "Error de envío" },
   [S_NO_PHONE]        = { "No connection to phone", "Keine Verbindung zum Handy", "Pas de connexion au téléphone", "Nessuna connessione al telefono", "Sin conexión con el móvil" },
+  [S_NO_REPLY]        = { "No reply from phone", "Keine Antwort vom Handy", "Pas de réponse du téléphone", "Nessuna risposta dal telefono", "Sin respuesta del móvil" },
   [S_STARTED]         = { "Started: %s", "Gestartet: %s", "Démarré : %s", "Avviato: %s", "Iniciado: %s" },
   [S_STOPPED]         = { "Stopped", "Gestoppt", "Arrêté", "Fermato", "Detenido" },
   [S_TIMER]           = { "Timer", "Timer", "Minuteur", "Timer", "Temporizador" },

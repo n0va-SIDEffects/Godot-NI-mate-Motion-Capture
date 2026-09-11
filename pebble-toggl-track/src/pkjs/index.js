@@ -53,7 +53,11 @@ var pollTimer = null;
 var projectsById = {};
 var clientsById = {};
 var defaultWorkspaceId = null;
-var busy = false;
+var busyUntil = 0;             // a stuck request must never block the app for good
+var BUSY_MS = 20000;
+
+function isBusy() { return Date.now() < busyUntil; }
+function setBusy(on) { busyUntil = on ? Date.now() + BUSY_MS : 0; }
 
 // --- storage -----------------------------------------------------------------
 
@@ -377,13 +381,13 @@ function entrySummary(e) {
 // daily total), then the status, then the lists if they changed.
 function refreshAll(showProgress) {
   if (!requireToken()) { return; }
-  if (busy) { return; }
-  busy = true;
+  if (isBusy()) { return; }
+  setBusy(true);
   if (showProgress) { sendInfo(t('refreshing')); }
   var api = client();
 
   api.projects(function (err, projects) {
-    if (err) { busy = false; return sendError(err); }
+    if (err) { setBusy(false); return sendError(err); }
     indexProjects(projects);
     note('projects', projects.length + ' active');
 
@@ -392,10 +396,10 @@ function refreshAll(showProgress) {
       indexClients(clients);
 
       api.recentEntries(RECENT_DAYS, function (err3, entries) {
-        if (err3) { busy = false; return sendError(err3); }
+        if (err3) { setBusy(false); return sendError(err3); }
 
         api.current(function (err2, entry) {
-          busy = false;
+          setBusy(false);
           if (err2) { return sendError(err2); }
           cache.entries = entries;
           var status = statusFromEntry(entry, entries);
@@ -464,21 +468,21 @@ function roundStopped(api, entry, callback) {
 
 function startTimer(projectId, description) {
   if (!requireToken()) { return; }
-  if (busy) { return sendInfo(t('pleaseWait')); }
-  busy = true;
+  if (isBusy()) { return sendInfo(t('pleaseWait')); }
+  setBusy(true);
   var api = client();
   workspaceFor(projectId, function (err, workspaceId) {
-    if (err) { busy = false; return sendError(err); }
+    if (err) { setBusy(false); return sendError(err); }
     // Toggl allows only one running entry; stop the current one first.
     stopRunning(api, function (err2) {
-      if (err2) { busy = false; return sendError(err2); }
+      if (err2) { setBusy(false); return sendError(err2); }
       note('lastStart', 'projectId=' + projectId + ' desc="' + description + '" wid=' + workspaceId);
       api.start(workspaceId, projectId, description, function (err3, entry) {
-        if (err3) { busy = false; return sendError(err3); }
+        if (err3) { setBusy(false); return sendError(err3); }
         note('lastStartReply', entrySummary(entry));
         // Toggl's own view of the running entry is authoritative.
         api.current(function (err4, current) {
-          busy = false;
+          setBusy(false);
           if (!err4 && current && current.id) { entry = current; }
           note('lastCurrent', entrySummary(entry));
           var status = statusFromEntry(entry);
@@ -494,10 +498,10 @@ function startTimer(projectId, description) {
 
 function stopTimer() {
   if (!requireToken()) { return; }
-  if (busy) { return sendInfo(t('pleaseWait')); }
-  busy = true;
+  if (isBusy()) { return sendInfo(t('pleaseWait')); }
+  setBusy(true);
   stopRunning(client(), function (err) {
-    busy = false;
+    setBusy(false);
     if (err) { return sendError(err); }
     var status = statusFromEntry(null);
     sendStatus(status);
@@ -531,7 +535,7 @@ function previousTimer() {
 // Re-check the running entry while the app is open, so a timer stopped or
 // started on the phone or the web shows up on the watch within POLL_MS.
 function pollStatus() {
-  if (!settings.token || busy) { return; }
+  if (!settings.token || isBusy()) { return; }
   var api = client();
   api.current(function (err, entry) {
     if (err) { return; }
@@ -581,6 +585,16 @@ Pebble.addEventListener('ready', function () {
 Pebble.addEventListener('appmessage', function (e) {
   var payload = e.payload || {};
   var cmd = Number(field(payload, 'CMD'));
+  try {
+    handleCommand(cmd, payload);
+  } catch (err) {
+    console.log('Command ' + cmd + ' failed: ' + err);
+    setBusy(false);
+    sendError('JS: ' + err);
+  }
+});
+
+function handleCommand(cmd, payload) {
   switch (cmd) {
     case CMD.REFRESH:
       refreshAll(true);
@@ -597,7 +611,7 @@ Pebble.addEventListener('appmessage', function (e) {
     default:
       console.log('Unknown command from watch: ' + cmd);
   }
-});
+}
 
 Pebble.addEventListener('showConfiguration', function () {
   strings.detectLanguage();
