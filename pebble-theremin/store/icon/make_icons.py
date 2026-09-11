@@ -26,7 +26,7 @@ def icon(size, launcher=False):
     return im.resize((size,size), Image.LANCZOS)
 
 base=os.path.dirname(os.path.abspath(__file__))
-for s in (512,144,96,48):
+for s in (512,144,96,80,48):
     ic=icon(s); ic.save(f'{base}/icon_{s}_transparent.png')
     bg=Image.new('RGBA',(s,s),WHITE); bg.alpha_composite(ic); bg.convert('RGB').save(f'{base}/icon_{s}.png')
 icon(25, launcher=True).save(os.path.join(base,'..','..','resources','images','menu_icon.png'))

@@ -9,7 +9,8 @@ Der Ordner `release/` enthält alles, was der Store abfragt:
 | Datei | Verwendung im Portal |
 |-------|----------------------|
 | `Theremin-1.0.0.pbw` | Release-Datei (die App) |
-| `icon_144.png`, `icon_48.png` | Large Icon und Small Icon |
+| `icon_80.png` | Icon (80 × 80, so verlangt es das Portal) |
+| `icon_144.png`, `icon_48.png` | Large und Small Icon, falls das Portal zusätzlich danach fragt |
 | `banner_720x320.png` | Marketing Banner (Kopfbild der Listung) |
 | `screenshots_en/` | bis zu 5 Screenshots, englische Oberfläche, 200 × 228 |
 | `screenshots_de/` | dieselben Motive auf Deutsch (optional, für Beschreibungen) |
@@ -30,7 +31,7 @@ sprengen das, also eine Sprache wählen oder kürzen).
    - Category: `Games` oder `Tools & Utilities` (Musik gibt es nicht als eigene Kategorie; Games passt am besten)
    - Website / Source code URL: das GitHub-Repository oder leer lassen
    - Support email: deine Adresse
-   - Large Icon: `icon_144.png`, Small Icon: `icon_48.png`
+   - Icon: `icon_80.png` (80 × 80)
 4. Listing anlegen ("Create").
 5. "Add a release": `Theremin-1.0.0.pbw` hochladen, optional Release Notes
    (z. B. "Erste Version"). Seite neu laden, dann neben dem Release auf
