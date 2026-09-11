@@ -64,6 +64,7 @@ dort den echten Stand zeigt. Die Seite ist mit
 | Portamento        | Kurz, Mittel, Lang (Gleiten zwischen Tönen)             |
 | Max. Lautstärke   | 60 %, 80 %, 100 %                                       |
 | Wellenform        | Sinus, Dreieck, Rechteck, Sägezahn                      |
+| Wellenanzeige     | Aus, Statisch, Animiert (Welle im Hintergrund)          |
 
 SELECT auf einem Eintrag schaltet zum nächsten Wert. Alle Einstellungen
 werden auf der Uhr gespeichert.
@@ -109,6 +110,12 @@ Das Ergebnis liegt danach unter `build/pebble-theremin.pbw`.
   deutlich mehr (gemessen: 8 KB plus DMA-Blöcke von 256 Bytes), die App
   begrenzt die Latenz also selbst. Fühlt sich der Ton träge an, kann der Wert
   verkleinert werden; setzt der Ton aus, vergrößern.
+- **Anzeige und Audio:** Ein Bildaufbau blockiert die App für einige
+  Millisekunden, in denen die Audio-Pumpe nicht nachfüllen kann. Die
+  Hintergrundwelle wird deshalb sparsam gezeichnet (ohne Kantenglättung, in
+  4-Pixel-Schritten, etwa 6 Bilder pro Sekunde), und der Vorlauf `LEAD_MS`
+  liegt über der Dauer eines Bildaufbaus. Knackt es trotzdem, lässt sich die
+  Welle in den Einstellungen auf Statisch oder Aus stellen.
 - **Kein Flash-Zugriff beim Spielen:** Einstellungen werden erst beim
   Verlassen der App (oder bei Stille) gespeichert. Ein Schreibzugriff auf den
   Flash-Speicher blockiert die App kurz und würde den Ton unterbrechen.

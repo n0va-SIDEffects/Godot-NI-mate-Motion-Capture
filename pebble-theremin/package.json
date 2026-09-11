@@ -32,7 +32,8 @@
       "VolSens",
       "Glide",
       "Volume",
-      "Wave"
+      "Wave",
+      "WaveAnim"
     ],
     "resources": {
       "media": []

@@ -69,6 +69,11 @@ module.exports = [
           { "label": "Sinus", "value": "0" }, { "label": "Dreieck", "value": "1" },
           { "label": "Rechteck", "value": "2" }, { "label": "Sägezahn", "value": "3" }
         ] },
+      { "type": "select", "messageKey": "WaveAnim", "label": "Wellenanzeige", "defaultValue": "2",
+        "description": "Die Welle im Hintergrund. Falls der Ton beim Spielen knackt, auf Statisch oder Aus stellen.",
+        "options": [
+          { "label": "Aus", "value": "0" }, { "label": "Statisch", "value": "1" }, { "label": "Animiert", "value": "2" }
+        ] },
       { "type": "select", "messageKey": "Volume", "label": "Maximale Lautstärke", "defaultValue": "2",
         "options": [
           { "label": "60 %", "value": "0" }, { "label": "80 %", "value": "1" }, { "label": "100 %", "value": "2" }

@@ -32,13 +32,13 @@
 #define SAMPLE_RATE       16000
 #define PCM_FORMAT        SpeakerPcmFormat_16kHz_16bit
 #define TICK_MS           8              // Intervall der Audio-Pumpe
-#define LEAD_MS           120            // Vorlauf vor der Wiedergabe (Latenz)
+#define LEAD_MS           150            // Vorlauf vor der Wiedergabe (Latenz); muss laenger sein als ein Bildaufbau
 #define CHUNK_SAMPLES     256            // 16 ms Audio pro Block (512 Bytes)
 #define WRITES_PER_TICK   8
 #define CAL_SAMPLES       20             // Sensor-Callbacks fuer die Kalibrierung (~0.8 s)
 
 #define PERSIST_KEY_SETTINGS  10
-#define SETTINGS_VERSION      2
+#define SETTINGS_VERSION      3
 
 // ---------------------------------------------------------------------------
 // Einstellungen
@@ -61,6 +61,7 @@ typedef struct {
   uint8_t vol_sens;      // 0 fein, 1 mittel, 2 grob
   uint8_t glide;         // 0 kurz, 1 mittel, 2 lang
   uint8_t volume_idx;    // Index in VOLUME_LEVELS
+  uint8_t wave_anim;     // 0 aus, 1 statisch, 2 animiert
 } Settings;
 
 static Settings s_set;
@@ -70,7 +71,7 @@ static const Settings DEFAULT_SETTINGS = {
   .pitch_axis = AxisLift, .vol_axis = AxisRoll,
   .invert_pitch = 0, .invert_vol = 0,
   .root_idx = 1, .octaves = 4, .scale = ScaleFree,
-  .pitch_sens = 1, .vol_sens = 1, .glide = 1, .volume_idx = 2,
+  .pitch_sens = 1, .vol_sens = 1, .glide = 1, .volume_idx = 2, .wave_anim = 2,
 };
 
 static const char *WAVE_NAMES[WaveCount]   = { "Sinus", "Dreieck", "Rechteck", "Sägezahn" };
@@ -79,6 +80,7 @@ static const char *SCALE_NAMES[ScaleCount] = { "Frei", "Chromatisch", "Dur", "Mo
 static const char *SENS_NAMES[3]           = { "Fein", "Mittel", "Grob" };
 static const char *GLIDE_NAMES[3]          = { "Kurz", "Mittel", "Lang" };
 static const char *YESNO_NAMES[2]          = { "Nein", "Ja" };
+static const char *ANIM_NAMES[3]           = { "Aus", "Statisch", "Animiert" };
 
 static const uint8_t ROOT_MIDI[]           = { 36, 45, 48, 57 };          // C2, A2, C3, A3
 static const char *ROOT_NAMES[]            = { "C2", "A2", "C3", "A3" };
@@ -291,9 +293,10 @@ static void accel_handler(AccelData *data, uint32_t num_samples) {
   }
   update_targets();
 
-  if (++s_ui_div >= (s_playing ? 2 : 5)) {   // Anzeige: 12.5 Hz beim Spielen, sonst 5 Hz
+  bool animate = s_playing && s_set.wave_anim == 2;
+  if (++s_ui_div >= (animate ? 4 : 5)) {     // Anzeige: ~6 Hz mit Animation, 5 Hz sonst
     s_ui_div = 0;
-    if (s_playing) s_anim_px += 2 + s_freq_hz / 150;   // Welle wandert schneller bei hohen Toenen
+    if (animate) s_anim_px += 4 + s_freq_hz / 100;     // Welle wandert schneller bei hohen Toenen
     layer_mark_dirty(s_canvas);
   }
 }
@@ -414,6 +417,7 @@ static void settings_load(void) {
   if (s_set.vol_sens > 2) s_set.vol_sens = 1;
   if (s_set.glide > 2) s_set.glide = 1;
   if (s_set.volume_idx >= VOLUME_COUNT) s_set.volume_idx = 2;
+  if (s_set.wave_anim > 2) s_set.wave_anim = 2;
 }
 
 static void settings_save(void) {
@@ -470,6 +474,7 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   set_u8(&s_set.glide,        dict_find(iter, MESSAGE_KEY_Glide),       0, 2);
   set_u8(&s_set.volume_idx,   dict_find(iter, MESSAGE_KEY_Volume),      0, VOLUME_COUNT - 1);
   set_u8(&s_set.wave,         dict_find(iter, MESSAGE_KEY_Wave),        0, WaveCount - 1);
+  set_u8(&s_set.wave_anim,    dict_find(iter, MESSAGE_KEY_WaveAnim),    0, 2);
   settings_apply();
   s_settings_dirty = true;
   if (!s_playing) settings_save();       // beim Spielen erst am Ende (Flash-Zugriff wuerde knacken)
@@ -493,6 +498,7 @@ static void send_settings_to_phone(void) {
   dict_write_uint8(iter, MESSAGE_KEY_Glide,       s_set.glide);
   dict_write_uint8(iter, MESSAGE_KEY_Volume,      s_set.volume_idx);
   dict_write_uint8(iter, MESSAGE_KEY_Wave,        s_set.wave);
+  dict_write_uint8(iter, MESSAGE_KEY_WaveAnim,    s_set.wave_anim);
   app_message_outbox_send();
 }
 
@@ -501,14 +507,14 @@ static void send_settings_to_phone(void) {
 // ---------------------------------------------------------------------------
 enum {
   RowCalibrate = 0, RowPitchAxis, RowVolAxis, RowInvertPitch, RowInvertVol,
-  RowRoot, RowOctaves, RowScale, RowPitchSens, RowVolSens, RowGlide, RowVolume, RowWave,
+  RowRoot, RowOctaves, RowScale, RowPitchSens, RowVolSens, RowGlide, RowVolume, RowWave, RowAnim,
   RowCount
 };
 
 static const char *ROW_TITLES[RowCount] = {
   "Kalibrieren", "Tonhöhe", "Lautstärke", "Tonhöhe umkehren", "Lautst. umkehren",
   "Tiefster Ton", "Umfang", "Tonleiter", "Empf. Tonhöhe", "Empf. Lautstärke",
-  "Portamento", "Max. Lautstärke", "Wellenform",
+  "Portamento", "Max. Lautstärke", "Wellenform", "Wellenanzeige",
 };
 
 static const char *row_value(int row, char *buf, size_t len) {
@@ -526,6 +532,7 @@ static const char *row_value(int row, char *buf, size_t len) {
     case RowGlide:       return GLIDE_NAMES[s_set.glide];
     case RowVolume:      return VOLUME_NAMES[s_set.volume_idx];
     case RowWave:        return WAVE_NAMES[s_set.wave];
+    case RowAnim:        return ANIM_NAMES[s_set.wave_anim];
     default:             return "";
   }
 }
@@ -563,6 +570,7 @@ static void menu_select(MenuLayer *ml, MenuIndex *idx, void *data) {
     case RowGlide:       s_set.glide = (s_set.glide + 1) % 3; break;
     case RowVolume:      s_set.volume_idx = (s_set.volume_idx + 1) % VOLUME_COUNT; break;
     case RowWave:        s_set.wave = (s_set.wave + 1) % WaveCount; break;
+    case RowAnim:        s_set.wave_anim = (s_set.wave_anim + 1) % 3; break;
   }
   settings_apply();
   s_settings_dirty = true;
@@ -618,7 +626,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   // Dezente Hintergrundwelle: die echte Wellenform aus der Synthese-Tabelle,
   // Anzahl der Perioden folgt der Tonhoehe, Ausschlag der Lautstaerke,
   // beim Spielen wandert sie durchs Bild.
-  {
+  if (s_set.wave_anim != 0) {
     const int8_t *table = WAVETABLES[s_set.wave][0];       // volle Form, damit sie erkennbar bleibt
     const int16_t cy = 64;                                   // Mittellinie hinter der Frequenz
     uint32_t range_q8 = (uint32_t)semitone_range() * 256;
@@ -626,10 +634,12 @@ static void canvas_update(Layer *layer, GContext *ctx) {
     int32_t amp_px = s_playing ? 10 + (int32_t)(((int64_t)s_amp * 26) >> 16) : 12;  // 10 .. 36 px
     graphics_context_set_stroke_color(ctx, s_playing ? PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)
                                                      : GColorLightGray);
+    // Bewusst sparsam gezeichnet (keine Kantenglaettung, 4-Pixel-Schritte):
+    // ein Bildaufbau blockiert die App, und die Audio-Pumpe muss vorher fertig sein.
     graphics_context_set_stroke_width(ctx, 2);
-    graphics_context_set_antialiased(ctx, true);
+    graphics_context_set_antialiased(ctx, false);
     GPoint prev = GPoint(0, 0);
-    for (int16_t x = 0; x < w; x++) {
+    for (int16_t x = 0; x <= w; x += 4) {
       uint32_t pos = ((uint32_t)(x + s_anim_px) * cycles_q8 / (uint32_t)w);   // Phase in 1/256 Perioden * 256
       uint8_t p = (uint8_t)pos;
       GPoint pt = GPoint(x, cy - (int16_t)((int32_t)table[p] * amp_px / 127));
@@ -637,6 +647,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
       prev = pt;
     }
     graphics_context_set_stroke_width(ctx, 1);
+    graphics_context_set_antialiased(ctx, true);
   }
 
   graphics_context_set_text_color(ctx, GColorBlack);
