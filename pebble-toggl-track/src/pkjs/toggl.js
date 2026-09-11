@@ -213,7 +213,21 @@ function DemoToggl() {
   ];
   this.running_ = null;
   this.nextId_ = 100;
+  // Survive app restarts like a real backend would.
+  try {
+    var saved = JSON.parse(localStorage.getItem('toggl_demo'));
+    if (saved && saved.entries_) {
+      this.entries_ = saved.entries_;
+      this.running_ = saved.running_ || null;
+      this.nextId_ = saved.nextId_ || 100;
+    }
+  } catch (e) { /* fresh demo */ }
 }
+DemoToggl.prototype.save_ = function () {
+  try {
+    localStorage.setItem('toggl_demo', JSON.stringify({ entries_: this.entries_, running_: this.running_, nextId_: this.nextId_ }));
+  } catch (e) { /* ignore */ }
+};
 DemoToggl.prototype.later_ = function (cb, err, data) { setTimeout(function () { cb(err, data); }, 60); };
 DemoToggl.prototype.me = function (cb) { this.later_(cb, null, { default_workspace_id: 1, fullname: 'Demo' }); };
 DemoToggl.prototype.projects = function (cb) {
@@ -229,6 +243,7 @@ DemoToggl.prototype.recentEntries = function (days, cb) {
 DemoToggl.prototype.start = function (workspaceId, projectId, description, cb) {
   this.running_ = { id: this.nextId_++, description: description || '', project_id: projectId || null,
     workspace_id: workspaceId, start: new Date().toISOString(), stop: null, duration: -1, tags: [] };
+  this.save_();
   this.later_(cb, null, this.running_);
 };
 DemoToggl.prototype.stop = function (workspaceId, entryId, cb) {
@@ -237,12 +252,14 @@ DemoToggl.prototype.stop = function (workspaceId, entryId, cb) {
   e.stop = new Date().toISOString();
   e.duration = Math.max(1, Math.round((Date.parse(e.stop) - Date.parse(e.start)) / 1000));
   this.entries_.push(e); this.running_ = null;
+  this.save_();
   this.later_(cb, null, e);
 };
 DemoToggl.prototype.update = function (workspaceId, entryId, fields, cb) {
   var e = this.entries_.filter(function (x) { return x.id === entryId; })[0];
   if (!e) { return this.later_(cb, 'Toggl: nicht gefunden'); }
   Object.keys(fields).forEach(function (k) { e[k] = fields[k]; });
+  this.save_();
   this.later_(cb, null, e);
 };
 
