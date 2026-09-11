@@ -269,13 +269,13 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   snprintf(note_buf, sizeof(note_buf), "%s%u", NOTE_NAMES[(midi - 45) % 12], (unsigned)(midi / 12) - 1);
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, note_buf, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
-                     GRect(0, 74, w, 32), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+                     GRect(0, 70, w, 32), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
   // Tonhoehen-Balken (Marker wandert links/rechts)
   const int16_t px = 14, pw = w - 2 * px;
-  const int16_t py = 116;
+  const int16_t py = 126;
   graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx, "Tonhöhe  ←  rollen  →", fonts_get_system_font(FONT_KEY_GOTHIC_14),
+  graphics_draw_text(ctx, "Tonhöhe: Handgelenk rollen", fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(0, py - 18, w, 16), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   graphics_context_set_stroke_color(ctx, GColorBlack);
   graphics_draw_rect(ctx, GRect(px, py, pw, 14));
@@ -289,9 +289,9 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   }
 
   // Lautstaerke-Balken (fuellt sich)
-  const int16_t vy = 158;
+  const int16_t vy = 170;
   graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx, "Lautstärke  (zu dir kippen)", fonts_get_system_font(FONT_KEY_GOTHIC_14),
+  graphics_draw_text(ctx, "Lautstärke: zu dir kippen", fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(0, vy - 18, w, 16), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   graphics_draw_rect(ctx, GRect(px, vy, pw, 14));
   int16_t vw = (int16_t)(((int64_t)s_amp * (pw - 2)) >> 16);
