@@ -122,6 +122,7 @@ Projektfarben werden am Handy auf die 64 Pebble-Farben (`GColor8`) umgerechnet.
   Appstore veröffentlichte App, eine sideloaded App bekommt kein Token.
 * Abrechenbarkeit (billable) wird nicht angezeigt oder gesetzt.
 * Gebaut mit Pebble SDK 4.33.1 für alle sieben Plattformen und im Emulator
-  (emery, basalt) getestet: Status-Screen, Liste, Tasten. Die Handy-Logik ist
+  (emery, basalt) getestet: Status, Favoriten, Liste, Tasten, Touch,
+  Wischgesten, Diktat, Glance und Wakeup-Erinnerung (mit Demo-Backend). Die Handy-Logik ist
   mit einer nachgebauten Toggl-API getestet. Der Lauf mit echtem API-Token und
   auf echter Hardware steht noch aus.
