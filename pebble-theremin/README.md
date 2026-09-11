@@ -104,8 +104,9 @@ Icon und Banner (`icon/`). Das Icon ist ein modern stilisiertes Theremin:
 die senkrechte Tonhöhen-Antenne, durch die eine blaue Welle läuft. Es liegt
 in 512, 144, 96 und 48 Pixeln vor, je mit weißem und transparentem
 Hintergrund. Das Launcher-Icon der Uhr (`resources/images/menu_icon.png`,
-25 × 25) ist eine kräftigere Variante desselben Motivs. Im Banner erscheint
-das SIDE effect's Logo nur als dezentes Wasserzeichen. Alle Grafiken erzeugt
+25 × 25) ist eine kräftigere Variante desselben Motivs. Das Banner ist
+englisch (dunkler Grund mit Welle) und trägt das SIDE effect's Logo klein
+unten links. Alle Grafiken erzeugt
 `store/icon/make_icons.py` (braucht Pillow).
 
 ## Selbst bauen
