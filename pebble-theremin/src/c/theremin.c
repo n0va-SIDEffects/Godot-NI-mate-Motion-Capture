@@ -132,6 +132,7 @@ static uint8_t s_cal_count = CAL_SAMPLES;    // < CAL_SAMPLES: Kalibrierung laeu
 static int32_t s_cal_sum_x = 0, s_cal_sum_y = 0;
 static bool s_calibrated = false;
 static uint8_t s_ui_div = 0;
+static uint16_t s_anim_px = 0;              // Verschiebung der Hintergrundwelle in Pixeln
 
 // Synthese
 static uint32_t s_phase = 0;
@@ -290,8 +291,9 @@ static void accel_handler(AccelData *data, uint32_t num_samples) {
   }
   update_targets();
 
-  if (++s_ui_div >= 5) {     // Anzeige mit ~5 Hz aktualisieren
+  if (++s_ui_div >= (s_playing ? 2 : 5)) {   // Anzeige: 12.5 Hz beim Spielen, sonst 5 Hz
     s_ui_div = 0;
+    if (s_playing) s_anim_px += 2 + s_freq_hz / 150;   // Welle wandert schneller bei hohen Toenen
     layer_mark_dirty(s_canvas);
   }
 }
@@ -613,13 +615,37 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, GColorWhite);
   graphics_fill_rect(ctx, b, 0, GCornerNone);
 
+  // Dezente Hintergrundwelle: die echte Wellenform aus der Synthese-Tabelle,
+  // Anzahl der Perioden folgt der Tonhoehe, Ausschlag der Lautstaerke,
+  // beim Spielen wandert sie durchs Bild.
+  {
+    const int8_t *table = WAVETABLES[s_set.wave][0];       // volle Form, damit sie erkennbar bleibt
+    const int16_t cy = 64;                                   // Mittellinie hinter der Frequenz
+    uint32_t range_q8 = (uint32_t)semitone_range() * 256;
+    uint32_t cycles_q8 = 2 * 256 + (uint32_t)(5 * 256) * s_semis_q8 / range_q8;   // 2 .. 7 Perioden
+    int32_t amp_px = s_playing ? 10 + (int32_t)(((int64_t)s_amp * 26) >> 16) : 12;  // 10 .. 36 px
+    graphics_context_set_stroke_color(ctx, s_playing ? PBL_IF_COLOR_ELSE(GColorPictonBlue, GColorLightGray)
+                                                     : GColorLightGray);
+    graphics_context_set_stroke_width(ctx, 2);
+    graphics_context_set_antialiased(ctx, true);
+    GPoint prev = GPoint(0, 0);
+    for (int16_t x = 0; x < w; x++) {
+      uint32_t pos = ((uint32_t)(x + s_anim_px) * cycles_q8 / (uint32_t)w);   // Phase in 1/256 Perioden * 256
+      uint8_t p = (uint8_t)pos;
+      GPoint pt = GPoint(x, cy - (int16_t)((int32_t)table[p] * amp_px / 127));
+      if (x > 0) graphics_draw_line(ctx, prev, pt);
+      prev = pt;
+    }
+    graphics_context_set_stroke_width(ctx, 1);
+  }
+
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, "THEREMIN", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
                      GRect(0, 2, w, 22), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
   static char freq_buf[16];
   snprintf(freq_buf, sizeof(freq_buf), "%u Hz", (unsigned)s_freq_hz);
-  graphics_context_set_text_color(ctx, s_playing ? accent : GColorBlack);
+  graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, freq_buf, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD),
                      GRect(0, 26, w, 48), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
