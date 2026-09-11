@@ -8,7 +8,7 @@ static int s_lang = L_EN;
 
 static const char *const s_strings[S_COUNT][L_COUNT] = {
   //                  en                              de                                   fr                                   it                                   es
-  [S_APP_NAME]        = { "Toggl Track", "Toggl Track", "Toggl Track", "Toggl Track", "Toggl Track" },
+  [S_APP_NAME]        = { "Toggl Timer", "Toggl Timer", "Toggl Timer", "Toggl Timer", "Toggl Timer" },
   [S_NO_PROJECT]      = { "No project", "Kein Projekt", "Sans projet", "Senza progetto", "Sin proyecto" },
   [S_NO_TIMER]        = { "No timer running", "Kein Timer läuft", "Aucun minuteur", "Nessun timer attivo", "Sin temporizador" },
   [S_CONNECTING]      = { "Connecting to phone…", "Verbinde mit Handy…", "Connexion au téléphone…", "Connessione al telefono…", "Conectando al móvil…" },

@@ -1,14 +1,14 @@
 {
   "name": "pebble-toggl-track",
-  "author": "Mike Heissen",
-  "version": "1.1.0",
+  "author": "SIDE effect's",
+  "version": "1.1",
   "keywords": [
     "pebble-app"
   ],
   "private": true,
   "dependencies": {},
   "pebble": {
-    "displayName": "Toggl Track",
+    "displayName": "Toggl Timer",
     "uuid": "f71873c5-ed3c-40d7-9f27-ef8cf9e15c80",
     "sdkVersion": "3",
     "enableMultiJS": true,
@@ -46,7 +46,14 @@
       "REMIND_START_HOUR"
     ],
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "png",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/menu_icon.png",
+          "menuIcon": true
+        }
+      ]
     }
   }
 }

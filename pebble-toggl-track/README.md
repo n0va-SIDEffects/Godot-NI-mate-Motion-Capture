@@ -1,7 +1,8 @@
-# Toggl Track für Pebble
+# Toggl Timer für Pebble
 
 Eine Watchapp für die **Pebble Time 2** (und alle anderen Pebbles), mit der du
 deine Toggl-Track-Timer direkt vom Handgelenk startest, stoppst und wechselst.
+Kein offizielles Toggl-Produkt.
 
 ```
 ┌──────────────────────┬───┐
@@ -119,6 +120,13 @@ tests/pkjs_smoke.js    Node-Test mit nachgebauter Toggl-API
 | 16 `CONFIG` | Handy → Uhr | `REMIND_FLAGS`, `REMIND_MAX_HOURS`, `REMIND_LATE_HOUR`, `REMIND_START_HOUR` |
 
 Projektfarben werden am Handy auf die 64 Pebble-Farben (`GColor8`) umgerechnet.
+
+## Veröffentlichen
+
+Store-Icons, Banner, Screenshots und Texte liegen in `store/`; die Schritte
+für das Pebble-Entwicklerportal stehen in `store/VEROEFFENTLICHEN.md`.
+`python3 store/icon/make_icons.py` und `make_banner.py` erzeugen die Grafiken
+neu (brauchen Pillow).
 
 ## Unterstützen
 

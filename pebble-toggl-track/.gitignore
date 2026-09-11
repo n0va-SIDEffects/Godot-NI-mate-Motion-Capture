@@ -3,3 +3,4 @@ dist/
 node_modules/
 .lock-waf*
 *.pbw
+store/*.zip

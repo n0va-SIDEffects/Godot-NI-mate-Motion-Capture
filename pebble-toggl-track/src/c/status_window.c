@@ -133,7 +133,12 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   const int x = pad_left;
   const int cw = bounds.size.w - ACTION_BAR_WIDTH - pad_left - pad_right;
   // A progress/error message may need two lines; the start time needs one.
-  const int footer_lines = (m->message[0] || m->hint[0]) ? 2 : 1;
+#if PBL_DISPLAY_HEIGHT >= 200
+  const bool long_footer = false;
+#else
+  const bool long_footer = running && s->today_seconds > 0;   // "since … · today …" needs two lines
+#endif
+  const int footer_lines = (m->message[0] || m->hint[0] || long_footer) ? 2 : 1;
   const int footer_h = FOOTER_H * footer_lines;
   const int footer_y = bounds.size.h - footer_h - PBL_IF_ROUND_ELSE(18, 4);
 

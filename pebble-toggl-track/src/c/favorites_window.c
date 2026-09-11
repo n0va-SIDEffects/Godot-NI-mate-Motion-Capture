@@ -71,7 +71,7 @@ static void prv_draw_tile(GContext *ctx, GRect r, GColor bg, const char *title, 
   const GColor fg = gcolor_legible_over(bg);
   graphics_context_set_text_color(ctx, fg);
   const GFont font = fonts_get_system_font(TILE_FONT);
-  const GRect text = grect_inset(r, GEdgeInsets(4, 6, 4, 6));
+  const GRect text = grect_inset(r, GEdgeInsets(3, 4, 3, 4));
   const GSize size = graphics_text_layout_get_content_size(title, font, text,
                                                            GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter);
   int y = text.origin.y + (text.size.h - size.h - (sub && sub[0] ? 16 : 0)) / 2 - 2;
@@ -111,7 +111,8 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
       const Favorite *f = &m->favorites[kind];
       GColor bg = PBL_IF_COLOR_ELSE(f->color ? (GColor) { .argb = f->color } : GColorLightGray, GColorWhite);
       const char *title = f->description[0] ? f->description : (f->project_name[0] ? f->project_name : STR(S_FAVORITE));
-      const char *sub = f->description[0] ? f->project_name : "";
+      // Small tiles (144x168 watches) have no room for a second line.
+      const char *sub = (f->description[0] && r.size.h >= 56) ? f->project_name : "";
       prv_draw_tile(ctx, r, bg, title, sub, selected);
     } else {
       prv_draw_tile(ctx, r, GColorWhite, kind == CELL_DICTATE ? STR(S_DICTATE) : STR(S_LIST), NULL, selected);
