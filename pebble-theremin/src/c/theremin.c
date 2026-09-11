@@ -8,7 +8,10 @@
 //
 // Tasten:
 //   SELECT        Ton an / aus
-//   SELECT lang   aktuelle Haltung als Nullpunkt speichern
+//   SELECT lang   Nullpunkt neu kalibrieren (Uhr ~1 s ruhig halten)
+//
+// Beim Start wird die Haltung der ersten Sekunde automatisch zum Nullpunkt:
+// Nullpunkt = mittlere Tonhoehe und mittlere Lautstaerke.
 //   UP / DOWN     Wellenform wechseln (Sinus, Dreieck, Rechteck, Saegezahn)
 //   BACK          App beenden
 //
@@ -23,20 +26,22 @@
 // ---------------------------------------------------------------------------
 // Einstellungen
 // ---------------------------------------------------------------------------
-#define SAMPLE_RATE       8000
-#define PCM_FORMAT        SpeakerPcmFormat_8kHz_8bit
+#define SAMPLE_RATE       16000
+#define PCM_FORMAT        SpeakerPcmFormat_16kHz_16bit
 #define STREAM_VOLUME     100            // Lautstaerke des Streams (0-100)
-#define TICK_MS           10             // Intervall der Audio-Pumpe
-#define LEAD_MS           90             // Vorlauf, den wir dem Lautsprecher voraus sind (Latenz)
-#define CHUNK_SAMPLES     160            // 20 ms Audio pro erzeugtem Block
+#define TICK_MS           8              // Intervall der Audio-Pumpe
+#define LEAD_MS           120            // Vorlauf, den wir dem Lautsprecher voraus sind (Latenz)
+#define CHUNK_SAMPLES     256            // 16 ms Audio pro Block (512 Bytes, Vielfaches der 256-Byte-Bloecke der Firmware)
+#define WRITES_PER_TICK   8              // max. Bloecke pro Tick (fuer das schnelle Auffuellen am Anfang)
+#define CAL_SAMPLES       20             // Sensor-Callbacks fuer die Startkalibrierung (~0.8 s)
 
 #define F_MIN_HZ          110            // A2 = unterer Rand des Tonbereichs
 #define OCTAVES           4              // Bereich: A2 .. A6
 #define SEMITONE_RANGE    (OCTAVES * 12)
 
-#define TILT_PITCH_RANGE  650            // +/- milli-g Rollwinkel fuer den vollen Tonbereich
-#define TILT_VOL_MIN      (-300)         // milli-g: ab hier beginnt die Lautstaerke
-#define TILT_VOL_MAX      500            // milli-g: hier ist die Lautstaerke maximal
+#define TILT_PITCH_RANGE  600            // +/- milli-g Rollwinkel (rel. zum Nullpunkt) fuer den vollen Tonbereich
+#define TILT_VOL_MIN      (-200)         // milli-g rel. zum Nullpunkt: von sich weg kippen -> stumm
+#define TILT_VOL_MAX      250            // milli-g rel. zum Nullpunkt: zu sich kippen -> maximal (~15 Grad)
 
 #define PERSIST_KEY_WAVE  1
 
@@ -60,13 +65,16 @@ static AppTimer *s_timer;
 
 static bool s_playing = false;
 static Wave s_wave = WaveSine;
-static const char *s_status = "SELECT: Start";
+static const char *s_status = "Ruhig halten...";
 
 // Sensor (gefiltert, milli-g)
 static int32_t s_fx = 0, s_fy = 0;
 static int32_t s_cal_x = 0, s_cal_y = 0;   // Nullpunkt-Kalibrierung
 static bool s_have_sample = false;
 static uint8_t s_ui_div = 0;
+static uint8_t s_cal_count = 0;           // laufende Startkalibrierung: gesammelte Callbacks
+static int32_t s_cal_sum_x = 0, s_cal_sum_y = 0;
+static bool s_calibrated = false;
 
 // Synthese
 static uint32_t s_phase = 0;        // 32-Bit Phasenakkumulator
@@ -77,10 +85,11 @@ static int32_t  s_target_amp = 0;   // Ziel-Amplitude, Q16
 static uint32_t s_semis_q8 = 0;     // Halbtoene ueber F_MIN, Q8 (fuer die Anzeige)
 static uint16_t s_freq_hz = F_MIN_HZ;
 
-static int8_t   s_chunk[CHUNK_SAMPLES];
-static uint16_t s_chunk_len = 0, s_chunk_pos = 0;
-static uint32_t s_stream_start_ms = 0;
+static int16_t  s_chunk[CHUNK_SAMPLES];
+static uint16_t s_chunk_len = 0, s_chunk_pos = 0;   // in Bytes
 static uint32_t s_samples_written = 0;
+static uint32_t s_clock_ms = 0;          // bereinigte, monotone Stream-Uhr
+static uint32_t s_last_raw_ms = 0;
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktionen
@@ -90,6 +99,20 @@ static uint32_t now_ms(void) {
   uint16_t ms;
   time_ms(&s, &ms);
   return (uint32_t)s * 1000u + ms;
+}
+
+// time_ms() der Firmware liefert um Sekundengrenzen herum gelegentlich Werte, die
+// um genau +/-1000 ms daneben liegen. Diese Uhr korrigiert solche Spruenge und
+// laeuft nie rueckwaerts, sonst geraet die Audio-Taktung aus dem Tritt.
+static uint32_t stream_clock_ms(void) {
+  uint32_t raw = now_ms();
+  int32_t dt = (int32_t)(raw - s_last_raw_ms);
+  s_last_raw_ms = raw;
+  if (dt > 900)  dt -= 1000;
+  if (dt < -900) dt += 1000;
+  if (dt < 0)    dt = 0;
+  s_clock_ms += (uint32_t)dt;
+  return s_clock_ms;
 }
 
 static int32_t clamp32(int32_t v, int32_t lo, int32_t hi) {
@@ -139,10 +162,11 @@ static void update_targets(void) {
   s_freq_hz = (uint16_t)((fq16 + 32768) >> 16);
   s_target_inc = phase_inc_from_freq_q16(fq16);
 
-  // Lautstaerke: 0..256 linear aus dem Kippwinkel, dann quadriert (natuerlichere Kurve)
+  // Lautstaerke: 0..256 linear aus dem Kippwinkel, dann leicht gekruemmt
+  // (Mittel aus linear und quadratisch): Nullpunkt-Haltung ~ -10 dB, zu sich kippen = voll
   int32_t t = clamp32(tilt, TILT_VOL_MIN, TILT_VOL_MAX) - TILT_VOL_MIN;
   t = t * 256 / (TILT_VOL_MAX - TILT_VOL_MIN);
-  s_target_amp = t * t;   // 0 .. 65536
+  s_target_amp = (t * t + t * 256) / 2;   // 0 .. 65536
 }
 
 static void accel_handler(AccelData *data, uint32_t num_samples) {
@@ -163,9 +187,21 @@ static void accel_handler(AccelData *data, uint32_t num_samples) {
     s_fx += (x - s_fx) / 3;   // leichter Tiefpass gegen Zittern
     s_fy += (y - s_fy) / 3;
   }
+  if (s_cal_count < CAL_SAMPLES) {
+    // Startkalibrierung (oder nach langem SELECT): Haltung ueber ~0.8 s mitteln
+    s_cal_sum_x += x;
+    s_cal_sum_y += y;
+    if (++s_cal_count == CAL_SAMPLES) {
+      s_cal_x = s_cal_sum_x / CAL_SAMPLES;
+      s_cal_y = s_cal_sum_y / CAL_SAMPLES;
+      s_calibrated = true;
+      s_status = s_playing ? "SELECT: Stop" : "SELECT: Start";
+      vibes_short_pulse();
+    }
+  }
   update_targets();
 
-  if (++s_ui_div >= 3) {     // Anzeige mit ~8 Hz aktualisieren
+  if (++s_ui_div >= 5) {     // Anzeige mit ~5 Hz aktualisieren
     s_ui_div = 0;
     layer_mark_dirty(s_canvas);
   }
@@ -177,13 +213,14 @@ static void accel_handler(AccelData *data, uint32_t num_samples) {
 static void generate_chunk(void) {
   for (int i = 0; i < CHUNK_SAMPLES; i++) {
     // Sanftes Gleiten zu den Zielwerten (kein "Zipper"-Rauschen, kein Knacken)
-    s_phase_inc += (uint32_t)(((int32_t)(s_target_inc - s_phase_inc)) >> 7);
-    s_amp += (s_target_amp - s_amp) >> 6;
+    s_phase_inc += (uint32_t)(((int32_t)(s_target_inc - s_phase_inc)) >> 8);
+    s_amp += (s_target_amp - s_amp) >> 7;
     s_phase += s_phase_inc;
-    int32_t v = (int32_t)wave_sample(s_phase, s_wave) * (s_amp >> 8);   // -128*256 .. 127*256
-    s_chunk[i] = (int8_t)(v >> 8);
+    // Wellenform (8 Bit) * Amplitude (Q16) -> 16-Bit-Sample
+    int32_t v = (int32_t)wave_sample(s_phase, s_wave) * s_amp;   // -128*65536 .. 127*65536
+    s_chunk[i] = (int16_t)(v >> 8);
   }
-  s_chunk_len = CHUNK_SAMPLES;
+  s_chunk_len = CHUNK_SAMPLES * sizeof(int16_t);
   s_chunk_pos = 0;
 }
 
@@ -193,16 +230,15 @@ static void audio_tick(void *ctx) {
 
   // Wir halten den Strom hoechstens LEAD_MS vor der Wiedergabe. Dadurch bleibt
   // die Latenz klein, egal wie gross der interne Puffer des Lautsprechers ist.
-  uint32_t elapsed = now_ms() - s_stream_start_ms;
-  uint32_t allowed = (elapsed + LEAD_MS) * (SAMPLE_RATE / 1000);
+  uint32_t allowed = (stream_clock_ms() + LEAD_MS) * (SAMPLE_RATE / 1000);
 
-  int budget = 4;
+  int budget = WRITES_PER_TICK;
   while (s_samples_written < allowed && budget-- > 0) {
     if (s_chunk_pos >= s_chunk_len) generate_chunk();
-    uint32_t n = speaker_stream_write(s_chunk + s_chunk_pos, s_chunk_len - s_chunk_pos);
+    uint32_t n = speaker_stream_write((const uint8_t *)s_chunk + s_chunk_pos, s_chunk_len - s_chunk_pos);
     if (n == 0) break;   // Geraetepuffer voll, naechster Tick
     s_chunk_pos += n;
-    s_samples_written += n;
+    s_samples_written += n / sizeof(int16_t);
   }
 
   s_timer = app_timer_register(TICK_MS, audio_tick, NULL);
@@ -216,8 +252,9 @@ static void start_audio(void) {
     return;
   }
   s_playing = true;
-  s_status = "SELECT: Stop";
-  s_stream_start_ms = now_ms();
+  if (s_calibrated) s_status = "SELECT: Stop";
+  s_last_raw_ms = now_ms();
+  s_clock_ms = 0;
   s_samples_written = 0;
   s_chunk_len = s_chunk_pos = 0;
   s_amp = 0;                 // weich einblenden
@@ -229,7 +266,7 @@ static void start_audio(void) {
 static void stop_audio(void) {
   if (!s_playing) return;
   s_playing = false;
-  s_status = "SELECT: Start";
+  if (s_calibrated) s_status = "SELECT: Start";
   if (s_timer) {
     app_timer_cancel(s_timer);
     s_timer = NULL;
@@ -314,12 +351,10 @@ static void select_click(ClickRecognizerRef rec, void *ctx) {
 }
 
 static void select_long(ClickRecognizerRef rec, void *ctx) {
-  // Aktuelle Haltung wird zum Nullpunkt (Mitte des Tonbereichs, Lautstaerke wie eingestellt)
-  s_cal_x = s_fx;
-  s_cal_y = s_fy;
-  s_status = "Kalibriert";
-  vibes_short_pulse();
-  update_targets();
+  // Kalibrierung neu starten: die Haltung der naechsten ~0.8 s wird zum Nullpunkt
+  s_cal_count = 0;
+  s_cal_sum_x = s_cal_sum_y = 0;
+  s_status = "Ruhig halten...";
   layer_mark_dirty(s_canvas);
 }
 
