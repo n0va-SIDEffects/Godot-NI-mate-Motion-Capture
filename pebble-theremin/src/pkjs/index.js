@@ -1,14 +1,15 @@
 // Telefonseite der Theremin-App: Konfigurationsseite ueber Clay und
-// Abgleich der Einstellungen mit der Uhr.
+// Abgleich der Einstellungen mit der Uhr. Die Seite erscheint auf Deutsch,
+// wenn das Handy auf Deutsch steht, sonst auf Englisch.
 var Clay = require('pebble-clay');
-var clayConfig = require('./config');
-var clay = new Clay(clayConfig);
+var buildConfig = require('./config');
 
-// Auswahlfelder erwarten Textwerte, Schalter Wahrheitswerte.
+var phoneLang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language : 'en';
+var lang = /^de/i.test(phoneLang) ? 'de' : 'en';
+var clay = new Clay(buildConfig(lang));
+
 var TOGGLE_KEYS = { InvertPitch: true, InvertVol: true, Gate: true, Backlight: true };
 
-// Die Uhr schickt beim Start (und nach Aenderungen im Uhr-Menue) ihre
-// aktuellen Einstellungen. Damit zeigt die Konfigurationsseite den echten Stand.
 Pebble.addEventListener('appmessage', function(e) {
   var payload = e.payload || {};
   var settings = {};
@@ -19,5 +20,5 @@ Pebble.addEventListener('appmessage', function(e) {
 });
 
 Pebble.addEventListener('ready', function() {
-  console.log('Theremin PKJS bereit');
+  console.log('Theremin PKJS bereit / ready (' + lang + ')');
 });

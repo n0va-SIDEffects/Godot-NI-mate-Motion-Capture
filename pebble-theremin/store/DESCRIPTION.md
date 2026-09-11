@@ -4,6 +4,12 @@ Screenshots liegen in `screenshots/` (200 × 228 Pixel, native Auflösung der
 Pebble Time 2, direkt aus dem Emulator). Empfohlene Reihenfolge im Store:
 03, 06, 05, 07, 09, 01.
 
+Icon und Banner liegen in `icon/`: `icon_144.png` (Store-Icon, größere
+Varianten 512 und kleinere 96/48 daneben, jeweils auch transparent) und
+`banner_720x320.png` (Kopfbild mit SIDE effect's Logo). Die App ist
+zweisprachig (Deutsch/Englisch), Uhr und Handy-Seite wählen die Sprache
+automatisch.
+
 ---
 
 ## Deutsch

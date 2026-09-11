@@ -16,6 +16,8 @@
 //   BACK          App beenden
 //
 // Beim Start wird die Haltung der ersten Sekunde automatisch zum Nullpunkt.
+// Die Oberflaeche gibt es auf Deutsch und Englisch (automatisch nach Systemsprache
+// der Uhr oder fest waehlbar).
 // Die Einstellungen lassen sich auch in der Pebble-Handy-App aendern
 // (Konfigurationsseite ueber Clay, src/pkjs/); Uhr und Handy gleichen sich ab.
 //
@@ -39,7 +41,7 @@
 #define GATE_CLOSE_MS     500            // Rauschsperre: nach so viel Stille den Lautsprecher abschalten
 
 #define PERSIST_KEY_SETTINGS  10
-#define SETTINGS_VERSION      5
+#define SETTINGS_VERSION      6
 
 // ---------------------------------------------------------------------------
 // Einstellungen
@@ -47,6 +49,7 @@
 typedef enum { AxisLift = 0, AxisRoll, AxisCompass, AxisFixed, AxisCount } Axis;
 typedef enum { WaveSine = 0, WaveTriangle, WaveSquare, WaveSaw, WaveCount } Wave;
 typedef enum { ScaleFree = 0, ScaleChromatic, ScaleMajor, ScaleMinor, ScalePentatonic, ScaleCount } Scale;
+typedef enum { LangAuto = 0, LangDe, LangEn, LangCount } Lang;
 
 typedef struct {
   uint8_t version;
@@ -65,6 +68,7 @@ typedef struct {
   uint8_t wave_anim;     // 0 aus, 1 statisch, 2 animiert
   uint8_t gate;          // Rauschsperre 0/1
   uint8_t backlight;     // 0 automatisch, 1 dauerhaft an
+  uint8_t lang;          // Lang
 } Settings;
 
 static Settings s_set;
@@ -74,16 +78,81 @@ static const Settings DEFAULT_SETTINGS = {
   .pitch_axis = AxisLift, .vol_axis = AxisRoll,
   .invert_pitch = 0, .invert_vol = 0,
   .root_idx = 1, .octaves = 4, .scale = ScaleFree,
-  .pitch_sens = 1, .vol_sens = 1, .glide = 1, .volume_idx = 2, .wave_anim = 2, .gate = 1, .backlight = 0,
+  .pitch_sens = 1, .vol_sens = 1, .glide = 1, .volume_idx = 2, .wave_anim = 2, .gate = 1, .backlight = 0, .lang = LangAuto,
 };
 
-static const char *WAVE_NAMES[WaveCount]   = { "Sinus", "Dreieck", "Rechteck", "Sägezahn" };
-static const char *AXIS_NAMES[AxisCount]   = { "Heben/Senken", "Drehen", "Kompass", "Immer voll" };
-static const char *SCALE_NAMES[ScaleCount] = { "Frei", "Chromatisch", "Dur", "Moll", "Pentatonik" };
-static const char *SENS_NAMES[3]           = { "Fein", "Mittel", "Grob" };
-static const char *GLIDE_NAMES[3]          = { "Kurz", "Mittel", "Lang" };
-static const char *YESNO_NAMES[2]          = { "Nein", "Ja" };
-static const char *ANIM_NAMES[3]           = { "Aus", "Statisch", "Animiert" };
+// ---------------------------------------------------------------------------
+// Sprachen (Deutsch / English)
+// ---------------------------------------------------------------------------
+typedef struct {
+  const char *wave[WaveCount];
+  const char *axis[AxisCount];
+  const char *scale[ScaleCount];
+  const char *sens[3];
+  const char *glide[3];
+  const char *yesno[2];
+  const char *anim[3];
+  const char *lang[LangCount];
+  const char *row[16];            // Menuetitel, Reihenfolge wie enum Row
+  const char *calibrate_hint;
+  const char *gate_on, *gate_off;
+  const char *backlight_on, *backlight_auto;
+  const char *octave, *octaves;
+  const char *settings;
+  const char *hold_still, *speaker_error, *compass_cal;
+  const char *pitch, *volume;
+  const char *hint_wave, *hint_start, *hint_stop, *hint_menu, *hint_cal;
+} Strings;
+
+static const Strings STR_DE = {
+  .wave = { "Sinus", "Dreieck", "Rechteck", "Sägezahn" },
+  .axis = { "Heben/Senken", "Drehen", "Kompass", "Immer voll" },
+  .scale = { "Frei", "Chromatisch", "Dur", "Moll", "Pentatonik" },
+  .sens = { "Fein", "Mittel", "Grob" },
+  .glide = { "Kurz", "Mittel", "Lang" },
+  .yesno = { "Nein", "Ja" },
+  .anim = { "Aus", "Statisch", "Animiert" },
+  .lang = { "Automatisch", "Deutsch", "English" },
+  .row = { "Kalibrieren", "Tonhöhe", "Lautstärke", "Tonhöhe umkehren", "Lautst. umkehren",
+           "Tiefster Ton", "Umfang", "Tonleiter", "Empf. Tonhöhe", "Empf. Lautstärke",
+           "Portamento", "Max. Lautstärke", "Wellenform", "Wellenanzeige", "Rauschsperre",
+           "Beleuchtung" },
+  .calibrate_hint = "Nullpunkt neu setzen",
+  .gate_on = "An (Stille = Lautspr. aus)", .gate_off = "Aus",
+  .backlight_on = "Dauerhaft an", .backlight_auto = "Automatisch",
+  .octave = "Oktave", .octaves = "Oktaven",
+  .settings = "Einstellungen",
+  .hold_still = "Ruhig halten...", .speaker_error = "Lautsprecher-Fehler", .compass_cal = "Kompass: 8er-Bewegung",
+  .pitch = "Tonhöhe", .volume = "Lautstärke",
+  .hint_wave = "Wellenform", .hint_start = "Start", .hint_stop = "Stop",
+  .hint_menu = "lang: Menü", .hint_cal = "lang: Kalibrieren",
+};
+
+static const Strings STR_EN = {
+  .wave = { "Sine", "Triangle", "Square", "Sawtooth" },
+  .axis = { "Lift", "Roll", "Compass", "Always full" },
+  .scale = { "Free", "Chromatic", "Major", "Minor", "Pentatonic" },
+  .sens = { "Fine", "Medium", "Coarse" },
+  .glide = { "Short", "Medium", "Long" },
+  .yesno = { "No", "Yes" },
+  .anim = { "Off", "Static", "Animated" },
+  .lang = { "Automatic", "Deutsch", "English" },
+  .row = { "Calibrate", "Pitch", "Volume", "Invert pitch", "Invert volume",
+           "Lowest note", "Range", "Scale", "Pitch sensitivity", "Volume sensitivity",
+           "Portamento", "Max. volume", "Waveform", "Wave display", "Noise gate",
+           "Backlight" },
+  .calibrate_hint = "Reset neutral position",
+  .gate_on = "On (silence = speaker off)", .gate_off = "Off",
+  .backlight_on = "Always on", .backlight_auto = "Automatic",
+  .octave = "octave", .octaves = "octaves",
+  .settings = "Settings",
+  .hold_still = "Hold still...", .speaker_error = "Speaker error", .compass_cal = "Compass: figure-8 motion",
+  .pitch = "Pitch", .volume = "Volume",
+  .hint_wave = "Waveform", .hint_start = "Start", .hint_stop = "Stop",
+  .hint_menu = "hold: Menu", .hint_cal = "hold: Calibrate",
+};
+
+static const Strings *T = &STR_DE;
 
 static const uint8_t ROOT_MIDI[]           = { 36, 45, 48, 57 };          // C2, A2, C3, A3
 static const char *ROOT_NAMES[]            = { "C2", "A2", "C3", "A3" };
@@ -122,7 +191,7 @@ static bool s_playing = false;
 static bool s_gate_closed = false;          // Rauschsperre aktiv: Stream geschlossen, Lautsprecher aus
 static uint16_t s_silent_ticks = 0;
 static bool s_settings_dirty = false;
-static const char *s_status = "Ruhig halten...";
+static bool s_speaker_error = false;
 static void send_settings_to_phone(void);
 
 // Sensoren (gefiltert)
@@ -270,14 +339,12 @@ static void finish_calibration(void) {
   s_cal_y = s_cal_sum_y / CAL_SAMPLES;
   s_cal_heading = s_heading;
   s_calibrated = true;
-  s_status = s_playing ? "SELECT: Stop" : "SELECT: Start";
   vibes_short_pulse();
 }
 
 static void start_calibration(void) {
   s_cal_count = 0;
   s_cal_sum_x = s_cal_sum_y = 0;
-  s_status = "Ruhig halten...";
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
@@ -406,14 +473,14 @@ static void audio_tick(void *ctx) {
 static void start_audio(void) {
   if (s_playing) return;
   if (!stream_begin()) {
-    s_status = "Lautsprecher-Fehler";
+    s_speaker_error = true;
     layer_mark_dirty(s_canvas);
     return;
   }
+  s_speaker_error = false;
   s_playing = true;
   s_gate_closed = false;
   s_silent_ticks = 0;
-  if (s_calibrated) s_status = "SELECT: Stop";
   audio_tick(NULL);
   layer_mark_dirty(s_canvas);
 }
@@ -421,7 +488,6 @@ static void start_audio(void) {
 static void stop_audio(void) {
   if (!s_playing) return;
   s_playing = false;
-  if (s_calibrated) s_status = "SELECT: Start";
   if (s_timer) { app_timer_cancel(s_timer); s_timer = NULL; }
   if (!s_gate_closed) speaker_stream_close();
   s_gate_closed = false;
@@ -431,7 +497,17 @@ static void stop_audio(void) {
 // ---------------------------------------------------------------------------
 // Einstellungen laden / speichern / anwenden
 // ---------------------------------------------------------------------------
+static void apply_language(void) {
+  Lang l = (Lang)s_set.lang;
+  if (l == LangAuto) {
+    const char *loc = i18n_get_system_locale();
+    l = (loc && loc[0] == 'd' && loc[1] == 'e') ? LangDe : LangEn;
+  }
+  T = (l == LangDe) ? &STR_DE : &STR_EN;
+}
+
 static void settings_apply(void) {
+  apply_language();
   s_glide_shift = GLIDE_SHIFT[s_set.glide];
   light_enable(s_set.backlight != 0);      // Beleuchtung dauerhaft an, solange die App laeuft
   if (s_playing) speaker_set_volume(VOLUME_LEVELS[s_set.volume_idx]);
@@ -465,6 +541,7 @@ static void settings_load(void) {
   if (s_set.wave_anim > 2) s_set.wave_anim = 2;
   if (s_set.gate > 1) s_set.gate = 1;
   if (s_set.backlight > 1) s_set.backlight = 1;
+  if (s_set.lang >= LangCount) s_set.lang = LangAuto;
 }
 
 static void settings_save(void) {
@@ -524,6 +601,7 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   set_u8(&s_set.wave_anim,    dict_find(iter, MESSAGE_KEY_WaveAnim),    0, 2);
   set_u8(&s_set.gate,         dict_find(iter, MESSAGE_KEY_Gate),        0, 1);
   set_u8(&s_set.backlight,    dict_find(iter, MESSAGE_KEY_Backlight),   0, 1);
+  set_u8(&s_set.lang,         dict_find(iter, MESSAGE_KEY_Language),    0, LangCount - 1);
   settings_apply();
   s_settings_dirty = true;
   if (!s_playing) settings_save();       // beim Spielen erst am Ende (Flash-Zugriff wuerde knacken)
@@ -550,6 +628,7 @@ static void send_settings_to_phone(void) {
   dict_write_uint8(iter, MESSAGE_KEY_WaveAnim,    s_set.wave_anim);
   dict_write_uint8(iter, MESSAGE_KEY_Gate,        s_set.gate);
   dict_write_uint8(iter, MESSAGE_KEY_Backlight,   s_set.backlight);
+  dict_write_uint8(iter, MESSAGE_KEY_Language,    s_set.lang);
   app_message_outbox_send();
 }
 
@@ -558,34 +637,34 @@ static void send_settings_to_phone(void) {
 // ---------------------------------------------------------------------------
 enum {
   RowCalibrate = 0, RowPitchAxis, RowVolAxis, RowInvertPitch, RowInvertVol,
-  RowRoot, RowOctaves, RowScale, RowPitchSens, RowVolSens, RowGlide, RowVolume, RowWave, RowAnim, RowGate, RowBacklight,
+  RowRoot, RowOctaves, RowScale, RowPitchSens, RowVolSens, RowGlide, RowVolume, RowWave, RowAnim, RowGate, RowBacklight, RowLanguage,
   RowCount
 };
 
-static const char *ROW_TITLES[RowCount] = {
-  "Kalibrieren", "Tonhöhe", "Lautstärke", "Tonhöhe umkehren", "Lautst. umkehren",
-  "Tiefster Ton", "Umfang", "Tonleiter", "Empf. Tonhöhe", "Empf. Lautstärke",
-  "Portamento", "Max. Lautstärke", "Wellenform", "Wellenanzeige", "Rauschsperre", "Beleuchtung",
-};
+static const char *row_title(int row) {
+  if (row == RowLanguage) return "Sprache / Language";
+  return T->row[row];
+}
 
 static const char *row_value(int row, char *buf, size_t len) {
   switch (row) {
-    case RowCalibrate:   return "Nullpunkt neu setzen";
-    case RowPitchAxis:   return AXIS_NAMES[s_set.pitch_axis];
-    case RowVolAxis:     return AXIS_NAMES[s_set.vol_axis];
-    case RowInvertPitch: return YESNO_NAMES[s_set.invert_pitch];
-    case RowInvertVol:   return YESNO_NAMES[s_set.invert_vol];
+    case RowCalibrate:   return T->calibrate_hint;
+    case RowPitchAxis:   return T->axis[s_set.pitch_axis];
+    case RowVolAxis:     return T->axis[s_set.vol_axis];
+    case RowInvertPitch: return T->yesno[s_set.invert_pitch];
+    case RowInvertVol:   return T->yesno[s_set.invert_vol];
     case RowRoot:        return ROOT_NAMES[s_set.root_idx];
-    case RowOctaves:     snprintf(buf, len, "%u Oktave%s", s_set.octaves, s_set.octaves == 1 ? "" : "n"); return buf;
-    case RowScale:       return SCALE_NAMES[s_set.scale];
-    case RowPitchSens:   return SENS_NAMES[s_set.pitch_sens];
-    case RowVolSens:     return SENS_NAMES[s_set.vol_sens];
-    case RowGlide:       return GLIDE_NAMES[s_set.glide];
+    case RowOctaves:     snprintf(buf, len, "%u %s", s_set.octaves, s_set.octaves == 1 ? T->octave : T->octaves); return buf;
+    case RowScale:       return T->scale[s_set.scale];
+    case RowPitchSens:   return T->sens[s_set.pitch_sens];
+    case RowVolSens:     return T->sens[s_set.vol_sens];
+    case RowGlide:       return T->glide[s_set.glide];
     case RowVolume:      return VOLUME_NAMES[s_set.volume_idx];
-    case RowWave:        return WAVE_NAMES[s_set.wave];
-    case RowAnim:        return ANIM_NAMES[s_set.wave_anim];
-    case RowGate:        return s_set.gate ? "An (Stille = Lautspr. aus)" : "Aus";
-    case RowBacklight:   return s_set.backlight ? "Dauerhaft an" : "Automatisch";
+    case RowWave:        return T->wave[s_set.wave];
+    case RowAnim:        return T->anim[s_set.wave_anim];
+    case RowGate:        return s_set.gate ? T->gate_on : T->gate_off;
+    case RowBacklight:   return s_set.backlight ? T->backlight_on : T->backlight_auto;
+    case RowLanguage:    return T->lang[s_set.lang];
     default:             return "";
   }
 }
@@ -597,12 +676,12 @@ static int16_t menu_header_height(MenuLayer *ml, uint16_t section, void *ctx) {
 }
 
 static void menu_draw_header(GContext *ctx, const Layer *cell, uint16_t section, void *data) {
-  menu_cell_basic_header_draw(ctx, cell, "Einstellungen");
+  menu_cell_basic_header_draw(ctx, cell, T->settings);
 }
 
 static void menu_draw_row(GContext *ctx, const Layer *cell, MenuIndex *idx, void *data) {
   char buf[24];
-  menu_cell_basic_draw(ctx, cell, ROW_TITLES[idx->row], row_value(idx->row, buf, sizeof(buf)), NULL);
+  menu_cell_basic_draw(ctx, cell, row_title(idx->row), row_value(idx->row, buf, sizeof(buf)), NULL);
 }
 
 static void menu_select(MenuLayer *ml, MenuIndex *idx, void *data) {
@@ -626,6 +705,7 @@ static void menu_select(MenuLayer *ml, MenuIndex *idx, void *data) {
     case RowAnim:        s_set.wave_anim = (s_set.wave_anim + 1) % 3; break;
     case RowGate:        s_set.gate ^= 1; break;
     case RowBacklight:   s_set.backlight ^= 1; break;
+    case RowLanguage:    s_set.lang = (s_set.lang + 1) % LangCount; break;
   }
   settings_apply();
   s_settings_dirty = true;
@@ -720,7 +800,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, "THEREMIN", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
                      GRect(8, 2, w - 16, 22), GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-  graphics_draw_text(ctx, WAVE_NAMES[s_set.wave], fonts_get_system_font(FONT_KEY_GOTHIC_18),
+  graphics_draw_text(ctx, T->wave[s_set.wave], fonts_get_system_font(FONT_KEY_GOTHIC_18),
                      GRect(8, 2, w - 16, 22), GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
 
   static char freq_buf[16];
@@ -739,7 +819,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   // Tonhoehen-Balken
   static char label[40];
   const int16_t px = 14, pw = w - 2 * px, py = 126;
-  snprintf(label, sizeof(label), "Tonhöhe: %s", AXIS_NAMES[s_set.pitch_axis]);
+  snprintf(label, sizeof(label), "%s: %s", T->pitch, T->axis[s_set.pitch_axis]);
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, label, fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(0, py - 18, w, 16), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
@@ -756,7 +836,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
 
   // Lautstaerke-Balken
   const int16_t vy = 170;
-  snprintf(label, sizeof(label), "Lautstärke: %s", AXIS_NAMES[s_set.vol_axis]);
+  snprintf(label, sizeof(label), "%s: %s", T->volume, T->axis[s_set.vol_axis]);
   graphics_draw_text(ctx, label, fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(0, vy - 18, w, 16), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   graphics_draw_rect(ctx, GRect(px, vy, pw, 14));
@@ -775,25 +855,25 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   // Zeile 1: [▲▼] Wellenform      [●] Start / Stop
   draw_tri(ctx, 10, r1 + 3, true);
   draw_tri(ctx, 10, r1 + 8, false);
-  graphics_draw_text(ctx, "Wellenform", hint, GRect(22, r1 - 2, 80, 16),
+  graphics_draw_text(ctx, T->hint_wave, hint, GRect(22, r1 - 2, 80, 16),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   draw_dot(ctx, 104, r1 + 4);
-  graphics_draw_text(ctx, s_playing ? "Stop" : "Start", hint, GRect(116, r1 - 2, 80, 16),
+  graphics_draw_text(ctx, s_playing ? T->hint_stop : T->hint_start, hint, GRect(116, r1 - 2, 80, 16),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   // Zeile 2: [● lang] Menü        [▲ lang] Kalibrieren   oder Status
   const char *status = NULL;
-  if (compass_needed() && s_compass_status == CompassStatusDataInvalid) status = "Kompass: 8er-Bewegung";
-  else if (!s_calibrated || s_cal_count < CAL_SAMPLES) status = s_status;
-  else if (s_status[0] == 'L') status = s_status;      // "Lautsprecher-Fehler"
+  if (s_speaker_error) status = T->speaker_error;
+  else if (compass_needed() && s_compass_status == CompassStatusDataInvalid) status = T->compass_cal;
+  else if (!s_calibrated || s_cal_count < CAL_SAMPLES) status = T->hold_still;
   if (status) {
     graphics_draw_text(ctx, status, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD), GRect(0, r2 - 2, w, 16),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   } else {
     draw_dot(ctx, 10, r2 + 4);
-    graphics_draw_text(ctx, "lang: Menü", hint, GRect(22, r2 - 2, 84, 16),
+    graphics_draw_text(ctx, T->hint_menu, hint, GRect(22, r2 - 2, 84, 16),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
     draw_tri(ctx, 104, r2 + 5, true);
-    graphics_draw_text(ctx, "lang: Kalibrieren", hint, GRect(116, r2 - 2, 84, 16),
+    graphics_draw_text(ctx, T->hint_cal, hint, GRect(116, r2 - 2, 84, 16),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   }
 }
@@ -849,6 +929,7 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   settings_load();
+  apply_language();
   s_glide_shift = GLIDE_SHIFT[s_set.glide];
   light_enable(s_set.backlight != 0);
   update_targets();

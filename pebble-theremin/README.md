@@ -67,6 +67,7 @@ dort den echten Stand zeigt. Die Seite ist mit
 | Wellenanzeige     | Aus, Statisch, Animiert (Welle im Hintergrund)          |
 | Rauschsperre      | An / Aus (Lautsprecher bei völliger Stille abschalten)  |
 | Beleuchtung       | Automatisch / Dauerhaft an (solange die App läuft)      |
+| Sprache / Language| Automatisch (Systemsprache der Uhr), Deutsch, English   |
 
 SELECT auf einem Eintrag schaltet zum nächsten Wert. Alle Einstellungen
 werden auf der Uhr gespeichert.
@@ -89,10 +90,22 @@ Die zuletzt gewählte Wellenform wird gespeichert.
 2. Die Datei antippen und mit der Pebble-App öffnen.
 3. Die Pebble-App installiert die App per Bluetooth auf der Uhr.
 
+## Sprachen
+
+Die Oberfläche der Uhr gibt es auf Deutsch und Englisch. Standardmäßig folgt
+sie der Systemsprache der Uhr, im Menü lässt sich die Sprache fest wählen.
+Die Konfigurationsseite in der Handy-App erscheint in der Sprache des Handys.
+
 ## Store-Material
 
-Beschreibungstext (Deutsch und Englisch) und Screenshots in nativer
-Auflösung für den Pebble Appstore liegen im Ordner `store/`.
+Im Ordner `store/` liegen Beschreibungstext (Deutsch und Englisch,
+`DESCRIPTION.md`), Screenshots in nativer Auflösung (`screenshots/`) sowie
+Icon und Banner (`icon/`). Das Icon zeigt die klassischen Theremin-Antennen
+am SIDE effect's Logo und ist in 512, 144, 96 und 48 Pixel vorhanden, je mit
+weißem und transparentem Hintergrund. Das Launcher-Icon der Uhr liegt unter
+`resources/images/menu_icon.png` (25 × 25). Die Icons werden vom Skript-
+Kommentar in `store/icon/` beschrieben und lassen sich aus dem Repo neu
+erzeugen.
 
 ## Selbst bauen
 
