@@ -4,6 +4,8 @@
  * "webviewclosed" event in index.js.
  */
 
+var strings = require('./strings');
+
 var MAX_FAVORITES = 4;
 
 var DEFAULTS = {
@@ -50,28 +52,35 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-function projectOptions(projects, selectedId) {
-  var html = '<option value="0"' + (!selectedId ? ' selected' : '') + '>Ohne Projekt</option>';
+function projectOptions(projects, selectedId, noProjectLabel) {
+  var html = '<option value="0"' + (!selectedId ? ' selected' : '') + '>' + escapeHtml(noProjectLabel) + '</option>';
   (projects || []).forEach(function (p) {
     html += '<option value="' + p.id + '"' + (p.id === selectedId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>';
   });
   return html;
 }
 
+var SUPPORT_URL = 'https://buymeacoffee.com/SIDEffects';
+
 function buildConfigUrl(settings, projects) {
+  var t = strings.t;
   settings = normalise(settings);
   var favHtml = '';
   for (var i = 0; i < MAX_FAVORITES; i++) {
     var f = settings.favorites[i] || { description: '', projectId: 0 };
-    favHtml += '<div class="fav"><input id="fd' + i + '" type="text" placeholder="Favorit ' + (i + 1) + ': Beschreibung" value="' + escapeHtml(f.description) + '">' +
-      '<select id="fp' + i + '">' + projectOptions(projects, f.projectId) + '</select></div>';
+    favHtml += '<div class="fav"><input id="fd' + i + '" type="text" placeholder="' + escapeHtml(t('favoritePlaceholder', i + 1)) + '" value="' + escapeHtml(f.description) + '">' +
+      '<select id="fp' + i + '">' + projectOptions(projects, f.projectId, t('noProject')) + '</select></div>';
   }
   var noProjects = !projects || projects.length === 0;
+  var roundOptions = [0, 5, 15, 30].map(function (m) {
+    return '<option value="' + m + '"' + (settings.roundMinutes === m ? ' selected' : '') + '>' +
+      (m === 0 ? escapeHtml(t('roundOff')) : escapeHtml(t('minutes', m))) + '</option>';
+  }).join('');
 
   var html = '' +
-    '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">' +
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>Toggl Track</title>' +
+    '<title>' + escapeHtml(t('title')) + '</title>' +
     '<style>' +
     'body{font-family:-apple-system,Helvetica,Arial,sans-serif;margin:0;padding:20px;background:#f4f4f6;color:#222}' +
     'h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:26px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}' +
@@ -82,42 +91,44 @@ function buildConfigUrl(settings, projects) {
     'input[type=number]{width:90px}input[type=checkbox]{width:22px;height:22px}' +
     '.fav{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}' +
     'button{width:100%;margin-top:24px;padding:14px;font-size:17px;font-weight:600;color:#fff;background:#e57cd8;border:0;border-radius:8px}' +
+    'button.coffee{background:#ffdd00;color:#000;margin-top:10px}' +
     'a{color:#e57cd8}.hint{font-size:13px;color:#777;margin-top:6px}' +
+    '.support{margin-top:30px;padding:16px;background:#fff;border-radius:10px;border:1px solid #e5e5e5}' +
     '</style></head><body>' +
-    '<h1>Toggl Track</h1>' +
-    '<p>Timer direkt von der Pebble starten und stoppen.</p>' +
+    '<h1>' + escapeHtml(t('title')) + '</h1>' +
+    '<p>' + escapeHtml(t('tagline')) + '</p>' +
     '<form id="f">' +
-    '<h2>Konto</h2>' +
-    '<label for="token">API-Token</label>' +
+    '<h2>' + escapeHtml(t('account')) + '</h2>' +
+    '<label for="token">' + escapeHtml(t('token')) + '</label>' +
     '<input id="token" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" ' +
-    'placeholder="32 Zeichen (oder „demo“ zum Ausprobieren)" value="' + escapeHtml(settings.token) + '">' +
-    '<div class="hint">Zu finden unter <a href="https://track.toggl.com/profile" target="_blank">track.toggl.com/profile</a> ganz unten (&quot;API Token&quot;).</div>' +
-    '<label for="wid">Workspace-ID (optional)</label>' +
-    '<input id="wid" type="text" inputmode="numeric" placeholder="Standard-Workspace" value="' + escapeHtml(settings.workspaceId) + '">' +
-    '<h2>Favoriten</h2>' +
-    '<p>Bis zu vier Kacheln auf der Uhr: Beschreibung und Projekt. Ein Tipp startet den Eintrag.</p>' +
-    (noProjects ? '<p class="hint">Projekte erscheinen hier, sobald die App einmal mit Toggl verbunden war. Erst Token speichern, dann Favoriten anlegen.</p>' : '') +
+    'placeholder="' + escapeHtml(t('tokenPlaceholder')) + '" value="' + escapeHtml(settings.token) + '">' +
+    '<div class="hint">' + t('tokenHint') + '</div>' +
+    '<label for="wid">' + escapeHtml(t('workspace')) + '</label>' +
+    '<input id="wid" type="text" inputmode="numeric" placeholder="' + escapeHtml(t('workspacePlaceholder')) + '" value="' + escapeHtml(settings.workspaceId) + '">' +
+    '<h2>' + escapeHtml(t('favorites')) + '</h2>' +
+    '<p>' + escapeHtml(t('favoritesText')) + '</p>' +
+    (noProjects ? '<p class="hint">' + escapeHtml(t('favoritesNoProjects')) + '</p>' : '') +
     favHtml +
-    '<h2>Erinnerungen</h2>' +
-    '<label class="row"><input id="rr" type="checkbox"' + (settings.remind.running ? ' checked' : '') + '> Vibrieren, wenn ein Timer vergessen wurde</label>' +
-    '<div class="fav"><label>nach Stunden<input id="rh" type="number" min="1" max="16" value="' + settings.remind.maxHours + '"></label>' +
-    '<label>oder ab Uhrzeit<input id="rl" type="number" min="0" max="23" value="' + settings.remind.lateHour + '"></label></div>' +
-    '<label class="row"><input id="rn" type="checkbox"' + (settings.remind.noTimer ? ' checked' : '') + '> Werktags erinnern, wenn kein Timer läuft</label>' +
-    '<label>ab Uhrzeit<input id="rs" type="number" min="0" max="23" value="' + settings.remind.startHour + '"></label>' +
-    '<div class="hint">Die Uhr weckt die App zur Erinnerung auch, wenn sie geschlossen ist.</div>' +
-    '<h2>Rundung</h2>' +
-    '<label for="round">Beim Stoppen runden auf</label>' +
-    '<select id="round">' +
-    '<option value="0"' + (settings.roundMinutes === 0 ? ' selected' : '') + '>nicht runden</option>' +
-    '<option value="5"' + (settings.roundMinutes === 5 ? ' selected' : '') + '>5 Minuten</option>' +
-    '<option value="15"' + (settings.roundMinutes === 15 ? ' selected' : '') + '>15 Minuten</option>' +
-    '<option value="30"' + (settings.roundMinutes === 30 ? ' selected' : '') + '>30 Minuten</option>' +
-    '</select>' +
-    '<button type="submit">Speichern</button>' +
+    '<h2>' + escapeHtml(t('reminders')) + '</h2>' +
+    '<label class="row"><input id="rr" type="checkbox"' + (settings.remind.running ? ' checked' : '') + '> ' + escapeHtml(t('remindRunning')) + '</label>' +
+    '<div class="fav"><label>' + escapeHtml(t('afterHours')) + '<input id="rh" type="number" min="1" max="16" value="' + settings.remind.maxHours + '"></label>' +
+    '<label>' + escapeHtml(t('orAtHour')) + '<input id="rl" type="number" min="0" max="23" value="' + settings.remind.lateHour + '"></label></div>' +
+    '<label class="row"><input id="rn" type="checkbox"' + (settings.remind.noTimer ? ' checked' : '') + '> ' + escapeHtml(t('remindNoTimer')) + '</label>' +
+    '<label>' + escapeHtml(t('fromHour')) + '<input id="rs" type="number" min="0" max="23" value="' + settings.remind.startHour + '"></label>' +
+    '<div class="hint">' + escapeHtml(t('remindHint')) + '</div>' +
+    '<h2>' + escapeHtml(t('rounding')) + '</h2>' +
+    '<label for="round">' + escapeHtml(t('roundLabel')) + '</label>' +
+    '<select id="round">' + roundOptions + '</select>' +
+    '<button type="submit">' + escapeHtml(t('save')) + '</button>' +
     '</form>' +
+    '<div class="support"><h2 style="margin-top:0">' + escapeHtml(t('support')) + '</h2>' +
+    '<p>' + escapeHtml(t('supportText')) + ' <a href="' + SUPPORT_URL + '" target="_blank">' + SUPPORT_URL.replace('https://', '') + '</a></p>' +
+    '<button type="button" class="coffee" id="coffee">' + escapeHtml(t('coffee')) + '</button></div>' +
     '<script>' +
     'function v(id){return document.getElementById(id).value;}' +
     'function c(id){return document.getElementById(id).checked;}' +
+    'document.getElementById("coffee").addEventListener("click",function(){var w=null;' +
+    'try{w=window.open("' + SUPPORT_URL + '","_blank");}catch(e){}if(!w){window.location.href="' + SUPPORT_URL + '";}});' +
     'document.getElementById("f").addEventListener("submit",function(ev){ev.preventDefault();' +
     'var favs=[];for(var i=0;i<' + MAX_FAVORITES + ';i++){favs.push({description:v("fd"+i),projectId:parseInt(v("fp"+i),10)||0});}' +
     'var cfg={token:v("token").replace(/\\s+/g,""),workspaceId:v("wid").replace(/\\D+/g,""),favorites:favs,' +
@@ -148,5 +159,6 @@ module.exports = {
   buildConfigUrl: buildConfigUrl,
   parseConfigResponse: parseConfigResponse,
   normalise: normalise,
-  DEFAULTS: DEFAULTS
+  DEFAULTS: DEFAULTS,
+  SUPPORT_URL: SUPPORT_URL
 };

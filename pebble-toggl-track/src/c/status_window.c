@@ -2,6 +2,7 @@
 #include "comm.h"
 #include "dictation.h"
 #include "favorites_window.h"
+#include "i18n.h"
 #include "list_window.h"
 #include "model.h"
 
@@ -139,8 +140,8 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   // Project badge
   const GRect badge = GRect(x, BADGE_Y, cw, BADGE_H);
   const GColor badge_bg = prv_badge_color(s);
-  const char *badge_text = !s->valid ? "Toggl Track"
-                         : (s->project_name[0] ? s->project_name : "Kein Projekt");
+  const char *badge_text = !s->valid ? STR(S_APP_NAME)
+                         : (s->project_name[0] ? s->project_name : STR(S_NO_PROJECT));
   graphics_context_set_fill_color(ctx, badge_bg);
   graphics_fill_rect(ctx, badge, 6, GCornersAll);
   graphics_context_set_text_color(ctx, gcolor_legible_over(badge_bg));
@@ -171,11 +172,11 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   // Description
   const char *desc;
   if (!s->valid) {
-    desc = m->message_is_error ? "Nicht verbunden" : "Verbinde mit Handy…";
+    desc = m->message_is_error ? STR(S_NOT_CONNECTED) : STR(S_CONNECTING);
   } else if (running) {
-    desc = s->description[0] ? s->description : "(ohne Beschreibung)";
+    desc = s->description[0] ? s->description : STR(S_NO_DESCRIPTION);
   } else {
-    desc = "Kein Timer läuft";
+    desc = STR(S_NO_TIMER);
   }
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, desc, fonts_get_system_font(DESC_FONT),
@@ -196,13 +197,17 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
     footer[sizeof(footer) - 1] = '\0';
     footer_color = GColorBlack;
   } else if (running) {
-    char since[24];
+    char clock[16];
+    char since[32];
     struct tm *lt = localtime(&s->start_time);
-    strftime(since, sizeof(since), clock_is_24h_style() ? "seit %H:%M" : "seit %I:%M %p", lt);
+    strftime(clock, sizeof(clock), clock_is_24h_style() ? "%H:%M" : "%I:%M %p", lt);
+    snprintf(since, sizeof(since), STR(S_SINCE), clock);
     if (s->today_seconds > 0) {
       char hm[16];
+      char today[24];
       prv_format_hm(hm, sizeof(hm), s->today_seconds);
-      snprintf(footer, sizeof(footer), "%s · heute %s h", since, hm);
+      snprintf(today, sizeof(today), STR(S_TODAY_H), hm);
+      snprintf(footer, sizeof(footer), "%s · %s", since, today);
     } else {
       strncpy(footer, since, sizeof(footer));
     }
@@ -210,9 +215,9 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
     if (s->today_seconds > 0) {
       char hm[16];
       prv_format_hm(hm, sizeof(hm), s->today_seconds);
-      snprintf(footer, sizeof(footer), "Heute %s h gebucht", hm);
+      snprintf(footer, sizeof(footer), STR(S_TODAY_BOOKED), hm);
     } else {
-      strncpy(footer, "SELECT: Timer starten", sizeof(footer));
+      strncpy(footer, STR(S_SELECT_TO_START), sizeof(footer));
     }
   } else {
     footer[0] = '\0';
@@ -238,14 +243,14 @@ static void prv_open_picker(void) {
 }
 
 static void prv_stop(void) {
-  model_set_message("Stoppe…", false);
+  model_set_message(STR(S_STOPPING), false);
   comm_send_stop();
   status_window_refresh();
 }
 
 static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
   model_clear_hint();
-  model_set_message("Aktualisiere…", false);
+  model_set_message(STR(S_REFRESHING), false);
   comm_send_refresh();
   status_window_refresh();
 }
@@ -309,12 +314,12 @@ static void prv_swipe_handler(const Recognizer *recognizer, RecognizerEvent even
   const TimerStatus *s = &model_get()->status;
   model_clear_hint();
   if (swipe_recognizer_get_direction(recognizer) == SwipeDirection_Left) {
-    model_set_message("Vorheriger Eintrag…", false);
+    model_set_message(STR(S_PREVIOUS_ENTRY), false);
     comm_send_previous();
   } else if (s->valid && s->running) {
     prv_stop();
   } else {
-    model_set_message("Kein Timer läuft", false);
+    model_set_message(STR(S_NO_TIMER), false);
   }
   status_window_refresh();
 }

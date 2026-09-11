@@ -1,6 +1,7 @@
 #include "list_window.h"
 #include "comm.h"
 #include "favorites_window.h"
+#include "i18n.h"
 #include "model.h"
 
 // Picker for a new time entry: recently used entries first, then all projects.
@@ -36,7 +37,7 @@ static int16_t prv_get_header_height(MenuLayer *menu, uint16_t section, void *co
 }
 
 static void prv_draw_header(GContext *ctx, const Layer *cell_layer, uint16_t section, void *context) {
-  const char *title = prv_is_recent_section(section) ? "Zuletzt" : (s_text_mode ? "Projekt wählen" : "Projekte");
+  const char *title = prv_is_recent_section(section) ? STR(S_RECENT) : (s_text_mode ? STR(S_PICK_PROJECT) : STR(S_PROJECTS));
   menu_cell_basic_header_draw(ctx, cell_layer, title);
 }
 
@@ -51,7 +52,7 @@ static void prv_draw_color_bar(GContext *ctx, const Layer *cell_layer, uint8_t c
 }
 
 static void prv_format_hm(char *buf, size_t len, int32_t seconds) {
-  snprintf(buf, len, "%d:%02d h", (int)(seconds / 3600), (int)((seconds % 3600) / 60));
+  snprintf(buf, len, "%d:%02d", (int)(seconds / 3600), (int)((seconds % 3600) / 60));
 }
 
 static void prv_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *index, void *context) {
@@ -62,21 +63,23 @@ static void prv_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *inde
     }
     const RecentEntry *e = &m->recent[index->row];
     char sub[NAME_LEN + 24];
-    const char *project = e->project_name[0] ? e->project_name : "Kein Projekt";
+    const char *project = e->project_name[0] ? e->project_name : STR(S_NO_PROJECT);
     if (e->today_seconds > 0) {
       char hm[16];
+      char today[24];
       prv_format_hm(hm, sizeof(hm), e->today_seconds);
-      snprintf(sub, sizeof(sub), "%s · heute %s", project, hm);
+      snprintf(today, sizeof(today), STR(S_TODAY_H), hm);
+      snprintf(sub, sizeof(sub), "%s · %s", project, today);
     } else {
       strncpy(sub, project, sizeof(sub) - 1);
       sub[sizeof(sub) - 1] = '\0';
     }
-    menu_cell_basic_draw(ctx, cell_layer, e->description[0] ? e->description : "(ohne Beschreibung)", sub, NULL);
+    menu_cell_basic_draw(ctx, cell_layer, e->description[0] ? e->description : STR(S_NO_DESCRIPTION), sub, NULL);
     prv_draw_color_bar(ctx, cell_layer, e->color);
     return;
   }
   if (index->row == 0) {
-    menu_cell_basic_draw(ctx, cell_layer, "Ohne Projekt", s_text_mode ? s_text : "Leeren Timer starten", NULL);
+    menu_cell_basic_draw(ctx, cell_layer, STR(S_NO_PROJECT), s_text_mode ? s_text : STR(S_START_EMPTY), NULL);
     return;
   }
   if (index->row - 1 >= m->project_count) {
@@ -101,7 +104,7 @@ static void prv_select_click(MenuLayer *menu, MenuIndex *index, void *context) {
     project_id = m->projects[index->row - 1].id;
   }
 
-  model_set_message("Starte…", false);
+  model_set_message(STR(S_STARTING), false);
   comm_send_start(project_id, description);
   window_stack_pop(true);
   favorites_window_close();   // back to the status screen in one go

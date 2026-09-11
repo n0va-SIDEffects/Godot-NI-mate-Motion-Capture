@@ -2,6 +2,7 @@
 
 #include "comm.h"
 #include "dictation.h"
+#include "i18n.h"
 #include "model.h"
 #include "reminders.h"
 #include "status_window.h"
@@ -32,7 +33,7 @@ static void prv_update_glance(void) {
   if (s->valid && s->running) {
     char what[DESC_LEN];
     strncpy(what, s->description[0] ? s->description
-                : (s->project_name[0] ? s->project_name : "Timer"), sizeof(what) - 1);
+                : (s->project_name[0] ? s->project_name : STR(S_TIMER)), sizeof(what) - 1);
     what[sizeof(what) - 1] = '\0';
     // Braces have a special meaning in glance templates.
     for (char *c = what; *c; c++) {
@@ -44,7 +45,7 @@ static void prv_update_glance(void) {
     snprintf(s_glance_text, sizeof(s_glance_text), "{time_since(%d)|format('%%aR')} · %s",
              (int)s->start_time, what);
   } else {
-    snprintf(s_glance_text, sizeof(s_glance_text), "Kein Timer läuft");
+    snprintf(s_glance_text, sizeof(s_glance_text), "%s", STR(S_GLANCE_IDLE));
   }
   app_glance_reload(prv_glance_reload, s_glance_text);
 }
@@ -55,6 +56,7 @@ static void prv_update_glance(void) {
 #endif
 
 static void prv_init(void) {
+  i18n_init();
   model_load();
   comm_init();
 #ifdef PBL_TOUCH

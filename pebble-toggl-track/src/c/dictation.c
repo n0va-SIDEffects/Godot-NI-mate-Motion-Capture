@@ -1,4 +1,5 @@
 #include "dictation.h"
+#include "i18n.h"
 #include "list_window.h"
 #include "model.h"
 #include "status_window.h"
@@ -18,16 +19,16 @@ static void prv_dictation_callback(DictationSession *session, DictationSessionSt
   }
   switch (status) {
     case DictationSessionStatusFailureConnectivityError:
-      model_set_message("Diktat: keine Verbindung", true);
+      model_set_message(STR(S_DICT_NO_CONNECTION), true);
       break;
     case DictationSessionStatusFailureDisabled:
-      model_set_message("Diktat ist deaktiviert", true);
+      model_set_message(STR(S_DICT_DISABLED), true);
       break;
     case DictationSessionStatusFailureNoSpeechDetected:
-      model_set_message("Nichts verstanden", false);
+      model_set_message(STR(S_DICT_NOTHING), false);
       break;
     default:
-      model_set_message("Diktat abgebrochen", false);
+      model_set_message(STR(S_DICT_CANCELLED), false);
       break;
   }
   status_window_refresh();
@@ -37,7 +38,7 @@ void dictation_start(void) {
   if (!s_session) {
     s_session = dictation_session_create(DESC_LEN, prv_dictation_callback, NULL);
     if (!s_session) {
-      model_set_message("Diktat nicht verfügbar", true);
+      model_set_message(STR(S_DICT_UNAVAILABLE), true);
       status_window_refresh();
       return;
     }
@@ -57,7 +58,7 @@ void dictation_deinit(void) {
 #else
 
 void dictation_start(void) {
-  model_set_message("Diese Uhr hat kein Mikrofon", true);
+  model_set_message(STR(S_NO_MICROPHONE), true);
   status_window_refresh();
 }
 

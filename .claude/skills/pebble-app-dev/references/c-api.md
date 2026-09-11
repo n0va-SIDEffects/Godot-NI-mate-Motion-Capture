@@ -282,6 +282,16 @@ Raw events: `touch_service_subscribe(handler, ctx)` gives Touchdown /
 PositionUpdate / Liftoff with x/y. `touch_service_is_enabled()` tells whether
 touch is delivered at all. Keep every touch action reachable by a button too.
 
+## Languages
+
+`i18n_get_system_locale()` returns the watch language ("de_DE", "en_US", …).
+Keep a `static const char *const strings[S_COUNT][L_COUNT]` table indexed by
+a string id and a language picked once in init, and reach every visible text
+through `STR(id)`. Format strings ("since %s") belong in the table too, so
+word order can differ per language. Gothic fonts render Latin-1 accents. On
+the phone side, `Pebble.getActiveWatchInfo().language` gives the same code,
+so error messages sent to the watch and the settings page can follow it.
+
 ## Other services
 
 - Vibration: `vibes_short_pulse()`, `vibes_double_pulse()`, `vibes_long_pulse()`.

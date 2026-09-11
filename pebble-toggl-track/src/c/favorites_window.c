@@ -1,6 +1,7 @@
 #include "favorites_window.h"
 #include "comm.h"
 #include "dictation.h"
+#include "i18n.h"
 #include "list_window.h"
 #include "model.h"
 #include "status_window.h"
@@ -97,7 +98,7 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
     const GRect area = grect_inset(bounds, GEdgeInsets(PBL_IF_ROUND_ELSE(14, 2)));
     GRect hint = GRect(area.origin.x, area.origin.y, area.size.w, area.size.h / rows);
     graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack));
-    graphics_draw_text(ctx, "Favoriten in den Einstellungen der Pebble-App anlegen",
+    graphics_draw_text(ctx, STR(S_NO_FAVORITES),
                        fonts_get_system_font(FONT_KEY_GOTHIC_14), grect_inset(hint, GEdgeInsets(6, 10)),
                        GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
   }
@@ -109,11 +110,11 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
     if (kind >= 0) {
       const Favorite *f = &m->favorites[kind];
       GColor bg = PBL_IF_COLOR_ELSE(f->color ? (GColor) { .argb = f->color } : GColorLightGray, GColorWhite);
-      const char *title = f->description[0] ? f->description : (f->project_name[0] ? f->project_name : "Favorit");
+      const char *title = f->description[0] ? f->description : (f->project_name[0] ? f->project_name : STR(S_FAVORITE));
       const char *sub = f->description[0] ? f->project_name : "";
       prv_draw_tile(ctx, r, bg, title, sub, selected);
     } else {
-      prv_draw_tile(ctx, r, GColorWhite, kind == CELL_DICTATE ? "Diktieren" : "Liste", NULL, selected);
+      prv_draw_tile(ctx, r, GColorWhite, kind == CELL_DICTATE ? STR(S_DICTATE) : STR(S_LIST), NULL, selected);
     }
   }
 }
@@ -122,7 +123,7 @@ static void prv_activate(int cell) {
   const int kind = prv_cell_kind(cell);
   if (kind >= 0) {
     const Favorite *f = &model_get()->favorites[kind];
-    model_set_message("Starte…", false);
+    model_set_message(STR(S_STARTING), false);
     comm_send_start(f->project_id, f->description);
     window_stack_pop(true);
   } else if (kind == CELL_DICTATE) {

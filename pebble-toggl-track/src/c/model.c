@@ -50,11 +50,13 @@ void model_clear_message(void) {
   s_model.message_is_error = false;
 }
 
-void model_set_hint(const char *text) {
+void model_set_hint(const char *text, HintKind kind) {
   strncpy(s_model.hint, text ? text : "", HINT_LEN - 1);
   s_model.hint[HINT_LEN - 1] = '\0';
+  s_model.hint_kind = kind;
 }
 
 void model_clear_hint(void) {
   s_model.hint[0] = '\0';
+  s_model.hint_kind = HINT_NONE;
 }

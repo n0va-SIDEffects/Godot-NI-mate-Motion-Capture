@@ -3,6 +3,7 @@
 #include "status_window.h"
 #include "list_window.h"
 #include "favorites_window.h"
+#include "i18n.h"
 
 // Protocol (values of MESSAGE_KEY_CMD). Keep in sync with src/pkjs/index.js.
 enum {
@@ -70,10 +71,10 @@ static void prv_confirm_action(const TimerStatus *s) {
   AppModel *m = model_get();
   char text[MESSAGE_LEN + DESC_LEN];   // model_set_message() clips to MESSAGE_LEN
   if (m->pending == PENDING_START && s->running) {
-    snprintf(text, sizeof(text), "Gestartet: %s",
-             s->description[0] ? s->description : (s->project_name[0] ? s->project_name : "Timer"));
+    snprintf(text, sizeof(text), STR(S_STARTED),
+             s->description[0] ? s->description : (s->project_name[0] ? s->project_name : STR(S_TIMER)));
   } else if (m->pending == PENDING_STOP && !s->running) {
-    snprintf(text, sizeof(text), "Gestoppt");
+    snprintf(text, sizeof(text), "%s", STR(S_STOPPED));
   } else {
     return;   // status does not match the action yet; wait for the next one
   }
@@ -100,7 +101,7 @@ static void prv_handle_status(DictionaryIterator *iter) {
   s->valid = true;
   model_clear_message();
   // A reminder hint is obsolete once reality moved on.
-  if ((s->running && strstr(m->hint, "Kein Timer")) || (!s->running && strstr(m->hint, "noch"))) {
+  if ((s->running && m->hint_kind == HINT_NO_TIMER) || (!s->running && m->hint_kind == HINT_STILL_RUNNING)) {
     model_clear_hint();
   }
   prv_confirm_action(s);
@@ -210,7 +211,7 @@ static void prv_inbox_dropped(AppMessageResult reason, void *context) {
 static void prv_outbox_failed(DictionaryIterator *iter, AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox failed: %d", (int)reason);
   model_get()->pending = PENDING_NONE;
-  model_set_message("Keine Verbindung zum Handy", true);
+  model_set_message(STR(S_NO_PHONE), true);
   status_window_refresh();
 }
 
@@ -218,13 +219,13 @@ static void prv_send(int32_t cmd, int32_t project_id, const char *description) {
   DictionaryIterator *iter = NULL;
   AppMessageResult result = app_message_outbox_begin(&iter);
   if (result == APP_MSG_BUSY) {
-    model_set_message("Bitte warten…", false);
+    model_set_message(STR(S_PLEASE_WAIT), false);
     status_window_refresh();
     return;
   }
   if (result != APP_MSG_OK || !iter) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox begin failed: %d", (int)result);
-    model_set_message("Sendefehler", true);
+    model_set_message(STR(S_SEND_ERROR), true);
     status_window_refresh();
     return;
   }
@@ -237,7 +238,7 @@ static void prv_send(int32_t cmd, int32_t project_id, const char *description) {
   result = app_message_outbox_send();
   if (result != APP_MSG_OK) {
     APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed: %d", (int)result);
-    model_set_message("Sendefehler", true);
+    model_set_message(STR(S_SEND_ERROR), true);
     status_window_refresh();
   }
 }

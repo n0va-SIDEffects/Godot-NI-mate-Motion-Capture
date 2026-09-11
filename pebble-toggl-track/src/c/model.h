@@ -54,6 +54,12 @@ typedef struct {
 } ReminderConfig;
 
 typedef enum {
+  HINT_NONE = 0,
+  HINT_STILL_RUNNING,
+  HINT_NO_TIMER,
+} HintKind;
+
+typedef enum {
   PENDING_NONE = 0,
   PENDING_START,
   PENDING_STOP,
@@ -71,6 +77,7 @@ typedef struct {
   char message[MESSAGE_LEN]; // footer text (progress or error), "" = none
   bool message_is_error;
   char hint[HINT_LEN];       // sticky footer text (reminders), cleared by a button
+  HintKind hint_kind;
   PendingAction pending;     // action whose confirmation is still outstanding
 } AppModel;
 
@@ -79,5 +86,5 @@ void model_load(void);    // restore status + config from persistent storage
 void model_save(void);    // persist the current status + config
 void model_set_message(const char *text, bool is_error);
 void model_clear_message(void);
-void model_set_hint(const char *text);
+void model_set_hint(const char *text, HintKind kind);
 void model_clear_hint(void);

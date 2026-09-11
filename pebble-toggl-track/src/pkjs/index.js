@@ -6,8 +6,10 @@
  */
 
 var keys = require('message_keys');
+var strings = require('./strings');
 var toggl = require('./toggl');
 var config = require('./config');
+var t = strings.t;
 
 var CMD = {
   // watch -> phone
@@ -334,14 +336,14 @@ function workspaceFor(projectId, callback) {
   client().me(function (err, me) {
     if (err) { return callback(err); }
     defaultWorkspaceId = me && me.default_workspace_id;
-    if (!defaultWorkspaceId) { return callback('Kein Workspace gefunden'); }
+    if (!defaultWorkspaceId) { return callback(t('noWorkspace')); }
     callback(null, defaultWorkspaceId);
   });
 }
 
 function requireToken() {
   if (settings.token) { return true; }
-  sendError('Kein API-Token. Bitte in der Pebble-App eintragen.');
+  sendError(t('noToken'));
   return false;
 }
 
@@ -357,7 +359,7 @@ function refreshAll(showProgress) {
   if (!requireToken()) { return; }
   if (busy) { return; }
   busy = true;
-  if (showProgress) { sendInfo('Aktualisiere…'); }
+  if (showProgress) { sendInfo(t('refreshing')); }
   var api = client();
 
   api.projects(function (err, projects) {
@@ -441,7 +443,7 @@ function roundStopped(api, entry, callback) {
 
 function startTimer(projectId, description) {
   if (!requireToken()) { return; }
-  if (busy) { return sendInfo('Bitte warten…'); }
+  if (busy) { return sendInfo(t('pleaseWait')); }
   busy = true;
   var api = client();
   workspaceFor(projectId, function (err, workspaceId) {
@@ -464,7 +466,7 @@ function startTimer(projectId, description) {
 
 function stopTimer() {
   if (!requireToken()) { return; }
-  if (busy) { return sendInfo('Bitte warten…'); }
+  if (busy) { return sendInfo(t('pleaseWait')); }
   busy = true;
   stopRunning(client(), function (err) {
     busy = false;
@@ -492,7 +494,7 @@ function previousTimer() {
         var key = candidates[i].projectId + '|' + candidates[i].description.toLowerCase();
         if (key !== cur) { prev = candidates[i]; break; }
       }
-      if (!prev) { return sendInfo('Kein vorheriger Eintrag'); }
+      if (!prev) { return sendInfo(t('noPrevious')); }
       startTimer(prev.projectId, prev.description);
     });
   });
@@ -506,6 +508,7 @@ function field(payload, name) {
 }
 
 Pebble.addEventListener('ready', function () {
+  strings.detectLanguage();
   console.log('Toggl Track JS ready');
   // Show cached data immediately, then refresh from the network.
   indexProjects(cache.projects || []);
@@ -540,6 +543,7 @@ Pebble.addEventListener('appmessage', function (e) {
 });
 
 Pebble.addEventListener('showConfiguration', function () {
+  strings.detectLanguage();
   Pebble.openURL(config.buildConfigUrl(settings, cache.projects || []));
 });
 
@@ -554,7 +558,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
     cache = { projects: [], recent: [], status: null };
     saveCache();
   }
-  sendInfo('Einstellungen gespeichert');
+  sendInfo(t('savedSettings'));
   sendConfig();
   sendFavorites();
   refreshAll(true);

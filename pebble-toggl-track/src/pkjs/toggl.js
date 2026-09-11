@@ -3,6 +3,9 @@
  * Runs on the phone; ES5 only (no arrow functions, no Promises).
  */
 
+var strings = require('./strings');
+var t = strings.t;
+
 var BASE_URL = 'https://api.track.toggl.com/api/v9';
 var CREATED_WITH = 'Pebble Toggl Track';
 var TIMEOUT_MS = 15000;
@@ -40,11 +43,11 @@ function isoDate(d) {
 function errorForStatus(status) {
   switch (status) {
     case 401:
-    case 403: return 'API-Token ungültig';
-    case 402: return 'Toggl: Funktion nicht im Plan';
-    case 404: return 'Toggl: nicht gefunden';
-    case 429: return 'Toggl: zu viele Anfragen';
-    default: return 'Toggl-Fehler (HTTP ' + status + ')';
+    case 403: return t('errToken');
+    case 402: return t('errPlan');
+    case 404: return t('errNotFound');
+    case 429: return t('errRate');
+    default: return t('errHttp', status);
   }
 }
 
@@ -86,7 +89,7 @@ Toggl.prototype.request = function (method, path, body, callback) {
         try {
           data = JSON.parse(xhr.responseText);
         } catch (e) {
-          return finish('Toggl: ungültige Antwort');
+          return finish(t('errJson'));
         }
       }
       finish(null, data);
@@ -95,8 +98,8 @@ Toggl.prototype.request = function (method, path, body, callback) {
       finish(errorForStatus(xhr.status));
     }
   };
-  xhr.onerror = function () { finish('Keine Internetverbindung'); };
-  xhr.ontimeout = function () { finish('Toggl antwortet nicht'); };
+  xhr.onerror = function () { finish(t('errOffline')); };
+  xhr.ontimeout = function () { finish(t('errTimeout')); };
 
   xhr.send(body ? JSON.stringify(body) : null);
 };
@@ -248,7 +251,7 @@ DemoToggl.prototype.start = function (workspaceId, projectId, description, cb) {
 };
 DemoToggl.prototype.stop = function (workspaceId, entryId, cb) {
   var e = this.running_;
-  if (!e || e.id !== entryId) { return this.later_(cb, 'Toggl: nicht gefunden'); }
+  if (!e || e.id !== entryId) { return this.later_(cb, t('errNotFound')); }
   e.stop = new Date().toISOString();
   e.duration = Math.max(1, Math.round((Date.parse(e.stop) - Date.parse(e.start)) / 1000));
   this.entries_.push(e); this.running_ = null;
@@ -257,7 +260,7 @@ DemoToggl.prototype.stop = function (workspaceId, entryId, cb) {
 };
 DemoToggl.prototype.update = function (workspaceId, entryId, fields, cb) {
   var e = this.entries_.filter(function (x) { return x.id === entryId; })[0];
-  if (!e) { return this.later_(cb, 'Toggl: nicht gefunden'); }
+  if (!e) { return this.later_(cb, t('errNotFound')); }
   Object.keys(fields).forEach(function (k) { e[k] = fields[k]; });
   this.save_();
   this.later_(cb, null, e);

@@ -39,6 +39,8 @@ deine Toggl-Track-Timer direkt vom Handgelenk startest, stoppst und wechselst.
   Launcher zeigt der App-Glance den laufenden Eintrag mit fortlaufender Dauer.
 * **Demo-Modus:** Mit dem API-Token `demo` läuft die App gegen Beispieldaten,
   ohne Toggl-Konto.
+* **Sprachen:** Deutsch, Englisch, Französisch, Italienisch, Spanisch. Die App
+  folgt der Sprache der Uhr; alles andere fällt auf Englisch zurück.
 
 Die Uhr spricht nur mit dem Handy (PebbleKit JS); das Handy spricht mit der
 [Toggl Track API v9](https://engineering.toggl.com/docs/). Der API-Token bleibt
@@ -95,7 +97,9 @@ src/c/dictation.c      Spracheingabe der Beschreibung
 src/c/reminders.c      Wakeup-Erinnerungen
 src/pkjs/index.js      Handy-Seite: Protokoll, Cache, Aktionen
 src/pkjs/toggl.js      Kleiner Client für die Toggl-API v9 plus Demo-Backend
-src/pkjs/config.js     Einstellungsseite als data:-URL (kein Hosting nötig)
+src/pkjs/config.js     Einstellungsseite als data:-URL (kein Hosting nötig), Spendenlink
+src/pkjs/strings.js    Übersetzungen der Handy-Seite (de, en, fr, it, es)
+src/c/i18n.[ch]        Übersetzungen der Uhr-Seite
 tests/pkjs_smoke.js    Node-Test mit nachgebauter Toggl-API
 ```
 
@@ -115,6 +119,13 @@ tests/pkjs_smoke.js    Node-Test mit nachgebauter Toggl-API
 | 16 `CONFIG` | Handy → Uhr | `REMIND_FLAGS`, `REMIND_MAX_HOURS`, `REMIND_LATE_HOUR`, `REMIND_START_HOUR` |
 
 Projektfarben werden am Handy auf die 64 Pebble-Farben (`GColor8`) umgerechnet.
+
+## Unterstützen
+
+Die App ist kostenlos und ohne Werbung. Wenn sie dir den Tag ein bisschen
+leichter macht, freue ich mich über einen Kaffee:
+[buymeacoffee.com/SIDEffects](https://buymeacoffee.com/SIDEffects). Der Link
+steht auch unten auf der Einstellungsseite in der Pebble-App.
 
 ## Bekannte Grenzen
 

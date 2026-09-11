@@ -1,4 +1,5 @@
 #include "reminders.h"
+#include "i18n.h"
 #include "model.h"
 
 // Apps are suspended when closed, so reminders go through the firmware's
@@ -60,9 +61,9 @@ void reminders_handle_launch(void) {
   vibes_double_pulse();
   light_enable_interaction();
   if (cookie == WAKEUP_RUNNING) {
-    model_set_hint("Läuft noch? SELECT = stoppen");
+    model_set_hint(STR(S_HINT_STILL_RUNNING), HINT_STILL_RUNNING);
   } else {
-    model_set_hint("Kein Timer läuft. Starten?");
+    model_set_hint(STR(S_HINT_NO_TIMER), HINT_NO_TIMER);
   }
 }
 
