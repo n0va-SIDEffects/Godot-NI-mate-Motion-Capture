@@ -48,14 +48,12 @@ Bedienung
 - SELECT lang: Einstellungen
 - UP lang: Nullpunkt neu kalibrieren
 
-Tipp: Zum Spielen den Arm entspannt vor dem Körper halten und die Uhr beim
-Start kurz ruhig lassen. Diese Haltung wird zur Mitte des Tonbereichs. Die
-Lautstärke reagiert auf das Drehen des Handgelenks, ein Stück zu dir gekippt
-ist laut, von dir weg gekippt wird es still.
+Tipp: Arm entspannt vor dem Körper halten und die Uhr beim Start kurz ruhig
+lassen. Diese Haltung wird zur Mitte des Tonbereichs. Zu dir gekippt ist
+laut, von dir weg gekippt wird es still.
 
-Hinweis: Die App braucht einen Lautsprecher und läuft deshalb nur auf der
-Pebble Time 2. Der Kompass-Modus ist experimentell und reagiert träger als
-der Beschleunigungssensor.
+Hinweis: Die App braucht einen Lautsprecher und läuft nur auf der Pebble
+Time 2. Der Kompass-Modus ist experimentell.
 
 Die App ist kostenlos und ohne Werbung. Wenn sie dir Freude macht, freue
 ich mich über einen Kaffee: https://buymeacoffee.com/SIDEffects
@@ -100,11 +98,10 @@ Controls
 
 Tip: Hold your arm relaxed in front of you and keep the watch still for a
 moment when the app starts. That pose becomes the middle of the pitch range.
-Volume follows the twist of your wrist: tilted slightly towards you is loud,
-tilted away goes silent.
+Tilted slightly towards you is loud, tilted away goes silent.
 
-Note: The app needs a speaker and therefore runs on the Pebble Time 2 only.
-Compass mode is experimental and responds more slowly than the accelerometer.
+Note: The app needs a speaker and runs on the Pebble Time 2 only. Compass
+mode is experimental.
 
 The app is free and has no ads. If you enjoy it, a coffee is much
 appreciated: https://buymeacoffee.com/SIDEffects
