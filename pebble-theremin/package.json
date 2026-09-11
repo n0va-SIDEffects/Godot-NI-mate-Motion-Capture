@@ -1,0 +1,22 @@
+{
+  "name": "pebble-theremin",
+  "author": "Mike Heissen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Theremin",
+    "uuid": "a21cd6ec-a3df-4360-97c6-f495c5e9a388",
+    "sdkVersion": "3",
+    "enableMultiJS": false,
+    "targetPlatforms": ["emery"],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [],
+    "resources": {
+      "media": []
+    }
+  }
+}
