@@ -73,7 +73,7 @@ for yy in range(logo.height):
         r,g,b,a=px[xx,yy]
         if r>235 and g>235 and b>235: px[xx,yy]=(r,g,b,0)
 bbox=logo.getbbox(); logo=logo.crop(bbox)
-lw_=120; logo=logo.resize((lw_, int(logo.height*lw_/logo.width)), Image.LANCZOS)
+lw_=150; logo=logo.resize((lw_, int(logo.height*lw_/logo.width)), Image.LANCZOS)
 # Pulslinie und Schriftzug (rechter Teil) auf dem dunklen Grund aufhellen;
 # der Pac-Man samt schwarzem X bleibt unveraendert
 px=logo.load(); split=int(logo.width*0.42)
