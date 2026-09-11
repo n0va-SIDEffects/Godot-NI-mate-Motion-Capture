@@ -25,17 +25,29 @@ Tonhöhe und Lautstärke lassen sich in den Einstellungen je einer Achse zuordne
 | Kompass        | Magnetkompass          | Arm nach links oder rechts schwenken              |
 | Immer voll     | keiner                 | nur für Lautstärke: immer maximale Lautstärke     |
 
-Standard: Tonhöhe über Heben/Senken, Lautstärke über Kompass. Beide Achsen
+Standard: Tonhöhe über Heben/Senken, Lautstärke über Drehen. Beide Achsen
 lassen sich in den Einstellungen umkehren.
 
-**Kompass-Hinweis:** Der Beschleunigungssensor sieht eine Drehung um die
-Hochachse nicht, deshalb läuft "links/rechts" über den Kompass. Der braucht
-beim ersten Start eine Kalibrierung (Uhr in einer 8er-Bewegung schwenken,
-die App zeigt das unten an) und reagiert etwas träger als die
-Beschleunigungsachsen. In Räumen mit viel Stahl oder starken Magnetfeldern
-kann er unruhig werden.
+**Warum kein Links/Rechts über den Beschleunigungssensor?** Der Sensor misst
+die Richtung der Schwerkraft. Heben, Senken und Drehen der Hand verändern
+diese Richtung relativ zur Uhr, ein Schwenk des Arms nach links oder rechts
+dagegen nicht: Die Uhr dreht sich dabei um die Hochachse, und die Schwerkraft
+zeigt weiterhin nach unten. Diese Bewegung ist für den Sensor unsichtbar,
+egal wie die Hand gehalten wird. Nur der Kompass (oder ein Gyroskop, das das
+SDK nicht freigibt) sieht sie. Der Kompass ist als Option enthalten, reagiert
+aber träge und braucht beim ersten Start eine Kalibrierung (8er-Bewegung).
 
-### Einstellungen (SELECT lang)
+### Einstellungen in der Pebble-Handy-App
+
+In der Pebble-App auf dem Handy hat die Theremin-App eine Einstellungsseite
+(Zahnrad bei der App). Sie enthält dieselben Optionen wie das Menü auf der
+Uhr. Beim Speichern werden die Werte an die Uhr geschickt, die Uhr vibriert
+kurz und übernimmt sie sofort. Umgekehrt schickt die Uhr ihre Einstellungen
+beim Start und nach jeder Änderung im Uhr-Menü an das Handy, damit die Seite
+dort den echten Stand zeigt. Die Seite ist mit
+[Clay](https://github.com/pebble/clay) gebaut und liegt in `src/pkjs/config.js`.
+
+### Einstellungen auf der Uhr (SELECT lang)
 
 | Eintrag           | Werte                                                   |
 |-------------------|---------------------------------------------------------|
@@ -76,6 +88,7 @@ Die zuletzt gewählte Wellenform wird gespeichert.
 ```bash
 pip install pebble-tool
 pebble sdk install latest
+npm install          # holt pebble-clay für die Konfigurationsseite
 pebble build
 ```
 
@@ -96,12 +109,15 @@ Das Ergebnis liegt danach unter `build/pebble-theremin.pbw`.
   deutlich mehr (gemessen: 8 KB plus DMA-Blöcke von 256 Bytes), die App
   begrenzt die Latenz also selbst. Fühlt sich der Ton träge an, kann der Wert
   verkleinert werden; setzt der Ton aus, vergrößern.
+- **Kein Flash-Zugriff beim Spielen:** Einstellungen werden erst beim
+  Verlassen der App (oder bei Stille) gespeichert. Ein Schreibzugriff auf den
+  Flash-Speicher blockiert die App kurz und würde den Ton unterbrechen.
 - **Stream-Uhr:** `time_ms()` der Firmware liefert rund um Sekundengrenzen
   gelegentlich Werte, die um genau eine Sekunde daneben liegen. Die App
   filtert diese Sprünge, sonst gerät die Audio-Taktung aus dem Tritt.
 - **Wellenformen:** Rechteck und Sägezahn sind bandbegrenzt (additiv aus
-  Harmonischen bis etwa 7 kHz aufgebaut, in sechs Frequenzbändern) und
-  bewusst leiser als Sinus und Dreieck. Naive Rechteck- und Sägezahnwellen
+  Harmonischen bis etwa 5 kHz aufgebaut, in sechs Frequenzbändern) und
+  etwas leiser als Sinus und Dreieck. Naive Rechteck- und Sägezahnwellen
   haben unendlich viele Obertöne, die bei 16 kHz Abtastrate zurückfalten und
   den kleinen Lautsprecher übersteuern.
 - **Mathematik:** Das Pebble-SDK liefert keine `libm`. Wellenformen und

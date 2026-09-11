@@ -2,19 +2,38 @@
   "name": "pebble-theremin",
   "author": "Mike Heissen",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
   "pebble": {
     "displayName": "Theremin",
     "uuid": "a21cd6ec-a3df-4360-97c6-f495c5e9a388",
     "sdkVersion": "3",
-    "enableMultiJS": false,
-    "targetPlatforms": ["emery"],
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
     "watchapp": {
       "watchface": false
     },
-    "messageKeys": [],
+    "messageKeys": [
+      "PitchAxis",
+      "VolAxis",
+      "InvertPitch",
+      "InvertVol",
+      "Root",
+      "Octaves",
+      "Scale",
+      "PitchSens",
+      "VolSens",
+      "Glide",
+      "Volume",
+      "Wave"
+    ],
     "resources": {
       "media": []
     }

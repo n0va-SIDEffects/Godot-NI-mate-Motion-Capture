@@ -16,6 +16,8 @@
 //   BACK          App beenden
 //
 // Beim Start wird die Haltung der ersten Sekunde automatisch zum Nullpunkt.
+// Die Einstellungen lassen sich auch in der Pebble-Handy-App aendern
+// (Konfigurationsseite ueber Clay, src/pkjs/); Uhr und Handy gleichen sich ab.
 //
 // Das Pebble-SDK liefert keine libm, deshalb ist alles in Festkomma-Arithmetik
 // mit Tabellen geloest (wavetables.h, semitone_table.h).
@@ -65,7 +67,7 @@ static Settings s_set;
 
 static const Settings DEFAULT_SETTINGS = {
   .version = SETTINGS_VERSION, .wave = WaveSine,
-  .pitch_axis = AxisLift, .vol_axis = AxisCompass,
+  .pitch_axis = AxisLift, .vol_axis = AxisRoll,
   .invert_pitch = 0, .invert_vol = 0,
   .root_idx = 1, .octaves = 4, .scale = ScaleFree,
   .pitch_sens = 1, .vol_sens = 1, .glide = 1, .volume_idx = 2,
@@ -112,7 +114,9 @@ static Window *s_menu_window;
 static MenuLayer *s_menu;
 
 static bool s_playing = false;
+static bool s_settings_dirty = false;
 static const char *s_status = "Ruhig halten...";
+static void send_settings_to_phone(void);
 
 // Sensoren (gefiltert)
 static int32_t s_fx = 0, s_fy = 0;           // Beschleunigung, milli-g
@@ -298,7 +302,6 @@ static void compass_handler(CompassHeadingData data) {
   int32_t cw = (TRIG_MAX_ANGLE - data.magnetic_heading) & 0xFFFF;   // im Uhrzeigersinn
   if (!s_have_heading) { s_heading = cw; s_have_heading = true; }
   else s_heading = (s_heading + wrap_angle(cw - s_heading) / 2) & 0xFFFF;
-  update_targets();
 }
 
 static bool compass_needed(void) {
@@ -324,7 +327,7 @@ static void generate_chunk(void) {
   const int8_t *table = WAVETABLES[s_set.wave][s_band];
   for (int i = 0; i < CHUNK_SAMPLES; i++) {
     s_phase_inc += (uint32_t)(((int32_t)(s_target_inc - s_phase_inc)) >> s_glide_shift);
-    s_amp += (s_target_amp - s_amp) >> 7;
+    s_amp += (s_target_amp - s_amp) >> 9;
     s_phase += s_phase_inc;
     int32_t v = (int32_t)table[s_phase >> 24] * s_amp;   // -128*65536 .. 127*65536
     s_chunk[i] = (int16_t)(v >> 8);
@@ -412,7 +415,83 @@ static void settings_load(void) {
 }
 
 static void settings_save(void) {
+  if (!s_settings_dirty) return;
   persist_write_data(PERSIST_KEY_SETTINGS, &s_set, sizeof(s_set));
+  s_settings_dirty = false;
+}
+
+// ---------------------------------------------------------------------------
+// AppMessage: Einstellungen von der Handy-App (Clay) empfangen und den
+// aktuellen Stand an das Handy schicken
+// ---------------------------------------------------------------------------
+static int32_t tuple_to_int(const Tuple *t) {
+  if (!t) return -1;
+  switch (t->type) {
+    case TUPLE_CSTRING: {
+      // Zahl als Text (so schickt Clay Auswahlfelder)
+      const char *c = t->value->cstring;
+      bool neg = false;
+      int32_t v = 0;
+      if (*c == '-') { neg = true; c++; }
+      while (*c >= '0' && *c <= '9') { v = v * 10 + (*c - '0'); c++; }
+      return neg ? -v : v;
+    }
+    case TUPLE_INT:
+      return t->length == 1 ? t->value->int8 : t->length == 2 ? t->value->int16 : t->value->int32;
+    case TUPLE_UINT:
+      return t->length == 1 ? t->value->uint8 : t->length == 2 ? t->value->uint16 : (int32_t)t->value->uint32;
+    default:
+      return -1;
+  }
+}
+
+static void set_u8(uint8_t *dst, const Tuple *t, int32_t lo, int32_t hi) {
+  int32_t v = tuple_to_int(t);
+  if (t && v >= lo && v <= hi) *dst = (uint8_t)v;
+}
+
+static void inbox_dropped(AppMessageResult reason, void *ctx) {
+  APP_LOG(APP_LOG_LEVEL_WARNING, "AppMessage verworfen: %d", (int)reason);
+}
+
+static void inbox_received(DictionaryIterator *iter, void *ctx) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "Einstellungen vom Handy empfangen");
+  set_u8(&s_set.pitch_axis,   dict_find(iter, MESSAGE_KEY_PitchAxis),   0, AxisFixed - 1);
+  set_u8(&s_set.vol_axis,     dict_find(iter, MESSAGE_KEY_VolAxis),     0, AxisCount - 1);
+  set_u8(&s_set.invert_pitch, dict_find(iter, MESSAGE_KEY_InvertPitch), 0, 1);
+  set_u8(&s_set.invert_vol,   dict_find(iter, MESSAGE_KEY_InvertVol),   0, 1);
+  set_u8(&s_set.root_idx,     dict_find(iter, MESSAGE_KEY_Root),        0, ROOT_COUNT - 1);
+  set_u8(&s_set.octaves,      dict_find(iter, MESSAGE_KEY_Octaves),     1, 4);
+  set_u8(&s_set.scale,        dict_find(iter, MESSAGE_KEY_Scale),       0, ScaleCount - 1);
+  set_u8(&s_set.pitch_sens,   dict_find(iter, MESSAGE_KEY_PitchSens),   0, 2);
+  set_u8(&s_set.vol_sens,     dict_find(iter, MESSAGE_KEY_VolSens),     0, 2);
+  set_u8(&s_set.glide,        dict_find(iter, MESSAGE_KEY_Glide),       0, 2);
+  set_u8(&s_set.volume_idx,   dict_find(iter, MESSAGE_KEY_Volume),      0, VOLUME_COUNT - 1);
+  set_u8(&s_set.wave,         dict_find(iter, MESSAGE_KEY_Wave),        0, WaveCount - 1);
+  settings_apply();
+  s_settings_dirty = true;
+  if (!s_playing) settings_save();       // beim Spielen erst am Ende (Flash-Zugriff wuerde knacken)
+  if (s_menu) menu_layer_reload_data(s_menu);
+  if (s_canvas) layer_mark_dirty(s_canvas);
+  vibes_short_pulse();
+}
+
+static void send_settings_to_phone(void) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK) return;
+  dict_write_uint8(iter, MESSAGE_KEY_PitchAxis,   s_set.pitch_axis);
+  dict_write_uint8(iter, MESSAGE_KEY_VolAxis,     s_set.vol_axis);
+  dict_write_uint8(iter, MESSAGE_KEY_InvertPitch, s_set.invert_pitch);
+  dict_write_uint8(iter, MESSAGE_KEY_InvertVol,   s_set.invert_vol);
+  dict_write_uint8(iter, MESSAGE_KEY_Root,        s_set.root_idx);
+  dict_write_uint8(iter, MESSAGE_KEY_Octaves,     s_set.octaves);
+  dict_write_uint8(iter, MESSAGE_KEY_Scale,       s_set.scale);
+  dict_write_uint8(iter, MESSAGE_KEY_PitchSens,   s_set.pitch_sens);
+  dict_write_uint8(iter, MESSAGE_KEY_VolSens,     s_set.vol_sens);
+  dict_write_uint8(iter, MESSAGE_KEY_Glide,       s_set.glide);
+  dict_write_uint8(iter, MESSAGE_KEY_Volume,      s_set.volume_idx);
+  dict_write_uint8(iter, MESSAGE_KEY_Wave,        s_set.wave);
+  app_message_outbox_send();
 }
 
 // ---------------------------------------------------------------------------
@@ -484,6 +563,7 @@ static void menu_select(MenuLayer *ml, MenuIndex *idx, void *data) {
     case RowWave:        s_set.wave = (s_set.wave + 1) % WaveCount; break;
   }
   settings_apply();
+  s_settings_dirty = true;
   menu_layer_reload_data(ml);
 }
 
@@ -503,20 +583,21 @@ static void menu_window_load(Window *window) {
 }
 
 static void menu_window_unload(Window *window) {
-  settings_save();
   menu_layer_destroy(s_menu);
   s_menu = NULL;
-  window_destroy(s_menu_window);
-  s_menu_window = NULL;
+  s_settings_dirty = true;
+  send_settings_to_phone();
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
 static void open_settings(void) {
-  if (s_menu_window) return;
-  s_menu_window = window_create();
-  window_set_window_handlers(s_menu_window, (WindowHandlers){
-    .load = menu_window_load, .unload = menu_window_unload,
-  });
+  if (!s_menu_window) {
+    s_menu_window = window_create();
+    window_set_window_handlers(s_menu_window, (WindowHandlers){
+      .load = menu_window_load, .unload = menu_window_unload,
+    });
+  }
+  if (window_stack_contains_window(s_menu_window)) return;
   window_stack_push(s_menu_window, true);
 }
 
@@ -602,7 +683,8 @@ static void up_long(ClickRecognizerRef rec, void *ctx)     { start_calibration()
 
 static void wave_step(int dir) {
   s_set.wave = (uint8_t)(((int)s_set.wave + dir + WaveCount) % WaveCount);
-  settings_save();
+  s_settings_dirty = true;
+  send_settings_to_phone();
   layer_mark_dirty(s_canvas);
 }
 static void up_click(ClickRecognizerRef rec, void *ctx)   { wave_step(-1); }
@@ -644,14 +726,20 @@ static void init(void) {
   s_glide_shift = GLIDE_SHIFT[s_set.glide];
   update_targets();
 
+  app_message_register_inbox_received(inbox_received);
+  app_message_register_inbox_dropped(inbox_dropped);
+  app_message_open(256, 128);
+
   s_window = window_create();
   window_set_click_config_provider(s_window, click_config);
   window_set_window_handlers(s_window, (WindowHandlers){ .load = window_load, .unload = window_unload });
   window_stack_push(s_window, true);
+  send_settings_to_phone();
 }
 
 static void deinit(void) {
   settings_save();
+  if (s_menu_window) window_destroy(s_menu_window);
   window_destroy(s_window);
 }
 
