@@ -49,8 +49,8 @@ def icon_colored(size, color, wave):
     d.rounded_rectangle([420,840,604,900], radius=24, fill=color)
     return im.resize((size,size), Image.LANCZOS)
 big=Image.new('RGBA',(W*SS,H*SS),DARK); d=ImageDraw.Draw(big)
-wave_poly(d, 205, 55, 2.2, (45,75,105), 22, s=SS)
-wave_poly(d, 205, 55, 2.2, BLUE, 7, s=SS)
+wave_poly(d, 224, 40, 2.2, (45,75,105), 22, s=SS)   # tiefer, damit der Text frei bleibt
+wave_poly(d, 224, 40, 2.2, BLUE, 7, s=SS)
 ban=big.resize((W,H),Image.LANCZOS); d=ImageDraw.Draw(ban)
 ban.alpha_composite(icon_colored(120, WHITE, BLUE),(30,26))
 try:
@@ -74,12 +74,13 @@ for yy in range(logo.height):
         if r>235 and g>235 and b>235: px[xx,yy]=(r,g,b,0)
 bbox=logo.getbbox(); logo=logo.crop(bbox)
 lw_=120; logo=logo.resize((lw_, int(logo.height*lw_/logo.width)), Image.LANCZOS)
-# schwarze Linien des Logos auf dem dunklen Grund aufhellen
-px=logo.load()
+# Pulslinie und Schriftzug (rechter Teil) auf dem dunklen Grund aufhellen;
+# der Pac-Man samt schwarzem X bleibt unveraendert
+px=logo.load(); split=int(logo.width*0.42)
 for yy in range(logo.height):
-    for xx in range(logo.width):
+    for xx in range(split, logo.width):
         r,g,b,a=px[xx,yy]
         if a>0 and r<90 and g<90 and b<90: px[xx,yy]=(225,232,240,a)
-ban.alpha_composite(logo,(30, H-logo.height-12))
+ban.alpha_composite(logo,(30, H-logo.height-8))
 ban.convert('RGB').save(f'{base}/banner_720x320.png')
 print("icons ok")
