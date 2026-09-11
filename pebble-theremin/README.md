@@ -6,15 +6,55 @@ der Ton kommt in Echtzeit aus dem Lautsprecher der Uhr.
 
 ## Bedienung
 
-| Geste / Taste            | Wirkung                                              |
+| Taste                    | Wirkung                                              |
 |--------------------------|------------------------------------------------------|
-| Handgelenk links/rechts rollen | Tonhöhe, 4 Oktaven von A2 (110 Hz) bis A6 (1760 Hz) |
-| Uhr zu dir kippen        | lauter                                               |
-| Uhr von dir weg kippen   | leiser bis stumm                                     |
 | SELECT                   | Ton an / aus                                         |
-| SELECT lang drücken      | Nullpunkt neu kalibrieren (Uhr etwa 1 Sekunde ruhig halten) |
+| SELECT lang drücken      | Einstellungen öffnen                                 |
 | UP / DOWN                | Wellenform: Sinus, Dreieck, Rechteck, Sägezahn       |
+| UP lang drücken          | Nullpunkt neu kalibrieren (Uhr etwa 1 Sekunde ruhig halten) |
 | BACK                     | App beenden                                          |
+
+### Steuerachsen
+
+Tonhöhe und Lautstärke lassen sich in den Einstellungen je einer Achse zuordnen:
+
+| Achse          | Sensor                 | Bewegung                                          |
+|----------------|------------------------|---------------------------------------------------|
+| Heben/Senken   | Beschleunigungssensor  | Hand heben und senken                             |
+| Drehen         | Beschleunigungssensor  | Handgelenk drehen, Uhr zu dir oder von dir weg    |
+| Kompass        | Magnetkompass          | Arm nach links oder rechts schwenken              |
+| Immer voll     | keiner                 | nur für Lautstärke: immer maximale Lautstärke     |
+
+Standard: Tonhöhe über Heben/Senken, Lautstärke über Kompass. Beide Achsen
+lassen sich in den Einstellungen umkehren.
+
+**Kompass-Hinweis:** Der Beschleunigungssensor sieht eine Drehung um die
+Hochachse nicht, deshalb läuft "links/rechts" über den Kompass. Der braucht
+beim ersten Start eine Kalibrierung (Uhr in einer 8er-Bewegung schwenken,
+die App zeigt das unten an) und reagiert etwas träger als die
+Beschleunigungsachsen. In Räumen mit viel Stahl oder starken Magnetfeldern
+kann er unruhig werden.
+
+### Einstellungen (SELECT lang)
+
+| Eintrag           | Werte                                                   |
+|-------------------|---------------------------------------------------------|
+| Kalibrieren       | Nullpunkt neu setzen                                    |
+| Tonhöhe           | Heben/Senken, Drehen, Kompass                           |
+| Lautstärke        | Drehen, Heben/Senken, Kompass, Immer voll               |
+| Tonhöhe umkehren  | Nein / Ja                                               |
+| Lautst. umkehren  | Nein / Ja                                               |
+| Tiefster Ton      | C2, A2, C3, A3                                          |
+| Umfang            | 1 bis 4 Oktaven                                         |
+| Tonleiter         | Frei, Chromatisch, Dur, Moll, Pentatonik (rastet auf Töne ein) |
+| Empf. Tonhöhe     | Fein, Mittel, Grob (wie viel Bewegung der volle Bereich braucht) |
+| Empf. Lautstärke  | Fein, Mittel, Grob                                      |
+| Portamento        | Kurz, Mittel, Lang (Gleiten zwischen Tönen)             |
+| Max. Lautstärke   | 60 %, 80 %, 100 %                                       |
+| Wellenform        | Sinus, Dreieck, Rechteck, Sägezahn                      |
+
+SELECT auf einem Eintrag schaltet zum nächsten Wert. Alle Einstellungen
+werden auf der Uhr gespeichert.
 
 **Kalibrierung:** Beim Start hält man die Uhr etwa eine Sekunde in der
 Spielhaltung ruhig ("Ruhig halten..."). Die Uhr vibriert kurz, danach ist diese
@@ -59,18 +99,18 @@ Das Ergebnis liegt danach unter `build/pebble-theremin.pbw`.
 - **Stream-Uhr:** `time_ms()` der Firmware liefert rund um Sekundengrenzen
   gelegentlich Werte, die um genau eine Sekunde daneben liegen. Die App
   filtert diese Sprünge, sonst gerät die Audio-Taktung aus dem Tritt.
-- **Mathematik:** Das Pebble-SDK liefert keine `libm`. Sinus und Halbton-
-  verhältnisse kommen aus generierten Tabellen (`sine_table.h`,
+- **Wellenformen:** Rechteck und Sägezahn sind bandbegrenzt (additiv aus
+  Harmonischen bis etwa 7 kHz aufgebaut, in sechs Frequenzbändern) und
+  bewusst leiser als Sinus und Dreieck. Naive Rechteck- und Sägezahnwellen
+  haben unendlich viele Obertöne, die bei 16 kHz Abtastrate zurückfalten und
+  den kleinen Lautsprecher übersteuern.
+- **Mathematik:** Das Pebble-SDK liefert keine `libm`. Wellenformen und
+  Halbtonverhältnisse kommen aus generierten Tabellen (`wavetables.h`,
   `semitone_table.h`), alles andere ist Festkomma-Arithmetik.
 
-## Feinjustierung
+## Feinjustierung im Code
 
-Die wichtigsten Stellschrauben stehen oben in `src/c/theremin.c`:
-
-| Konstante          | Bedeutung                                              |
-|--------------------|--------------------------------------------------------|
-| `TILT_PITCH_RANGE` | Rollwinkel (milli-g), der den vollen Tonbereich abdeckt |
-| `TILT_VOL_MIN/MAX` | Kippbereich für stumm bis maximale Lautstärke          |
-| `F_MIN_HZ`, `OCTAVES` | Tonbereich                                          |
-| `LEAD_MS`          | Audio-Vorlauf, bestimmt die Latenz                     |
-| `STREAM_VOLUME`    | Grundlautstärke des Lautsprechers (0-100)              |
+Die Empfindlichkeitsstufen stehen als Tabellen oben in `src/c/theremin.c`
+(`PITCH_RANGE_MG`, `PITCH_RANGE_DEG`, `VOL_RANGE_MG`, `VOL_RANGE_DEG`), der
+Audio-Vorlauf als `LEAD_MS`. Die Lautstärke-Faktoren für Rechteck und Sägezahn
+stehen im Generator-Skript-Kommentar in `wavetables.h`.
