@@ -2,7 +2,9 @@
   "name": "pebble-sampler",
   "author": "Mike Heissen",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -10,7 +12,9 @@
     "uuid": "da4c3014-f45d-4a8b-a923-416aaafe030b",
     "sdkVersion": "3",
     "enableMultiJS": true,
-    "targetPlatforms": ["emery"],
+    "targetPlatforms": [
+      "emery"
+    ],
     "watchapp": {
       "watchface": false
     },
@@ -22,6 +26,96 @@
           "name": "MENU_ICON",
           "file": "images/icon.png",
           "menuIcon": true
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_APPLAUS",
+          "file": "samples/applaus.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_FURZ",
+          "file": "samples/furz.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_RUELPSER",
+          "file": "samples/ruelpser.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_EXPLOSION",
+          "file": "samples/explosion.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_TROMMELWIRBEL",
+          "file": "samples/trommelwirbel.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_BA_DUM_TSS",
+          "file": "samples/ba_dum_tss.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_KA_CHING",
+          "file": "samples/ka_ching.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_KATZE",
+          "file": "samples/katze.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_TROETE",
+          "file": "samples/troete.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_SIRENE",
+          "file": "samples/sirene.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_BUZZER",
+          "file": "samples/buzzer.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_GONG",
+          "file": "samples/gong.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_KLOSPUELUNG",
+          "file": "samples/klospuelung.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_HAHN",
+          "file": "samples/hahn.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_NIESEN",
+          "file": "samples/niesen.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_LACHEN",
+          "file": "samples/lachen.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_ELEFANT",
+          "file": "samples/elefant.pcm"
+        },
+        {
+          "type": "raw",
+          "name": "SAMPLE_PFERD",
+          "file": "samples/pferd.pcm"
         }
       ]
     }

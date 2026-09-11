@@ -1,40 +1,44 @@
 # Sampler für die Pebble Time 2
 
-Ein Soundboard für den eingebauten Lautsprecher der Pebble Time 2. Alle Sounds
-werden direkt auf der Uhr synthetisiert (kein einziges Audio-Asset), die App
-ist deshalb winzig (~17 KB) und braucht keine Handy-Verbindung.
+Ein Soundboard für den eingebauten Lautsprecher der Pebble Time 2: echte
+Aufnahmen für die Geräusche, synthetisierte Jingles für den Rest. Die App
+braucht keine Handy-Verbindung.
 
 ## Sounds
+
+Die „realistischen“ Geräusche sind echte, gemeinfreie Aufnahmen von
+Wikimedia Commons (Nachweise in `resources/samples/ATTRIBUTION.md`), die
+Jingles werden auf der Uhr synthetisiert.
 
 | Sound | Was man hört | Technik |
 |---|---|---|
 | Zufall | Ein zufälliger Sound aus der Liste | – |
-| (eigene Samples) | Importierte Clips erscheinen ganz oben | PCM aus dem Flash |
-| Applaus | Klatschende Menge mit An- und Abschwellen | PCM-Synthese |
-| Tusch | Dreistimmige Fanfare „Ta-daaa!“ | Noten, 3 Tracks |
-| Furz | Wabernder Brummton mit Flattern und Sputtern | PCM-Synthese |
-| Rülpser | Kurz, tief, gurgelnd | PCM-Synthese |
-| Fall | Lotusflöte abwärts, dann dumpfer Aufschlag | PCM-Synthese |
-| Sad Trombone | „Wah wah wah waaah“ mit Vibrato am Ende | PCM-Synthese |
-| Trommelwirbel | Beschleunigender Wirbel mit Crescendo und Becken | PCM-Synthese |
-| Ba-Dum-Tss | Zwei Toms und ein Becken | PCM-Synthese |
-| Boing | Sprungfeder mit abklingendem Wobbeln | PCM-Synthese |
-| Buzzer | Verstimmtes „EHHH“ für falsche Antworten | PCM-Synthese |
-| Ka-Ching | Klick plus Glockenpartials | PCM-Synthese |
+| Applaus | Echter Konzertsaal-Applaus | Aufnahme |
+| Furz | Pardon. | Aufnahme |
+| Rülpser | Wohl bekomm's | Aufnahme |
+| Explosion | Kabumm | Aufnahme |
+| Trommelwirbel | Wirbel mit Becken-Finale | Aufnahme (gemischt) |
+| Ba-Dum-Tss | Zwei Snare-Schläge und Becken | Aufnahme (gemischt) |
+| Ka-Ching | Registrierkasse | Aufnahme |
+| Katze | Siamkatze, Miau | Aufnahme |
+| Tröte | Diesellok-Horn | Aufnahme |
+| Sirene | Feuerwehr-Motorsirene | Aufnahme |
+| Buzzer | Falsch! | Aufnahme |
+| Gong | Vorstellung beginnt | Aufnahme |
+| Klospülung | Weg damit | Aufnahme |
+| Hahn | Kikeriki | Aufnahme |
+| Niesen | Hatschi | Aufnahme |
+| Lachen | Ha ha ha | Aufnahme |
+| Elefant | Töröö | Aufnahme |
+| Pferd | Wiehern | Aufnahme |
+| Sad Trombone | „Wah wah wah waaah“ mit Vibrato | PCM-Synthese |
 | Level-Up | Schnelles aufsteigendes Arpeggio | Noten |
 | Game Over | Zwei absteigende Stimmen | Noten, 2 Tracks |
-| Lachen | Sechs absteigende „Ha“-Silben | PCM-Synthese |
+| Tusch | „Ta-daaa!“ mit Echo-Stimme | Noten, 2 Tracks |
 | Grille | Drei Zirp-Gruppen für peinliche Stille | PCM-Synthese |
-| Explosion | Übersteuertes Rauschen, das dunkler wird | PCM-Synthese |
-| Sirene | Langsam pendelnder Sweep | PCM-Synthese |
-| Katze | „Miau“ mit Formantverlauf | PCM-Synthese |
-| Tröte | Airhorn, drei Stöße | PCM-Synthese |
-| Pfiff | Wolf-Pfiff, hoch, Pause, hoch-runter | PCM-Synthese |
-| Kuckuck | Kuckucksuhr | Noten |
+| Pfiff | Wolf-Pfiff | PCM-Synthese |
 | Laser | Pew pew pew | PCM-Synthese |
-| Dun Dun Duuun | Dramatischer Sting, d-Moll nach E-vermindert | Noten, 3 Tracks |
 | Klingel | Ding dong mit Oktav-Schimmer | Noten, 2 Tracks |
-| Zauber | Zwei verschränkte Glitzer-Läufe | Noten, 2 Tracks |
 
 ## Bedienung
 
@@ -71,7 +75,10 @@ ohne. Mit `--start 2.5` lässt sich ein Ausschnitt wählen, `--replace`
 überschreibt ein vorhandenes Sample, `--color GColorRedARGB8` setzt die
 Menüfarbe. `python3 tools/import_sample.py --help` zeigt alle Optionen.
 
-Budget: Eine Pebble-App darf insgesamt 256 KB Ressourcen haben, das sind
+Budget: Eine Pebble-App darf insgesamt 256 KB Ressourcen haben. Die
+mitgelieferten Samples belegen davon schon rund 230 KB; für ein neues Sample
+muss also ein altes weichen (Zeile in `src/c/samples.inc` und Eintrag in
+`package.json` löschen, `.pcm` entfernen). Zur Orientierung: 256 KB, das sind
 rund 15 Sekunden Audio bei 16 kHz/8 Bit oder 30 Sekunden bei 8 kHz/8 Bit
 (`--rate 8000`, für Geräusche wie Applaus oder Explosionen völlig
 ausreichend). Das Werkzeug zeigt nach jedem Import den Füllstand an.
@@ -122,8 +129,9 @@ liefert. Die Streaming-Pumpe rendert 32-ms-Blöcke in den Speaker-Stream und
 füllt per App-Timer nach, damit die Oberfläche flüssig bleibt.
 
 Hinweis zur Klanggestaltung: Der Uhrlautsprecher ist winzig und gibt unter
-etwa 300 Hz kaum etwas wieder. Die tiefen Sounds (Furz, Rülpser, Toms) leben
-deshalb bewusst von Sägezahn- und Rechteck-Obertönen sowie Rauschanteilen.
+etwa 300 Hz kaum etwas wieder. Rein synthetische Geräusche wirken darauf
+schnell künstlich, tonale Jingles funktionieren dagegen sehr gut. Deshalb
+sind die Geräusche echte Aufnahmen und die Jingles synthetisch.
 
 ## Neue Sounds hinzufügen
 
