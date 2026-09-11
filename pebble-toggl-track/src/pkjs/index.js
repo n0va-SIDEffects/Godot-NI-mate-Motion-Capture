@@ -43,8 +43,13 @@ var CLIENT_BYTES = 47;      // CLIENT_LEN - 1
 var REMIND_RUNNING = 1;     // "still running?" after N hours / late in the evening
 var REMIND_NO_TIMER = 2;    // "nothing running" on weekday mornings
 
+var DIAG_KEY = 'toggl_diag';
+var POLL_MS = 30000;           // how often the running entry is re-checked while the app is open
+
 var settings = config.normalise(loadJson(SETTINGS_KEY));
 var cache = loadJson(CACHE_KEY) || { projects: [], recent: [], status: null };
+var diag = loadJson(DIAG_KEY) || {};
+var pollTimer = null;
 var projectsById = {};
 var clientsById = {};
 var defaultWorkspaceId = null;
@@ -126,6 +131,7 @@ function utf8Clip(str, maxBytes) {
 
 function sendError(text) {
   console.log('Error: ' + text);
+  note('lastError', String(text));
   enqueue(msg(CMD.ERROR, { MESSAGE: utf8Clip(text, MESSAGE_BYTES) }));
 }
 
@@ -189,7 +195,8 @@ function statusFromEntry(entry, entries) {
   var p = projectInfo(entry.project_id);
   base.running = 1;
   base.description = entry.description || '';
-  base.projectName = p ? p.name : (entry.project_name || '');
+  base.projectName = p ? p.name : (entry.project_name || (entry.project_id ? 'Projekt #' + entry.project_id : ''));
+  if (entry.project_id && !p) { note('lookupMiss', 'project_id ' + entry.project_id + ' not in ' + Object.keys(projectsById).length + ' projects'); }
   base.color = p ? toPebbleColor(p.color) : 0;
   base.start = Math.floor(Date.parse(entry.start) / 1000) || Math.floor(Date.now() / 1000);
   base.entryId = entry.id;
@@ -351,6 +358,19 @@ function saveCache() {
   saveJson(CACHE_KEY, cache);
 }
 
+// Small trail of what happened last, shown at the bottom of the settings page.
+function note(key, value) {
+  diag[key] = value;
+  diag.at = new Date().toISOString();
+  saveJson(DIAG_KEY, diag);
+}
+
+function entrySummary(e) {
+  if (!e) { return 'null'; }
+  return 'id=' + e.id + ' project_id=' + e.project_id + ' pid=' + e.pid + ' wid=' + (e.workspace_id || e.wid) +
+    ' desc="' + (e.description || '') + '"';
+}
+
 // --- Actions -----------------------------------------------------------------
 
 // Full refresh: projects, clients and entries first (needed for names and the
@@ -365,6 +385,7 @@ function refreshAll(showProgress) {
   api.projects(function (err, projects) {
     if (err) { busy = false; return sendError(err); }
     indexProjects(projects);
+    note('projects', projects.length + ' active');
 
     api.clients(function (errC, clients) {
       if (errC) { clients = []; }          // clients are decoration only
@@ -451,14 +472,21 @@ function startTimer(projectId, description) {
     // Toggl allows only one running entry; stop the current one first.
     stopRunning(api, function (err2) {
       if (err2) { busy = false; return sendError(err2); }
+      note('lastStart', 'projectId=' + projectId + ' desc="' + description + '" wid=' + workspaceId);
       api.start(workspaceId, projectId, description, function (err3, entry) {
-        busy = false;
-        if (err3) { return sendError(err3); }
-        var status = statusFromEntry(entry);
-        sendStatus(status);
-        cache.status = status;
-        saveCache();
-        refreshAfterChange(entry);
+        if (err3) { busy = false; return sendError(err3); }
+        note('lastStartReply', entrySummary(entry));
+        // Toggl's own view of the running entry is authoritative.
+        api.current(function (err4, current) {
+          busy = false;
+          if (!err4 && current && current.id) { entry = current; }
+          note('lastCurrent', entrySummary(entry));
+          var status = statusFromEntry(entry);
+          sendStatus(status);
+          cache.status = status;
+          saveCache();
+          refreshAfterChange(entry);
+        });
       });
     });
   });
@@ -500,6 +528,34 @@ function previousTimer() {
   });
 }
 
+// Re-check the running entry while the app is open, so a timer stopped or
+// started on the phone or the web shows up on the watch within POLL_MS.
+function pollStatus() {
+  if (!settings.token || busy) { return; }
+  var api = client();
+  api.current(function (err, entry) {
+    if (err) { return; }
+    var status = statusFromEntry(entry, cache.entries);
+    var old = cache.status || {};
+    var changed = status.running !== old.running || status.entryId !== old.entryId ||
+      status.start !== old.start || status.description !== old.description || status.projectName !== old.projectName;
+    if (!changed) { return; }
+    note('pollChange', entrySummary(entry));
+    cache.status = status;
+    saveCache();
+    refreshAfterChange(entry);      // sends the status with a fresh daily total
+  });
+}
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(pollStatus, POLL_MS);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
 // --- Pebble events -----------------------------------------------------------
 
 function field(payload, name) {
@@ -519,6 +575,7 @@ Pebble.addEventListener('ready', function () {
   sendFavorites();
   if (cache.recent && cache.recent.length) { sendRecent(cache.recent); }
   refreshAll(!cache.status);
+  startPolling();
 });
 
 Pebble.addEventListener('appmessage', function (e) {
@@ -544,7 +601,7 @@ Pebble.addEventListener('appmessage', function (e) {
 
 Pebble.addEventListener('showConfiguration', function () {
   strings.detectLanguage();
-  Pebble.openURL(config.buildConfigUrl(settings, cache.projects || []));
+  Pebble.openURL(config.buildConfigUrl(settings, cache.projects || [], diag));
 });
 
 Pebble.addEventListener('webviewclosed', function (e) {
@@ -564,4 +621,5 @@ Pebble.addEventListener('webviewclosed', function (e) {
   refreshAll(true);
 });
 
-module.exports = { utf8Clip: utf8Clip, toPebbleColor: toPebbleColor, secondsToday: secondsToday };
+module.exports = { utf8Clip: utf8Clip, toPebbleColor: toPebbleColor, secondsToday: secondsToday,
+  pollStatus: pollStatus, stopPolling: stopPolling };

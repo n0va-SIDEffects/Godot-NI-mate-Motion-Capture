@@ -141,9 +141,14 @@ function detectLanguage() {
   return pickLanguage(code);
 }
 
+function currentCode() {
+  for (var k in TABLES) { if (TABLES[k] === current) { return k; } }
+  return 'en';
+}
+
 function t(key, arg) {
   var s = current[key] !== undefined ? current[key] : (TABLES.en[key] || key);
   return arg === undefined ? s : s.replace('%s', arg);
 }
 
-module.exports = { t: t, pickLanguage: pickLanguage, detectLanguage: detectLanguage, TABLES: TABLES };
+module.exports = { t: t, pickLanguage: pickLanguage, detectLanguage: detectLanguage, current: currentCode, TABLES: TABLES };

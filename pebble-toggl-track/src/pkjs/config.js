@@ -62,8 +62,9 @@ function projectOptions(projects, selectedId, noProjectLabel) {
 
 var SUPPORT_URL = 'https://buymeacoffee.com/SIDEffects';
 
-function buildConfigUrl(settings, projects) {
+function buildConfigUrl(settings, projects, diag) {
   var t = strings.t;
+  diag = diag || {};
   settings = normalise(settings);
   var favHtml = '';
   for (var i = 0; i < MAX_FAVORITES; i++) {
@@ -94,6 +95,7 @@ function buildConfigUrl(settings, projects) {
     'button.coffee{background:#ffdd00;color:#000;margin-top:10px}' +
     'a{color:#e57cd8}.hint{font-size:13px;color:#777;margin-top:6px}' +
     '.support{margin-top:30px;padding:16px;background:#fff;border-radius:10px;border:1px solid #e5e5e5}' +
+    '.diag{margin-top:20px;color:#777;font-size:12px}.diag pre{white-space:pre-wrap;word-break:break-all;background:#fff;padding:10px;border-radius:8px}' +
     '</style></head><body>' +
     '<h1>' + escapeHtml(t('title')) + '</h1>' +
     '<p>' + escapeHtml(t('tagline')) + '</p>' +
@@ -124,6 +126,10 @@ function buildConfigUrl(settings, projects) {
     '<div class="support"><h2 style="margin-top:0">' + escapeHtml(t('support')) + '</h2>' +
     '<p>' + escapeHtml(t('supportText')) + ' <a href="' + SUPPORT_URL + '" target="_blank">' + SUPPORT_URL.replace('https://', '') + '</a></p>' +
     '<button type="button" class="coffee" id="coffee">' + escapeHtml(t('coffee')) + '</button></div>' +
+    '<details class="diag"><summary>Diagnose / Diagnostics</summary><pre>' +
+    escapeHtml(['language: ' + strings.current(), 'projects: ' + (projects ? projects.length : 0) + ' cached']
+      .concat(Object.keys(diag).map(function (k) { return k + ': ' + diag[k]; })).join('\n')) +
+    '</pre></details>' +
     '<script>' +
     'function v(id){return document.getElementById(id).value;}' +
     'function c(id){return document.getElementById(id).checked;}' +

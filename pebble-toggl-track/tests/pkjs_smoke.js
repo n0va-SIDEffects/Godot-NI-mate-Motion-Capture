@@ -173,8 +173,31 @@ settle(function () {
           settle(function () {
             assert.strictEqual(ofCmd(10).length, 1);
             assert.strictEqual(ofCmd(11).length, 0, 'unchanged project list not resent');
-            rt.cleanup();
-            console.log('pkjs smoke test: OK');
+            rt.sent = []; rt.requests = [];
+
+            // 7. Polling: a timer started on the phone/web shows up without any watch action.
+            running = { id: 900, description: 'Vom Handy', pid: 12, wid: 77, start: new Date().toISOString(), duration: -1 };
+            app.pollStatus();
+            settle(function () {
+              assert.strictEqual(last(10).RUNNING, 1, 'poll picked up the external start');
+              assert.strictEqual(last(10).DESCRIPTION, 'Vom Handy');
+              assert.strictEqual(last(10).PROJECT_NAME, 'Admin');
+              rt.sent = [];
+              app.pollStatus();                 // nothing changed -> nothing sent
+              settle(function () {
+                assert.strictEqual(ofCmd(10).length, 0, 'unchanged status not resent');
+                running = null;                 // stopped on the phone
+                app.pollStatus();
+                settle(function () {
+                  assert.strictEqual(last(10).RUNNING, 0, 'poll picked up the external stop');
+                  var diag = JSON.parse(rt.storage.toggl_diag);
+                  assert.ok(/project_id=11/.test(diag.lastStartReply), 'diagnostics recorded: ' + diag.lastStartReply);
+                  app.stopPolling();
+                  rt.cleanup();
+                  console.log('pkjs smoke test: OK');
+                });
+              });
+            });
           });
         });
       });
