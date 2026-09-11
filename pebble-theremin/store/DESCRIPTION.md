@@ -57,6 +57,9 @@ Hinweis: Die App braucht einen Lautsprecher und läuft deshalb nur auf der
 Pebble Time 2. Der Kompass-Modus ist experimentell und reagiert träger als
 der Beschleunigungssensor.
 
+Die App ist kostenlos und ohne Werbung. Wenn sie dir Freude macht, freue
+ich mich über einen Kaffee: https://buymeacoffee.com/SIDEffects
+
 ---
 
 ## English
@@ -102,3 +105,6 @@ tilted away goes silent.
 
 Note: The app needs a speaker and therefore runs on the Pebble Time 2 only.
 Compass mode is experimental and responds more slowly than the accelerometer.
+
+The app is free and has no ads. If you enjoy it, a coffee is much
+appreciated: https://buymeacoffee.com/SIDEffects

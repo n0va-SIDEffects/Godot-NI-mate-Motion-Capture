@@ -21,6 +21,9 @@ var TEXT = {
     backlight: "Beleuchtung dauerhaft an", backlightNote: "Hält die Displaybeleuchtung an, solange die App läuft. Kostet Akku.",
     maxVol: "Maximale Lautstärke",
     display: "Anzeige", language: "Sprache auf der Uhr", auto: "Automatisch (Systemsprache)",
+    support: "Unterstützen",
+    supportText: "Die App ist kostenlos und ohne Werbung. Wenn sie dir Freude macht, freue ich mich über einen Kaffee: <a href=\"https://buymeacoffee.com/SIDEffects\" target=\"_blank\">buymeacoffee.com/SIDEffects</a>",
+    donate: "☕ Buy me a coffee",
     save: "Speichern"
   },
   en: {
@@ -43,6 +46,9 @@ var TEXT = {
     backlight: "Backlight always on", backlightNote: "Keeps the display backlight on while the app runs. Uses battery.",
     maxVol: "Maximum volume",
     display: "Display", language: "Language on the watch", auto: "Automatic (system language)",
+    support: "Support",
+    supportText: "The app is free and has no ads. If you enjoy it, a coffee is much appreciated: <a href=\"https://buymeacoffee.com/SIDEffects\" target=\"_blank\">buymeacoffee.com/SIDEffects</a>",
+    donate: "☕ Buy me a coffee",
     save: "Save"
   }
 };
@@ -91,6 +97,11 @@ module.exports = function(lang) {
       { type: "select", messageKey: "Language", label: t.language, defaultValue: "0",
         options: [ { label: t.auto, value: "0" }, { label: "Deutsch", value: "1" }, { label: "English", value: "2" } ] }
     ] },
-    { type: "submit", defaultValue: t.save }
+    { type: "submit", defaultValue: t.save },
+    { type: "section", items: [
+      { type: "heading", defaultValue: t.support },
+      { type: "text", defaultValue: t.supportText },
+      { type: "button", id: "donate", primary: true, defaultValue: t.donate }
+    ] }
   ];
 };
