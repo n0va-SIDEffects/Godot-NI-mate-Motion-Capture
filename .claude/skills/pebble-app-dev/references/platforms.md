@@ -6,9 +6,9 @@
 | basalt   | Pebble Time, Time Steel | 144×168 | 64 colours | rect | 64 KB | |
 | chalk    | Pebble Time Round | 180×180 | 64 colours | round | 64 KB | content must respect the circle |
 | diorite  | Pebble 2 | 144×168 | 1-bit B/W | rect | 64 KB | heart rate |
-| emery    | **Pebble Time 2 / Core Time 2** | **200×228** | 64 colours (e-paper) | rect | 128 KB | mic, heart rate, compass; primary target |
+| emery    | **Pebble Time 2 / Core Time 2** | **200×228** | 64 colours (e-paper) | rect | 128 KB | touch (`PBL_TOUCH`), mic, heart rate, compass; primary target |
 | flint    | Pebble 2 Duo / Core 2 Duo | 144×168 | 1-bit B/W | rect | 64 KB | new SDK only |
-| gabbro   | Time 2 Round | round | 64 colours | round | 128 KB | new SDK only; layout from bounds |
+| gabbro   | Time 2 Round | 260×260 | 64 colours | round | 128 KB | touch (`PBL_TOUCH`); new SDK only |
 
 `targetPlatforms` in package.json selects the builds; the default template
 lists all seven. Old SDK cores (≤ 4.3) do not know flint/gabbro.

@@ -43,6 +43,13 @@ Verified 2026-09 in a Claude Code cloud container (SDK 4.33.1, firmware 4.33.2):
   "Install an app to continue"; run `pebble install` once more.
 - `pebble logs` is noisy with `[PHONESIM] Exception decoding
   QemuInboundPacket.footer` warnings; they are harmless. Filter them out.
+- **Touch in the emulator**: pebble-tool has no touch command, but QEMU
+  exposes the panel as "Pebble Touch (absolute)" and the VNC framebuffer is
+  exactly the display (200×228 on emery), so VNC pointer events are touches:
+  `pip install vncdotool`, then
+  `vncdo -s localhost::5901 move X Y mousedown 1 pause 0.2 mouseup 1`.
+  A bare `click 1` is too short to register. The QEMU monitor port from
+  `/tmp/pb-emulator.json` accepts `mouse_move`/`mouse_button` as well.
 - Screenshots take 1–2 s; sleep ~10 s after install before the first one so
   the JS side has answered.
 

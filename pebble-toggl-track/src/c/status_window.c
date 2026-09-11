@@ -224,6 +224,31 @@ static void prv_click_config_provider(void *context) {
   window_long_click_subscribe(BUTTON_ID_SELECT, 500, prv_select_long_click, NULL);
 }
 
+// --- Touch (Pebble Time 2 / Time 2 Round) ------------------------------------
+
+#ifdef PBL_TOUCH
+// A tap on the content opens the project list; a tap on an action-bar icon
+// acts like the button next to it.
+static void prv_tap_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (event != RecognizerEvent_Completed || !s_window) {
+    return;
+  }
+  const GPoint p = tap_recognizer_get_tap_point(recognizer);
+  const GRect b = layer_get_bounds(window_get_root_layer(s_window));
+  if (p.x >= b.size.w - ACTION_BAR_WIDTH - 4) {
+    if (p.y < b.size.h / 3) {
+      prv_up_click(NULL, NULL);
+    } else if (p.y < (b.size.h * 2) / 3) {
+      prv_select_click(NULL, NULL);
+    } else {
+      prv_down_click(NULL, NULL);
+    }
+    return;
+  }
+  list_window_push();
+}
+#endif
+
 // --- Window lifecycle --------------------------------------------------------
 
 static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -239,6 +264,12 @@ static void prv_window_load(Window *window) {
   layer_add_child(root, s_canvas);
   s_play_path = gpath_create(&PLAY_PATH_INFO);
   s_arrow_path = gpath_create(&ARROW_PATH_INFO);
+#ifdef PBL_TOUCH
+  // Take the raw touch stream instead of the system button emulation; the
+  // window owns the recognizer and destroys it on unload.
+  window_set_touch_bridge_disabled(window, true);
+  window_attach_recognizer(window, tap_recognizer_create(prv_tap_handler, NULL));
+#endif
 }
 
 static void prv_window_appear(Window *window) {

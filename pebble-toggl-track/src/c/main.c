@@ -51,6 +51,10 @@ static void prv_update_glance(void) {
 static void prv_init(void) {
   model_load();
   comm_init();
+#ifdef PBL_TOUCH
+  // Let the project list scroll and select by touch (system gesture bridge).
+  app_touch_navigation_enable(true);
+#endif
   status_window_push();
 }
 

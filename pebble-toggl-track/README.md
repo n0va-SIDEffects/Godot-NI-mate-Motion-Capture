@@ -5,7 +5,7 @@ deine Toggl-Track-Timer direkt vom Handgelenk startest, stoppst und wechselst.
 
 ```
 ┌──────────────────────┬───┐
-│  ▌ Bühne ▐           │ ↻ │   UP      – Status neu laden
+│  ▌ Bühne ▐           │ ↻ │   UP      – Status neu laden        Tipp auf Bildschirm: Projektliste
 │                      │   │
 │      1:23:45         │ ■ │   SELECT  – Timer stoppen / (wenn keiner läuft) neuen starten
 │                      │   │            lang drücken: Aufgabe wechseln
@@ -15,6 +15,10 @@ deine Toggl-Track-Timer direkt vom Handgelenk startest, stoppst und wechselst.
 └──────────────────────┴───┘
 ```
 
+* **Touch (Pebble Time 2):** Ein Tipp auf den Bildschirm öffnet die
+  Projektauswahl, ein Tipp auf ein Icon der Action-Bar löst die Taste daneben
+  aus. Die Liste lässt sich per Touch scrollen und antippen, sobald die
+  Touch-Navigation in den Uhr-Einstellungen aktiv ist.
 * Die Uhr zeigt den laufenden Eintrag mit Projekt (in Projektfarbe), Beschreibung,
   Laufzeit (sekundengenau, lokal weitergezählt) und Startzeit.
 * Die Liste enthält die zuletzt verwendeten Kombinationen aus Beschreibung und

@@ -253,6 +253,35 @@ if (launch_reason() == APP_LAUNCH_WAKEUP) {
 Vibration on finish: `vibes_enqueue_custom_pattern((VibePattern){ .durations = d, .num_segments = n })`,
 optionally repeated with an `app_timer`. Stop it with `vibes_cancel()`.
 
+## Touch (emery / gabbro, SDK 4.33+)
+
+`PBL_TOUCH` is defined on touch platforms. Two layers:
+
+- **System touch navigation**: `app_touch_navigation_enable(true)` (once, in
+  init) lets a `MenuLayer`/`ScrollLayer` scroll and select by touch, mapped to
+  button presses by the firmware. Third-party apps are opted out by default.
+- **Own gestures** on a window: disable the bridge for that window and attach
+  recognizers; the window owns and destroys them.
+
+```c
+#ifdef PBL_TOUCH
+static void prv_tap(const Recognizer *r, RecognizerEvent e) {
+  if (e != RecognizerEvent_Completed) return;
+  GPoint p = tap_recognizer_get_tap_point(r);      // screen coordinates
+  ...
+}
+// in window load:
+window_set_touch_bridge_disabled(window, true);
+window_attach_recognizer(window, tap_recognizer_create(prv_tap, NULL));
+// also: pan_recognizer_create(cb, ctx, PanAxis_Vertical),
+//       swipe_recognizer_create(cb, ctx, SwipeDirection_Left | SwipeDirection_Right)
+#endif
+```
+
+Raw events: `touch_service_subscribe(handler, ctx)` gives Touchdown /
+PositionUpdate / Liftoff with x/y. `touch_service_is_enabled()` tells whether
+touch is delivered at all. Keep every touch action reachable by a button too.
+
 ## Other services
 
 - Vibration: `vibes_short_pulse()`, `vibes_double_pulse()`, `vibes_long_pulse()`.
