@@ -20,8 +20,14 @@ typedef struct {
   const SpeakerTrack *tracks;   // SoundKindTracks only
   uint8_t count;                // number of notes / tracks
   uint32_t resource_id;         // SoundKindSample only
-  uint8_t pcm_format;           // SoundKindSample only (SpeakerPcmFormat)
+  uint8_t pcm_format;           // SoundKindSample only: format handed to the speaker (SpeakerPcmFormat)
+  uint8_t codec;                // SoundKindSample only: SampleCodec
 } Sound;
+
+typedef enum {
+  SampleCodecRaw = 0,       // resource holds PCM exactly in pcm_format
+  SampleCodecImaAdpcm = 1,  // resource holds IMA ADPCM (4 bit/sample), decoded to 16-bit
+} SampleCodec;
 
 extern const Sound SOUNDS[];
 extern const uint8_t NUM_SOUNDS;

@@ -4,8 +4,10 @@
  * driven by an app timer so the UI stays responsive.
  */
 #include "player.h"
+#include "ima_adpcm.h"
 
-#define CHUNK_BYTES          1024    // 32 ms of 16-bit audio, 64 ms of 8-bit audio
+#define CHUNK_BYTES          2048    // 64 ms of 16 kHz 16-bit audio
+#define ADPCM_IN_BYTES       (CHUNK_BYTES / 4)  // 4-bit samples -> 16-bit samples
 #define CHUNK_SAMPLES        (CHUNK_BYTES / 2)
 #define PUMP_INTERVAL_MS     10
 #define MAX_CHUNKS_PER_PUMP  12      // upper bound on work per timer tick
@@ -17,6 +19,10 @@ static Synth s_synth;
 static ResHandle s_res;
 static uint32_t s_res_size;
 static uint32_t s_res_off;
+static uint8_t s_res_codec;
+static uint8_t s_adpcm_in[ADPCM_IN_BYTES];
+static ImaState s_ima;
+
 static union { int16_t pcm16[CHUNK_SAMPLES]; uint8_t bytes[CHUNK_BYTES]; } s_chunk;
 static uint32_t s_chunk_bytes;
 static uint32_t s_chunk_off;
@@ -47,8 +53,19 @@ static uint32_t prv_fill_chunk(void) {
     case SourceSynth:
       return synth_render(&s_synth, s_chunk.pcm16, CHUNK_SAMPLES) * sizeof(int16_t);
     case SourceResource: {
-      uint32_t want = s_res_size - s_res_off;
-      if (want > CHUNK_BYTES) want = CHUNK_BYTES;
+      uint32_t remaining = s_res_size - s_res_off;
+      if (s_res_codec == SampleCodecImaAdpcm) {
+        uint32_t want = remaining > ADPCM_IN_BYTES ? ADPCM_IN_BYTES : remaining;
+        uint32_t got = resource_load_byte_range(s_res, s_res_off, s_adpcm_in, want);
+        if (got == 0) s_res_off = s_res_size;  // read error: end the sound
+        s_res_off += got;
+        for (uint32_t i = 0; i < got; i++) {
+          s_chunk.pcm16[2 * i]     = ima_decode(&s_ima, s_adpcm_in[i] & 0x0F);
+          s_chunk.pcm16[2 * i + 1] = ima_decode(&s_ima, s_adpcm_in[i] >> 4);
+        }
+        return got * 2 * sizeof(int16_t);
+      }
+      uint32_t want = remaining > CHUNK_BYTES ? CHUNK_BYTES : remaining;
       uint32_t got = resource_load_byte_range(s_res, s_res_off, s_chunk.bytes, want);
       if (got == 0) s_res_off = s_res_size;  // read error: end the sound
       s_res_off += got;
@@ -137,6 +154,8 @@ bool player_play(const Sound *sound, uint8_t volume) {
       s_res = resource_get_handle(sound->resource_id);
       s_res_size = resource_size(s_res);
       s_res_off = 0;
+      s_res_codec = sound->codec;
+      s_ima = (ImaState) { 0, 0 };
       if (s_res_size == 0) {
         APP_LOG(APP_LOG_LEVEL_ERROR, "sample resource %s is empty", sound->name);
         return false;

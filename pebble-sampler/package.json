@@ -30,92 +30,92 @@
         {
           "type": "raw",
           "name": "SAMPLE_APPLAUS",
-          "file": "samples/applaus.pcm"
+          "file": "samples/applaus.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_FURZ",
-          "file": "samples/furz.pcm"
+          "file": "samples/furz.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_RUELPSER",
-          "file": "samples/ruelpser.pcm"
+          "file": "samples/ruelpser.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_EXPLOSION",
-          "file": "samples/explosion.pcm"
+          "file": "samples/explosion.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_TROMMELWIRBEL",
-          "file": "samples/trommelwirbel.pcm"
+          "file": "samples/trommelwirbel.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_BA_DUM_TSS",
-          "file": "samples/ba_dum_tss.pcm"
+          "file": "samples/ba_dum_tss.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_KA_CHING",
-          "file": "samples/ka_ching.pcm"
+          "file": "samples/ka_ching.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_KATZE",
-          "file": "samples/katze.pcm"
+          "file": "samples/katze.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_TROETE",
-          "file": "samples/troete.pcm"
+          "file": "samples/troete.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_SIRENE",
-          "file": "samples/sirene.pcm"
+          "file": "samples/sirene.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_BUZZER",
-          "file": "samples/buzzer.pcm"
+          "file": "samples/buzzer.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_GONG",
-          "file": "samples/gong.pcm"
+          "file": "samples/gong.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_KLOSPUELUNG",
-          "file": "samples/klospuelung.pcm"
+          "file": "samples/klospuelung.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_HAHN",
-          "file": "samples/hahn.pcm"
+          "file": "samples/hahn.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_NIESEN",
-          "file": "samples/niesen.pcm"
+          "file": "samples/niesen.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_LACHEN",
-          "file": "samples/lachen.pcm"
+          "file": "samples/lachen.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_ELEFANT",
-          "file": "samples/elefant.pcm"
+          "file": "samples/elefant.ima"
         },
         {
           "type": "raw",
           "name": "SAMPLE_PFERD",
-          "file": "samples/pferd.pcm"
+          "file": "samples/pferd.ima"
         }
       ]
     }

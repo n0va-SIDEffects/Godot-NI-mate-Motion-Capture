@@ -164,8 +164,8 @@ static const SpeakerTrack DOORBELL[] = {
   { .name = nm, .hint = hnt, .argb = col, .kind = SoundKindNotes, .notes = arr, .count = ARRAY_LENGTH(arr) }
 #define TRACKS(nm, hnt, col, arr) \
   { .name = nm, .hint = hnt, .argb = col, .kind = SoundKindTracks, .tracks = arr, .count = ARRAY_LENGTH(arr) }
-#define SAMPLE(nm, hnt, col, res, fmt) \
-  { .name = nm, .hint = hnt, .argb = col, .kind = SoundKindSample, .resource_id = res, .pcm_format = fmt },
+#define SAMPLE(nm, hnt, col, res, fmt, cdc) \
+  { .name = nm, .hint = hnt, .argb = col, .kind = SoundKindSample, .resource_id = res, .pcm_format = fmt, .codec = cdc },
 
 const Sound SOUNDS[] = {
   // Real recordings first (see tools/import_sample.py and resources/samples/ATTRIBUTION.md).

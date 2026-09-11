@@ -5,13 +5,14 @@ into the Pebble sampler app.
 
     python3 tools/import_sample.py clip.mp3 --name "Applaus" --hint "Echte Menge"
 
-The clip is converted to mono signed PCM for the watch speaker (default:
-16 kHz, 8 bit = 16 KB per second), trimmed, normalized and written to
-resources/samples/<slug>.pcm. package.json and src/c/samples.inc are
-updated so the sound shows up in the app after the next `pebble build`.
+The clip is converted to mono 16 kHz audio, de-noised, trimmed, normalized
+and stored as IMA ADPCM (4 bit/sample = 8 KB per second, decoded to 16-bit
+on the watch) in resources/samples/<slug>.ima. package.json and
+src/c/samples.inc are updated so the sound shows up in the app after the
+next `pebble build`.
 
-Anything that is not a WAV file is decoded with ffmpeg, which therefore has
-to be installed for MP3/M4A/OGG input. Pure Python otherwise.
+ffmpeg does the decoding, resampling and de-noising and should be
+installed. Without it only WAV input works, with a cruder resampler.
 """
 import argparse
 import json
@@ -45,17 +46,31 @@ def slugify(name):
     return s or "sample"
 
 
-def decode_to_wav(path):
-    """Returns a path to a WAV file for `path`, using ffmpeg when needed."""
-    if path.lower().endswith(".wav"):
-        return path, None
+def decode_to_wav(path, rate, start, max_seconds, highpass_hz, denoise_db):
+    """Returns (wav path, temp path or None, True if ffmpeg did the processing)."""
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
-        sys.exit("ffmpeg not found: install it or hand me a WAV file.")
+        if not path.lower().endswith(".wav"):
+            sys.exit("ffmpeg not found: install it or hand me a WAV file.")
+        return path, None, False
+    filters = []
+    if highpass_hz > 0:
+        filters.append("highpass=f=%g:poles=2" % highpass_hz)
+    if denoise_db > 0:
+        # FFT de-noiser with automatic noise floor tracking, then a gentle gate
+        filters.append("afftdn=nr=%g:nf=-45:tn=1" % denoise_db)
+    filters.append("aresample=resampler=soxr:precision=28" if _has_soxr(ffmpeg) else "aresample")
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.close()
-    subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", path, "-ac", "1", tmp.name], check=True)
-    return tmp.name, tmp.name
+    cmd = [ffmpeg, "-y", "-loglevel", "error", "-ss", "%g" % start, "-t", "%g" % (max_seconds + 0.5),
+           "-i", path, "-ac", "1", "-ar", str(rate), "-af", ",".join(filters), "-sample_fmt", "s16", tmp.name]
+    subprocess.run(cmd, check=True)
+    return tmp.name, tmp.name, True
+
+
+def _has_soxr(ffmpeg):
+    out = subprocess.run([ffmpeg, "-hide_banner", "-buildconf"], capture_output=True, text=True).stdout
+    return "--enable-libsoxr" in out
 
 
 def read_wav(path):
@@ -151,11 +166,57 @@ def encode(data, bits):
     return b"".join(struct.pack("<h", max(-32768, min(32767, int(round(v * 32767))))) for v in data)
 
 
+IMA_INDEX_TABLE = [-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8]
+IMA_STEP_TABLE = [
+    7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66,
+    73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449,
+    494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272,
+    2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442,
+    11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767]
+
+
+def encode_ima_adpcm(data):
+    """Continuous IMA ADPCM stream (no block headers), matching player.c."""
+    pred, index = 0, 0
+    out = bytearray()
+    nibbles = []
+    for v in data:
+        sample = max(-32768, min(32767, int(round(v * 32767))))
+        step = IMA_STEP_TABLE[index]
+        diff = sample - pred
+        nib = 0
+        if diff < 0:
+            nib = 8
+            diff = -diff
+        delta = step >> 3
+        if diff >= step:
+            nib |= 4; diff -= step; delta += step
+        if diff >= step >> 1:
+            nib |= 2; diff -= step >> 1; delta += step >> 1
+        if diff >= step >> 2:
+            nib |= 1; delta += step >> 2
+        pred += -delta if nib & 8 else delta
+        pred = max(-32768, min(32767, pred))
+        index = max(0, min(88, index + IMA_INDEX_TABLE[nib]))
+        nibbles.append(nib)
+    if len(nibbles) % 2:
+        nibbles.append(0)
+    for i in range(0, len(nibbles), 2):
+        out.append(nibbles[i] | (nibbles[i + 1] << 4))
+    return bytes(out)
+
+
 def update_package(resource_name, rel_path):
     with open(PACKAGE) as f:
         pkg = json.load(f)
     media = pkg["pebble"]["resources"].setdefault("media", [])
     entry = {"type": "raw", "name": resource_name, "file": rel_path}
+    for m in list(media):  # a re-import may change the extension: drop stale files
+        if m.get("name") == resource_name and m.get("file") != rel_path:
+            stale = os.path.join(ROOT, "resources", m["file"])
+            if os.path.exists(stale):
+                os.unlink(stale)
+            media.remove(m)
     for i, m in enumerate(media):
         if m.get("name") == resource_name:
             media[i] = entry
@@ -193,7 +254,9 @@ def main():
     ap.add_argument("--hint", default="Sample", help="menu subtitle")
     ap.add_argument("--color", default=None, help="GColor...ARGB8 constant for the menu accent")
     ap.add_argument("--rate", type=int, choices=[8000, 16000], default=16000)
-    ap.add_argument("--bits", type=int, choices=[8, 16], default=8)
+    ap.add_argument("--codec", choices=["adpcm", "pcm8", "pcm16"], default="adpcm",
+                    help="adpcm: 4 bit/sample, good quality (default); pcm8/pcm16: raw")
+    ap.add_argument("--denoise", type=float, default=8.0, help="ffmpeg afftdn noise reduction in dB (0 = off)")
     ap.add_argument("--max-seconds", type=float, default=4.0, help="hard cut after this many seconds")
     ap.add_argument("--start", type=float, default=0.0, help="skip this many seconds at the start")
     ap.add_argument("--trim-db", type=float, default=-45.0, help="silence threshold for trimming")
@@ -203,40 +266,49 @@ def main():
     ap.add_argument("--replace", action="store_true", help="overwrite an existing sample of the same name")
     args = ap.parse_args()
 
-    wav_path, tmp = decode_to_wav(args.input)
+    wav_path, tmp, processed = decode_to_wav(args.input, args.rate, args.start, args.max_seconds,
+                                             args.highpass, args.denoise)
     try:
         data, rate = read_wav(wav_path)
     finally:
         if tmp:
             os.unlink(tmp)
 
-    data = data[int(args.start * rate):]
+    if not processed:
+        data = data[int(args.start * rate):]
     data = trim(data, rate, args.trim_db, 20)
     data = data[:int(args.max_seconds * rate)]
-    data = resample(data, rate, args.rate)
-    data = highpass(data, args.rate, args.highpass)
+    if not processed:
+        data = resample(data, rate, args.rate)
+        data = highpass(data, args.rate, args.highpass)
     data = normalize(data, args.peak_db)
     data = fade(data, args.rate, args.fade_ms)
-    pcm = encode(data, args.bits)
+    if args.codec == "adpcm":
+        pcm = encode_ima_adpcm(data)
+    else:
+        pcm = encode(data, 8 if args.codec == "pcm8" else 16)
 
     slug = slugify(args.name)
     resource_name = "SAMPLE_" + slug.upper()
-    rel_path = "samples/%s.pcm" % slug
-    out_path = os.path.join(SAMPLES_DIR, slug + ".pcm")
+    ext = ".ima" if args.codec == "adpcm" else ".pcm"
+    rel_path = "samples/%s%s" % (slug, ext)
+    out_path = os.path.join(SAMPLES_DIR, slug + ext)
     if os.path.exists(out_path) and not args.replace:
         sys.exit("%s exists already, use --replace to overwrite" % out_path)
     os.makedirs(SAMPLES_DIR, exist_ok=True)
     with open(out_path, "wb") as f:
         f.write(pcm)
 
-    fmt = "SpeakerPcmFormat_%dkHz_%dbit" % (args.rate // 1000, args.bits)
+    bits = 8 if args.codec == "pcm8" else 16
+    fmt = "SpeakerPcmFormat_%dkHz_%dbit" % (args.rate // 1000, bits)
+    codec = "SampleCodecImaAdpcm" if args.codec == "adpcm" else "SampleCodecRaw"
     color = args.color or COLORS[sum(map(ord, slug)) % len(COLORS)]
     update_package(resource_name, rel_path)
-    update_samples_inc(resource_name, 'SAMPLE("%s", "%s", %s, RESOURCE_ID_%s, %s)' % (
-        args.name.replace('"', ""), args.hint.replace('"', ""), color, resource_name, fmt))
+    update_samples_inc(resource_name, 'SAMPLE("%s", "%s", %s, RESOURCE_ID_%s, %s, %s)' % (
+        args.name.replace('"', ""), args.hint.replace('"', ""), color, resource_name, fmt, codec))
 
     used = resource_usage()
-    print("wrote %s: %.2f s, %d bytes (%s)" % (out_path, len(data) / args.rate, len(pcm), fmt))
+    print("wrote %s: %.2f s, %d bytes (%s, %s)" % (out_path, len(data) / args.rate, len(pcm), fmt, args.codec))
     print("resource budget: %d / %d bytes used (%.0f%%)" % (used, RESOURCE_BUDGET, 100.0 * used / RESOURCE_BUDGET))
     if used > RESOURCE_BUDGET:
         print("WARNING: over the 256 KB app resource limit, the build will fail. Shorten or remove samples.")

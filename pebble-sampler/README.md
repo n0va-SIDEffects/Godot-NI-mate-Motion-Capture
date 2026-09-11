@@ -65,23 +65,24 @@ python3 tools/import_sample.py meinclip.mp3 --name "Applaus" --hint "Echte Menge
 pebble build
 ```
 
-Das Werkzeug wandelt den Clip in Mono-PCM für den Uhrlautsprecher
-(Standard: 16 kHz, 8 Bit, also 16 KB pro Sekunde), schneidet Stille weg,
-kürzt auf `--max-seconds` (Standard 4 s), filtert Bässe unter 150 Hz heraus
-(die der Lautsprecher ohnehin nicht wiedergibt), normalisiert und trägt das
-Sample in `package.json` und `src/c/samples.inc` ein. Danach erscheint es
-ganz oben in der Liste. Für MP3/M4A muss `ffmpeg` installiert sein, WAV geht
-ohne. Mit `--start 2.5` lässt sich ein Ausschnitt wählen, `--replace`
-überschreibt ein vorhandenes Sample, `--color GColorRedARGB8` setzt die
-Menüfarbe. `python3 tools/import_sample.py --help` zeigt alle Optionen.
+Das Werkzeug wandelt den Clip per ffmpeg in Mono 16 kHz, entrauscht ihn
+(`--denoise`, Standard 8 dB), filtert Bässe unter 150 Hz heraus (die der
+Lautsprecher ohnehin nicht wiedergibt), schneidet Stille weg, kürzt auf
+`--max-seconds` (Standard 4 s), normalisiert und speichert ihn als IMA-ADPCM
+(4 Bit pro Sample, also 8 KB pro Sekunde; die Uhr dekodiert das zu 16 Bit).
+Anschließend steht das Sample in `package.json` und `src/c/samples.inc` und
+erscheint ganz oben in der Liste. `ffmpeg` sollte installiert sein; ohne
+ffmpeg geht nur WAV-Eingabe mit einfacherem Resampler. Mit `--start 2.5`
+lässt sich ein Ausschnitt wählen, `--replace` überschreibt ein vorhandenes
+Sample, `--color GColorRedARGB8` setzt die Menüfarbe.
+`python3 tools/import_sample.py --help` zeigt alle Optionen.
 
 Budget: Eine Pebble-App darf insgesamt 256 KB Ressourcen haben. Die
 mitgelieferten Samples belegen davon schon rund 230 KB; für ein neues Sample
 muss also ein altes weichen (Zeile in `src/c/samples.inc` und Eintrag in
-`package.json` löschen, `.pcm` entfernen). Zur Orientierung: 256 KB, das sind
-rund 15 Sekunden Audio bei 16 kHz/8 Bit oder 30 Sekunden bei 8 kHz/8 Bit
-(`--rate 8000`, für Geräusche wie Applaus oder Explosionen völlig
-ausreichend). Das Werkzeug zeigt nach jedem Import den Füllstand an.
+`package.json` löschen, `.ima` entfernen). Zur Orientierung: 256 KB, das sind
+rund 30 Sekunden ADPCM-Audio bei 16 kHz. Das Werkzeug zeigt nach jedem
+Import den Füllstand an.
 
 Tipp für Suno: Kurze Prompts wie „sound effect only, no music, crowd
 applause, 3 seconds“ liefern brauchbare Clips; der Free Plan erlaubt nur
@@ -119,6 +120,7 @@ dort automatisch auf Schwarz-Weiß zurück.
 src/c/synth.h, synth.c   Fixed-Point-Synthesizer (16 kHz, 16 Bit, ohne Floats)
 src/c/sounds.c           Sound-Bank: Generatoren und Notensequenzen
 src/c/player.c           Streaming-Pumpe für PCM plus Noten/Track-Wiedergabe
+src/c/ima_adpcm.h        IMA-ADPCM-Decoder für die Samples
 src/c/main.c             Menü, Action-Menü, Schütteln, Einstellungen
 src/c/samples.inc        Liste importierter Samples (vom Import-Werkzeug gepflegt)
 tools/import_sample.py   Audio-Clip -> Sample-Ressource
