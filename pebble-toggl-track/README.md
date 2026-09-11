@@ -23,6 +23,10 @@ deine Toggl-Track-Timer direkt vom Handgelenk startest, stoppst und wechselst.
 * Der letzte Status bleibt gespeichert und erscheint sofort beim Öffnen; im
   Launcher zeigt der App-Glance, welcher Timer gerade läuft.
 
+| Pebble Time 2 (emery) | Liste | Pebble Time (basalt) |
+|---|---|---|
+| ![Status auf emery](docs/screenshots/emery-status.png) | ![Liste auf emery](docs/screenshots/emery-list.png) | ![Status auf basalt](docs/screenshots/basalt-status.png) |
+
 Die Uhr spricht nur mit dem Handy (PebbleKit JS); das Handy spricht mit der
 [Toggl Track API v9](https://engineering.toggl.com/docs/). Der API-Token bleibt
 im lokalen Speicher der Pebble-App auf dem Handy.
@@ -98,6 +102,7 @@ Projektfarben werden am Handy auf die 64 Pebble-Farben (`GColor8`) umgerechnet.
 * Die Beschreibung eines neuen Eintrags kommt aus der Liste der letzten
   Einträge; freie Texteingabe (Diktat) gibt es noch nicht.
 * Toggl-Tags, Kunden und Abrechenbarkeit werden nicht angezeigt.
-* Der Code wurde gegen die Pebble-SDK-Header für aplite, basalt, chalk, diorite
-  und emery kompiliert und die Handy-Logik mit einer nachgebauten Toggl-API
-  getestet. Ein Lauf auf echter Hardware oder im Emulator steht noch aus.
+* Gebaut mit Pebble SDK 4.33.1 für alle sieben Plattformen und im Emulator
+  (emery, basalt) getestet: Status-Screen, Liste, Tasten. Die Handy-Logik ist
+  mit einer nachgebauten Toggl-API getestet. Der Lauf mit echtem API-Token und
+  auf echter Hardware steht noch aus.

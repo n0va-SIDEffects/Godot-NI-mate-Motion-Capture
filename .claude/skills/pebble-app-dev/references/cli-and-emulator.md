@@ -14,6 +14,38 @@ Needs Node (for PebbleKit JS bundling) and network access to
 to `scripts/check_compile.sh` (needs `arm-none-eabi-gcc`, e.g. apt package
 `gcc-arm-none-eabi`, plus SDK headers) and say so.
 
+Verified 2026-09 in a Claude Code cloud container (SDK 4.33.1, firmware 4.33.2):
+
+- The install downloads ~48 MB sdk-core plus ~190 MB toolchain. pebble-tool
+  streams them in 512-byte chunks, which through a slow proxy took hours.
+  If it crawls, kill it, fetch both tarballs with parallel range requests
+  (`scripts/pdl.py URL OUT SIZE 12` — ~1 MB/s vs 10 KB/s), then install them
+  with `scripts/install_sdk_local.py core.tar.gz toolchain.tar.gz`. URLs come
+  from `https://sdk.repebble.com/v1/files/sdk-core/latest?channel=` and
+  `https://sdk.repebble.com/releases/<ver>/toolchain-linux-x86_64.tar.gz`.
+- The SDK lands in `~/.local/share/pebble-sdk/SDKs/<ver>` (XDG), not
+  `~/.pebble-sdk`, unless the legacy dir already exists.
+- `qemu-pebble` needs `libSDL2-2.0.so.0` even with `--vnc`:
+  `apt-get install -y libsdl2-2.0-0`.
+- **No IPv6 in the container → pypkjs never opens its port** and every
+  `install`/`screenshot` says `[Errno 111] Connection refused` while QEMU is
+  visibly running. pypkjs binds `("", port)` which gevent maps to AF_INET6.
+  Fix in the installed package (path from `pebble --version` venv):
+  `pypkjs/runner/websocket.py` → `WSGIServer(("127.0.0.1", self.port), …)`
+  and `pypkjs/runner/terminal.py` → `HTTPServer(('127.0.0.1', port), …)`,
+  then `pebble kill` and install again. Diagnose with
+  `PYTHONFAULTHANDLER=1 timeout -s ABRT 30 <venv>/bin/python -m pypkjs …`
+  (the command line is in `/proc/<pid>/cmdline` of the running pypkjs).
+- Only **one** `--vnc` emulator at a time: a second platform fights for VNC
+  display `:1` (`Failed to find an available port`) and the first one dies.
+  Test platforms sequentially with `pebble kill` in between.
+- Re-installing while the app is open sometimes leaves the launcher on
+  "Install an app to continue"; run `pebble install` once more.
+- `pebble logs` is noisy with `[PHONESIM] Exception decoding
+  QemuInboundPacket.footer` warnings; they are harmless. Filter them out.
+- Screenshots take 1–2 s; sleep ~10 s after install before the first one so
+  the JS side has answered.
+
 ## Everyday commands
 
 ```bash

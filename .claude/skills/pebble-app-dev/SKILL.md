@@ -92,7 +92,9 @@ than a few KB of data belongs in JS; the watch only renders and reacts.
 - `pebble send-app-message` reaches the JS side only, not the C inbox.
 - Emulator quirks: first `install` after cold start may fail (retry once);
   `pebble kill && pebble wipe` fixes a wedged emulator; long press = `emu-button
-  push` then `release`, not `click --duration`.
+  push` then `release`, not `click --duration`. Persistent `Connection refused`
+  with QEMU running = pypkjs could not bind (no IPv6 in containers); fix and
+  other container findings in `references/cli-and-emulator.md`.
 
 ## Reference map
 

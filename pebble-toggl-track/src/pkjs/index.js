@@ -242,7 +242,7 @@ function workspaceFor(projectId, callback) {
 
 function requireToken() {
   if (settings.token) { return true; }
-  sendError('Kein API-Token. Bitte in der Pebble-App unter Einstellungen eintragen.');
+  sendError('Kein API-Token. Bitte in der Pebble-App eintragen.');
   return false;
 }
 

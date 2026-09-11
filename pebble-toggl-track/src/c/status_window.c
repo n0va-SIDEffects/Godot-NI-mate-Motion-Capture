@@ -121,7 +121,10 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   const int pad_right = PBL_IF_ROUND_ELSE(8, 4);
   const int x = pad_left;
   const int cw = bounds.size.w - ACTION_BAR_WIDTH - pad_left - pad_right;
-  const int footer_y = bounds.size.h - FOOTER_H - PBL_IF_ROUND_ELSE(18, 4);
+  // A progress/error message may need two lines; the start time needs one.
+  const int footer_lines = m->message[0] ? 2 : 1;
+  const int footer_h = FOOTER_H * footer_lines;
+  const int footer_y = bounds.size.h - footer_h - PBL_IF_ROUND_ELSE(18, 4);
 
   // Project badge
   const GRect badge = GRect(x, BADGE_Y, cw, BADGE_H);
@@ -150,7 +153,7 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   // Description
   const char *desc;
   if (!s->valid) {
-    desc = "Verbinde mit Handy…";
+    desc = m->message_is_error ? "Nicht verbunden" : "Verbinde mit Handy…";
   } else if (running) {
     desc = s->description[0] ? s->description : "(ohne Beschreibung)";
   } else {
@@ -180,7 +183,7 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   }
   graphics_context_set_text_color(ctx, footer_color);
   graphics_draw_text(ctx, footer, fonts_get_system_font(FOOTER_FONT),
-                     GRect(x, footer_y, cw, FOOTER_H),
+                     GRect(x, footer_y, cw, footer_h),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
   prv_draw_action_bar(ctx, bounds, running);
