@@ -34,7 +34,8 @@
       "Volume",
       "Wave",
       "WaveAnim",
-      "Gate"
+      "Gate",
+      "Backlight"
     ],
     "resources": {
       "media": []

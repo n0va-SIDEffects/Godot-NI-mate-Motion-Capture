@@ -76,6 +76,8 @@ module.exports = [
         ] },
       { "type": "toggle", "messageKey": "Gate", "label": "Rauschsperre", "defaultValue": true,
         "description": "Schaltet den Lautsprecher bei völliger Stille ab, damit er nicht leer rauscht. Beim nächsten Ton wird er weich wieder eingeblendet." },
+      { "type": "toggle", "messageKey": "Backlight", "label": "Beleuchtung dauerhaft an", "defaultValue": false,
+        "description": "Hält die Displaybeleuchtung an, solange die App läuft. Kostet Akku." },
       { "type": "select", "messageKey": "Volume", "label": "Maximale Lautstärke", "defaultValue": "2",
         "options": [
           { "label": "60 %", "value": "0" }, { "label": "80 %", "value": "1" }, { "label": "100 %", "value": "2" }

@@ -66,6 +66,7 @@ dort den echten Stand zeigt. Die Seite ist mit
 | Wellenform        | Sinus, Dreieck, Rechteck, Sägezahn                      |
 | Wellenanzeige     | Aus, Statisch, Animiert (Welle im Hintergrund)          |
 | Rauschsperre      | An / Aus (Lautsprecher bei völliger Stille abschalten)  |
+| Beleuchtung       | Automatisch / Dauerhaft an (solange die App läuft)      |
 
 SELECT auf einem Eintrag schaltet zum nächsten Wert. Alle Einstellungen
 werden auf der Uhr gespeichert.
@@ -76,6 +77,9 @@ Haltung der Nullpunkt: mittlere Tonhöhe (A4) und etwa ein Drittel der
 Lautstärke. Rund 15 Grad zu dir kippen ergibt volle Lautstärke, rund 12 Grad
 von dir weg Stille. Mit langem SELECT lässt sich der Nullpunkt jederzeit neu
 setzen.
+
+Die Fußzeile der App zeigt die Tastenbelegung; die zweite Zeile wird bei
+laufender Kalibrierung durch den Status ersetzt.
 
 Die zuletzt gewählte Wellenform wird gespeichert.
 
