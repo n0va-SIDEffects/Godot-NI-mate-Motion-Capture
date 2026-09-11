@@ -6,7 +6,7 @@
  */
 
 var keys = require('message_keys');
-var Toggl = require('./toggl');
+var toggl = require('./toggl');
 var config = require('./config');
 
 var CMD = {
@@ -14,23 +14,37 @@ var CMD = {
   REFRESH: 1,
   START: 2,
   STOP: 3,
+  PREVIOUS: 4,      // stop the running entry and restart the one before it
   // phone -> watch
   STATUS: 10,
   PROJECT: 11,
   RECENT: 12,
   ERROR: 13,
-  INFO: 14
+  INFO: 14,
+  FAVORITE: 15,
+  CONFIG: 16
 };
 
 var MAX_PROJECTS = 24;      // must match model.h
 var MAX_RECENT = 12;
+var MAX_FAVORITES = 4;
 var RECENT_DAYS = 30;
 var SETTINGS_KEY = 'toggl_settings';
 var CACHE_KEY = 'toggl_cache';
 
-var settings = loadJson(SETTINGS_KEY) || { token: '', workspaceId: '' };
+var DESC_BYTES = 63;        // DESC_LEN - 1
+var NAME_BYTES = 31;        // NAME_LEN - 1
+var MESSAGE_BYTES = 63;     // MESSAGE_LEN - 1
+var CLIENT_BYTES = 47;      // CLIENT_LEN - 1
+
+// Reminder flag bits (REMIND_FLAGS), shared with model.h
+var REMIND_RUNNING = 1;     // "still running?" after N hours / late in the evening
+var REMIND_NO_TIMER = 2;    // "nothing running" on weekday mornings
+
+var settings = config.normalise(loadJson(SETTINGS_KEY));
 var cache = loadJson(CACHE_KEY) || { projects: [], recent: [], status: null };
 var projectsById = {};
+var clientsById = {};
 var defaultWorkspaceId = null;
 var busy = false;
 
@@ -108,10 +122,6 @@ function utf8Clip(str, maxBytes) {
   return str;
 }
 
-var DESC_BYTES = 63;      // DESC_LEN - 1
-var NAME_BYTES = 31;      // NAME_LEN - 1
-var MESSAGE_BYTES = 63;   // MESSAGE_LEN - 1
-
 function sendError(text) {
   console.log('Error: ' + text);
   enqueue(msg(CMD.ERROR, { MESSAGE: utf8Clip(text, MESSAGE_BYTES) }));
@@ -124,7 +134,7 @@ function sendInfo(text) {
 // --- Toggl helpers -----------------------------------------------------------
 
 function client() {
-  return new Toggl(settings.token);
+  return toggl.createClient(settings.token);
 }
 
 // Toggl colours are "#rrggbb"; the watch wants a GColor8 (2 bits per channel).
@@ -139,20 +149,52 @@ function projectInfo(projectId) {
   return (projectId && projectsById[projectId]) || null;
 }
 
-function statusFromEntry(entry) {
-  if (!entry || !entry.id) {
-    return { running: 0, description: '', projectName: '', color: 0, start: 0, entryId: 0, workspaceId: 0 };
-  }
-  var p = projectInfo(entry.project_id);
-  return {
-    running: 1,
-    description: entry.description || '',
-    projectName: p ? p.name : (entry.project_name || ''),
-    color: p ? toPebbleColor(p.color) : 0,
-    start: Math.floor(Date.parse(entry.start) / 1000) || Math.floor(Date.now() / 1000),
-    entryId: entry.id,
-    workspaceId: entry.workspace_id
+function startOfToday() {
+  var d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+// Seconds an entry contributed today (running entries count up to now).
+function secondsToday(e, nowMs) {
+  var startMs = Date.parse(e.start);
+  if (isNaN(startMs)) { return 0; }
+  var endMs = e.duration < 0 ? nowMs : (e.stop ? Date.parse(e.stop) : startMs + e.duration * 1000);
+  var from = Math.max(startMs, startOfToday());
+  return endMs > from ? Math.round((endMs - from) / 1000) : 0;
+}
+
+function todayTotal(entries) {
+  var now = Date.now();
+  return (entries || []).reduce(function (sum, e) { return sum + secondsToday(e, now); }, 0);
+}
+
+// "Kunde · tag1, tag2" for the small line under the project badge.
+function clientLine(entry) {
+  var parts = [];
+  var p = projectInfo(entry && entry.project_id);
+  if (p && p.client_id && clientsById[p.client_id]) { parts.push(clientsById[p.client_id]); }
+  if (entry && entry.tags && entry.tags.length) { parts.push(entry.tags.join(', ')); }
+  return parts.join(' · ');
+}
+
+function statusFromEntry(entry, entries) {
+  var base = {
+    running: 0, description: '', projectName: '', color: 0, start: 0, entryId: 0,
+    workspaceId: 0, projectId: 0, clientLine: '', today: todayTotal(entries || cache.entries)
   };
+  if (!entry || !entry.id) { return base; }
+  var p = projectInfo(entry.project_id);
+  base.running = 1;
+  base.description = entry.description || '';
+  base.projectName = p ? p.name : (entry.project_name || '');
+  base.color = p ? toPebbleColor(p.color) : 0;
+  base.start = Math.floor(Date.parse(entry.start) / 1000) || Math.floor(Date.now() / 1000);
+  base.entryId = entry.id;
+  base.workspaceId = entry.workspace_id;
+  base.projectId = entry.project_id || 0;
+  base.clientLine = clientLine(entry);
+  return base;
 }
 
 function sendStatus(status) {
@@ -161,7 +203,9 @@ function sendStatus(status) {
     DESCRIPTION: utf8Clip(status.description, DESC_BYTES),
     PROJECT_NAME: utf8Clip(status.projectName, NAME_BYTES),
     PROJECT_COLOR: status.color,
-    START_TIME: status.start
+    START_TIME: status.start,
+    TODAY_SECONDS: status.today || 0,
+    CLIENT_NAME: utf8Clip(status.clientLine, CLIENT_BYTES)
   }));
 }
 
@@ -195,9 +239,52 @@ function sendRecent(list) {
       PROJECT_ID: list[i].projectId || 0,
       DESCRIPTION: utf8Clip(list[i].description, DESC_BYTES),
       PROJECT_NAME: utf8Clip(list[i].projectName, NAME_BYTES),
-      PROJECT_COLOR: list[i].color
+      PROJECT_COLOR: list[i].color,
+      TODAY_SECONDS: list[i].today || 0
     }));
   }
+}
+
+function favoriteList() {
+  return (settings.favorites || []).filter(function (f) {
+    return f && (f.description || f.projectId);
+  }).slice(0, MAX_FAVORITES).map(function (f) {
+    var p = projectInfo(f.projectId);
+    return {
+      description: f.description || '',
+      projectId: p ? p.id : 0,
+      projectName: p ? p.name : '',
+      color: p ? toPebbleColor(p.color) : 0
+    };
+  });
+}
+
+function sendFavorites() {
+  var list = favoriteList();
+  if (list.length === 0) {
+    enqueue(msg(CMD.FAVORITE, { INDEX: 0, COUNT: 0 }));
+    return;
+  }
+  list.forEach(function (f, i) {
+    enqueue(msg(CMD.FAVORITE, {
+      INDEX: i,
+      COUNT: list.length,
+      DESCRIPTION: utf8Clip(f.description, DESC_BYTES),
+      PROJECT_ID: f.projectId,
+      PROJECT_NAME: utf8Clip(f.projectName, NAME_BYTES),
+      PROJECT_COLOR: f.color
+    }));
+  });
+}
+
+function sendConfig() {
+  var r = settings.remind;
+  enqueue(msg(CMD.CONFIG, {
+    REMIND_FLAGS: (r.running ? REMIND_RUNNING : 0) | (r.noTimer ? REMIND_NO_TIMER : 0),
+    REMIND_MAX_HOURS: r.maxHours,
+    REMIND_LATE_HOUR: r.lateHour,
+    REMIND_START_HOUR: r.startHour
+  }));
 }
 
 function indexProjects(list) {
@@ -205,24 +292,36 @@ function indexProjects(list) {
   list.forEach(function (p) { projectsById[p.id] = p; });
 }
 
-// Collapse time entries to unique (description, project) pairs, newest first.
+function indexClients(list) {
+  clientsById = {};
+  (list || []).forEach(function (c) { clientsById[c.id] = c.name; });
+}
+
+// Collapse time entries to unique (description, project) pairs, newest first,
+// with the time booked on them today.
 function buildRecent(entries) {
   var seen = {};
   var out = [];
+  var now = Date.now();
   entries.forEach(function (e) {
     var desc = (e.description || '').trim();
     var pid = e.project_id || 0;
     if (!desc && !pid) { return; }
     var key = pid + '|' + desc.toLowerCase();
-    if (seen[key]) { return; }
-    seen[key] = true;
+    if (seen[key]) {
+      seen[key].today += secondsToday(e, now);
+      return;
+    }
     var p = projectInfo(pid);
-    out.push({
+    var item = {
       description: desc,
       projectId: pid,
       projectName: p ? p.name : '',
-      color: p ? toPebbleColor(p.color) : 0
-    });
+      color: p ? toPebbleColor(p.color) : 0,
+      today: secondsToday(e, now)
+    };
+    seen[key] = item;
+    out.push(item);
   });
   return out.slice(0, MAX_RECENT);
 }
@@ -246,9 +345,14 @@ function requireToken() {
   return false;
 }
 
+function saveCache() {
+  saveJson(CACHE_KEY, cache);
+}
+
 // --- Actions -----------------------------------------------------------------
 
-// Full refresh: status first (fast), then projects and recent entries.
+// Full refresh: projects, clients and entries first (needed for names and the
+// daily total), then the status, then the lists if they changed.
 function refreshAll(showProgress) {
   if (!requireToken()) { return; }
   if (busy) { return; }
@@ -260,39 +364,53 @@ function refreshAll(showProgress) {
     if (err) { busy = false; return sendError(err); }
     indexProjects(projects);
 
-    api.current(function (err2, entry) {
-      if (err2) { busy = false; return sendError(err2); }
-      var status = statusFromEntry(entry);
-      sendStatus(status);
-
-      var projectsJson = JSON.stringify(projects);
-      if (projectsJson !== JSON.stringify(cache.projects)) {
-        sendProjects(projects);
-      }
+    api.clients(function (errC, clients) {
+      if (errC) { clients = []; }          // clients are decoration only
+      indexClients(clients);
 
       api.recentEntries(RECENT_DAYS, function (err3, entries) {
-        busy = false;
-        if (err3) { return sendError(err3); }
-        var recent = buildRecent(entries);
-        if (JSON.stringify(recent) !== JSON.stringify(cache.recent)) {
-          sendRecent(recent);
-        }
-        cache = { projects: projects, recent: recent, status: status };
-        saveJson(CACHE_KEY, cache);
+        if (err3) { busy = false; return sendError(err3); }
+
+        api.current(function (err2, entry) {
+          busy = false;
+          if (err2) { return sendError(err2); }
+          cache.entries = entries;
+          var status = statusFromEntry(entry, entries);
+          sendStatus(status);
+
+          if (JSON.stringify(projects) !== JSON.stringify(cache.projects)) {
+            sendProjects(projects);
+            sendFavorites();                 // favourites carry project names
+          }
+          var recent = buildRecent(entries);
+          if (JSON.stringify(recent) !== JSON.stringify(cache.recent)) {
+            sendRecent(recent);
+          }
+          cache.projects = projects;
+          cache.clients = clients;
+          cache.recent = recent;
+          cache.status = status;
+          saveCache();
+        });
       });
     });
   });
 }
 
-function refreshRecentOnly() {
+// After a start/stop: fresh entries -> status (daily total) and recent list.
+function refreshAfterChange(entry) {
   client().recentEntries(RECENT_DAYS, function (err, entries) {
     if (err) { return; }
+    cache.entries = entries;
+    var status = statusFromEntry(entry, entries);
+    sendStatus(status);
     var recent = buildRecent(entries);
     if (JSON.stringify(recent) !== JSON.stringify(cache.recent)) {
       sendRecent(recent);
-      cache.recent = recent;
-      saveJson(CACHE_KEY, cache);
     }
+    cache.recent = recent;
+    cache.status = status;
+    saveCache();
   });
 }
 
@@ -300,7 +418,24 @@ function stopRunning(api, callback) {
   api.current(function (err, entry) {
     if (err) { return callback(err); }
     if (!entry || !entry.id) { return callback(null, null); }
-    api.stop(entry.workspace_id, entry.id, callback);
+    api.stop(entry.workspace_id, entry.id, function (err2, stopped) {
+      if (err2) { return callback(err2); }
+      roundStopped(api, stopped || entry, callback);
+    });
+  });
+}
+
+// Optional: round the finished entry to the nearest N minutes (min. one block).
+function roundStopped(api, entry, callback) {
+  var block = (settings.roundMinutes || 0) * 60;
+  if (!block || !entry || !entry.id) { return callback(null, entry); }
+  var startMs = Date.parse(entry.start);
+  var duration = entry.duration > 0 ? entry.duration : Math.round((Date.now() - startMs) / 1000);
+  var rounded = Math.max(block, Math.round(duration / block) * block);
+  if (rounded === duration) { return callback(null, entry); }
+  var stop = new Date(startMs + rounded * 1000).toISOString();
+  api.update(entry.workspace_id, entry.id, { stop: stop, duration: rounded }, function (err, updated) {
+    callback(null, err ? entry : (updated || entry));   // rounding is best effort
   });
 }
 
@@ -320,8 +455,8 @@ function startTimer(projectId, description) {
         var status = statusFromEntry(entry);
         sendStatus(status);
         cache.status = status;
-        saveJson(CACHE_KEY, cache);
-        refreshRecentOnly();
+        saveCache();
+        refreshAfterChange(entry);
       });
     });
   });
@@ -337,12 +472,31 @@ function stopTimer() {
     var status = statusFromEntry(null);
     sendStatus(status);
     cache.status = status;
-    saveJson(CACHE_KEY, cache);
-    refreshRecentOnly();
+    saveCache();
+    refreshAfterChange(null);
   });
 }
 
-module.exports = { utf8Clip: utf8Clip, toPebbleColor: toPebbleColor };
+// Swipe: back to the entry before the running one (or the last one, if idle).
+function previousTimer() {
+  if (!requireToken()) { return; }
+  var api = client();
+  api.current(function (err, current) {
+    if (err) { return sendError(err); }
+    api.recentEntries(RECENT_DAYS, function (err2, entries) {
+      if (err2) { return sendError(err2); }
+      var candidates = buildRecent(entries);
+      var cur = current ? ((current.project_id || 0) + '|' + (current.description || '').trim().toLowerCase()) : null;
+      var prev = null;
+      for (var i = 0; i < candidates.length; i++) {
+        var key = candidates[i].projectId + '|' + candidates[i].description.toLowerCase();
+        if (key !== cur) { prev = candidates[i]; break; }
+      }
+      if (!prev) { return sendInfo('Kein vorheriger Eintrag'); }
+      startTimer(prev.projectId, prev.description);
+    });
+  });
+}
 
 // --- Pebble events -----------------------------------------------------------
 
@@ -355,8 +509,11 @@ Pebble.addEventListener('ready', function () {
   console.log('Toggl Track JS ready');
   // Show cached data immediately, then refresh from the network.
   indexProjects(cache.projects || []);
+  indexClients(cache.clients || []);
+  sendConfig();
   if (cache.status) { sendStatus(cache.status); }
   if (cache.projects && cache.projects.length) { sendProjects(cache.projects); }
+  sendFavorites();
   if (cache.recent && cache.recent.length) { sendRecent(cache.recent); }
   refreshAll(!cache.status);
 });
@@ -374,23 +531,33 @@ Pebble.addEventListener('appmessage', function (e) {
     case CMD.STOP:
       stopTimer();
       break;
+    case CMD.PREVIOUS:
+      previousTimer();
+      break;
     default:
       console.log('Unknown command from watch: ' + cmd);
   }
 });
 
 Pebble.addEventListener('showConfiguration', function () {
-  Pebble.openURL(config.buildConfigUrl(settings));
+  Pebble.openURL(config.buildConfigUrl(settings, cache.projects || []));
 });
 
 Pebble.addEventListener('webviewclosed', function (e) {
   var cfg = config.parseConfigResponse(e && e.response);
   if (!cfg) { return; }
+  var tokenChanged = cfg.token !== settings.token || cfg.workspaceId !== settings.workspaceId;
   settings = cfg;
   saveJson(SETTINGS_KEY, settings);
-  defaultWorkspaceId = null;
-  cache = { projects: [], recent: [], status: null };
-  saveJson(CACHE_KEY, cache);
+  if (tokenChanged) {
+    defaultWorkspaceId = null;
+    cache = { projects: [], recent: [], status: null };
+    saveCache();
+  }
   sendInfo('Einstellungen gespeichert');
+  sendConfig();
+  sendFavorites();
   refreshAll(true);
 });
+
+module.exports = { utf8Clip: utf8Clip, toPebbleColor: toPebbleColor, secondsToday: secondsToday };

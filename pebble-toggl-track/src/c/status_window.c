@@ -1,5 +1,7 @@
 #include "status_window.h"
 #include "comm.h"
+#include "dictation.h"
+#include "favorites_window.h"
 #include "list_window.h"
 #include "model.h"
 
@@ -23,11 +25,13 @@ static const GPathInfo ARROW_PATH_INFO = {
 
 #if PBL_DISPLAY_HEIGHT >= 200
 // Pebble Time 2 (emery, 200x228) and other large displays
-#define BADGE_Y   10
-#define BADGE_H   28
-#define TIMER_Y   46
+#define BADGE_Y   8
+#define BADGE_H   26
+#define CLIENT_Y  35
+#define CLIENT_H  16
+#define TIMER_Y   52
 #define TIMER_H   46
-#define DESC_Y    100
+#define DESC_Y    104
 #define FOOTER_H  22
 #define BADGE_FONT  FONT_KEY_GOTHIC_18_BOLD
 #define TIMER_FONT  FONT_KEY_LECO_36_BOLD_NUMBERS
@@ -35,11 +39,13 @@ static const GPathInfo ARROW_PATH_INFO = {
 #define FOOTER_FONT FONT_KEY_GOTHIC_18
 #else
 // 144x168 rectangular and 180x180 round displays
-#define BADGE_Y   PBL_IF_ROUND_ELSE(16, 6)
-#define BADGE_H   24
-#define TIMER_Y   PBL_IF_ROUND_ELSE(46, 36)
+#define BADGE_Y   PBL_IF_ROUND_ELSE(16, 4)
+#define BADGE_H   22
+#define CLIENT_Y  PBL_IF_ROUND_ELSE(39, 27)
+#define CLIENT_H  14
+#define TIMER_Y   PBL_IF_ROUND_ELSE(54, 42)
 #define TIMER_H   36
-#define DESC_Y    PBL_IF_ROUND_ELSE(88, 78)
+#define DESC_Y    PBL_IF_ROUND_ELSE(92, 82)
 #define FOOTER_H  18
 #define BADGE_FONT  FONT_KEY_GOTHIC_14_BOLD
 #define TIMER_FONT  FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM
@@ -54,6 +60,10 @@ static void prv_format_elapsed(char *buf, size_t len, time_t start) {
     d = 0;
   }
   snprintf(buf, len, "%d:%02d:%02d", (int)(d / 3600), (int)((d % 3600) / 60), (int)(d % 60));
+}
+
+static void prv_format_hm(char *buf, size_t len, int32_t seconds) {
+  snprintf(buf, len, "%d:%02d", (int)(seconds / 3600), (int)((seconds % 3600) / 60));
 }
 
 static GColor prv_badge_color(const TimerStatus *s) {
@@ -122,7 +132,7 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   const int x = pad_left;
   const int cw = bounds.size.w - ACTION_BAR_WIDTH - pad_left - pad_right;
   // A progress/error message may need two lines; the start time needs one.
-  const int footer_lines = m->message[0] ? 2 : 1;
+  const int footer_lines = (m->message[0] || m->hint[0]) ? 2 : 1;
   const int footer_h = FOOTER_H * footer_lines;
   const int footer_y = bounds.size.h - footer_h - PBL_IF_ROUND_ELSE(18, 4);
 
@@ -137,6 +147,14 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
   graphics_draw_text(ctx, badge_text, fonts_get_system_font(BADGE_FONT),
                      grect_inset(badge, GEdgeInsets(2, 6, 0, 6)),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+
+  // Client / tags line under the badge
+  if (s->valid && s->client_line[0]) {
+    graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack));
+    graphics_draw_text(ctx, s->client_line, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                       GRect(x, CLIENT_Y, cw, CLIENT_H),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  }
 
   // Elapsed time
   char timer_text[16];
@@ -173,11 +191,29 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
     if (m->message_is_error) {
       footer_color = PBL_IF_COLOR_ELSE(GColorRed, GColorBlack);
     }
+  } else if (m->hint[0]) {
+    strncpy(footer, m->hint, sizeof(footer));
+    footer[sizeof(footer) - 1] = '\0';
+    footer_color = GColorBlack;
   } else if (running) {
+    char since[24];
     struct tm *lt = localtime(&s->start_time);
-    strftime(footer, sizeof(footer), clock_is_24h_style() ? "seit %H:%M" : "seit %I:%M %p", lt);
+    strftime(since, sizeof(since), clock_is_24h_style() ? "seit %H:%M" : "seit %I:%M %p", lt);
+    if (s->today_seconds > 0) {
+      char hm[16];
+      prv_format_hm(hm, sizeof(hm), s->today_seconds);
+      snprintf(footer, sizeof(footer), "%s · heute %s h", since, hm);
+    } else {
+      strncpy(footer, since, sizeof(footer));
+    }
   } else if (s->valid) {
-    strncpy(footer, "SELECT: Timer starten", sizeof(footer));
+    if (s->today_seconds > 0) {
+      char hm[16];
+      prv_format_hm(hm, sizeof(hm), s->today_seconds);
+      snprintf(footer, sizeof(footer), "Heute %s h gebucht", hm);
+    } else {
+      strncpy(footer, "SELECT: Timer starten", sizeof(footer));
+    }
   } else {
     footer[0] = '\0';
   }
@@ -191,7 +227,24 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
 
 // --- Buttons -----------------------------------------------------------------
 
+// Favourite tiles when the user configured some, otherwise the plain list.
+static void prv_open_picker(void) {
+  model_clear_hint();
+  if (model_get()->favorite_count > 0) {
+    favorites_window_push();
+  } else {
+    list_window_push();
+  }
+}
+
+static void prv_stop(void) {
+  model_set_message("Stoppe…", false);
+  comm_send_stop();
+  status_window_refresh();
+}
+
 static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
+  model_clear_hint();
   model_set_message("Aktualisiere…", false);
   comm_send_refresh();
   status_window_refresh();
@@ -199,22 +252,22 @@ static void prv_up_click(ClickRecognizerRef recognizer, void *context) {
 
 static void prv_select_click(ClickRecognizerRef recognizer, void *context) {
   const TimerStatus *s = &model_get()->status;
+  model_clear_hint();
   if (s->valid && s->running) {
-    model_set_message("Stoppe…", false);
-    comm_send_stop();
-    status_window_refresh();
+    prv_stop();
   } else {
-    list_window_push();
+    prv_open_picker();
   }
 }
 
 static void prv_down_click(ClickRecognizerRef recognizer, void *context) {
-  list_window_push();
+  prv_open_picker();
 }
 
 static void prv_select_long_click(ClickRecognizerRef recognizer, void *context) {
-  // Long press always opens the list, even while a timer runs (switch task).
-  list_window_push();
+  // Long press: dictate a new entry (microphone platforms).
+  model_clear_hint();
+  dictation_start();
 }
 
 static void prv_click_config_provider(void *context) {
@@ -245,7 +298,25 @@ static void prv_tap_handler(const Recognizer *recognizer, RecognizerEvent event)
     }
     return;
   }
-  list_window_push();
+  prv_open_picker();
+}
+
+// Swipe left: back to the previous entry. Swipe right: stop.
+static void prv_swipe_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (event != RecognizerEvent_Completed) {
+    return;
+  }
+  const TimerStatus *s = &model_get()->status;
+  model_clear_hint();
+  if (swipe_recognizer_get_direction(recognizer) == SwipeDirection_Left) {
+    model_set_message("Vorheriger Eintrag…", false);
+    comm_send_previous();
+  } else if (s->valid && s->running) {
+    prv_stop();
+  } else {
+    model_set_message("Kein Timer läuft", false);
+  }
+  status_window_refresh();
 }
 #endif
 
@@ -269,6 +340,8 @@ static void prv_window_load(Window *window) {
   // window owns the recognizer and destroys it on unload.
   window_set_touch_bridge_disabled(window, true);
   window_attach_recognizer(window, tap_recognizer_create(prv_tap_handler, NULL));
+  window_attach_recognizer(window, swipe_recognizer_create(prv_swipe_handler, NULL,
+                                                          SwipeDirection_Left | SwipeDirection_Right));
 #endif
 }
 

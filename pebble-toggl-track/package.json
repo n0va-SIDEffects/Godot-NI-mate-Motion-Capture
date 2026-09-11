@@ -1,8 +1,10 @@
 {
   "name": "pebble-toggl-track",
   "author": "Mike Heissen",
-  "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "version": "1.1.0",
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -22,7 +24,9 @@
     "watchapp": {
       "watchface": false
     },
-    "capabilities": ["configurable"],
+    "capabilities": [
+      "configurable"
+    ],
     "messageKeys": [
       "CMD",
       "RUNNING",
@@ -33,7 +37,13 @@
       "START_TIME",
       "INDEX",
       "COUNT",
-      "MESSAGE"
+      "MESSAGE",
+      "TODAY_SECONDS",
+      "CLIENT_NAME",
+      "REMIND_FLAGS",
+      "REMIND_MAX_HOURS",
+      "REMIND_LATE_HOUR",
+      "REMIND_START_HOUR"
     ],
     "resources": {
       "media": []

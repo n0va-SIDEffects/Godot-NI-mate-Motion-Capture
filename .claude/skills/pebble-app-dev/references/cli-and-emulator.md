@@ -50,6 +50,16 @@ Verified 2026-09 in a Claude Code cloud container (SDK 4.33.1, firmware 4.33.2):
   `vncdo -s localhost::5901 move X Y mousedown 1 pause 0.2 mouseup 1`.
   A bare `click 1` is too short to register. The QEMU monitor port from
   `/tmp/pb-emulator.json` accepts `mouse_move`/`mouse_button` as well.
+- **Seed PebbleKit JS localStorage** for emulator tests (settings, tokens,
+  demo flags) without a config page: pypkjs keeps it as a `dbm.dumb` file at
+  `~/.local/share/pebble-sdk/<sdk>/<platform>/localstorage/<app-uuid>`. With
+  the emulator stopped (`pebble kill`), write keys with Python
+  (`dbm.dumb.open(path, 'c')[key] = json.dumps(value)`), then install. Giving
+  the app a "demo" backend behind a magic token pays off twice: UI screenshots
+  without an account, and a try-out mode for users.
+- **Dictation in the emulator**: after the app starts a session,
+  `pebble transcribe --emulator emery --vnc "text"` injects a transcript
+  (run it in the background; it often does not exit — `pkill -f "pebble transcribe"`).
 - Screenshots take 1–2 s; sleep ~10 s after install before the first one so
   the JS side has answered.
 

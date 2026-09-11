@@ -15,21 +15,30 @@ deine Toggl-Track-Timer direkt vom Handgelenk startest, stoppst und wechselst.
 └──────────────────────┴───┘
 ```
 
-* **Touch (Pebble Time 2):** Ein Tipp auf den Bildschirm öffnet die
-  Projektauswahl, ein Tipp auf ein Icon der Action-Bar löst die Taste daneben
-  aus. Die Liste lässt sich per Touch scrollen und antippen, sobald die
-  Touch-Navigation in den Uhr-Einstellungen aktiv ist.
-* Die Uhr zeigt den laufenden Eintrag mit Projekt (in Projektfarbe), Beschreibung,
-  Laufzeit (sekundengenau, lokal weitergezählt) und Startzeit.
-* Die Liste enthält die zuletzt verwendeten Kombinationen aus Beschreibung und
-  Projekt der letzten 30 Tage sowie alle aktiven Projekte. Ein Tipp startet den
-  Eintrag; ein laufender Timer wird dabei automatisch gestoppt.
+* **Touch (Pebble Time 2):** Ein Tipp auf den Bildschirm öffnet die Favoriten
+  (oder die Projektliste, wenn keine Favoriten angelegt sind), ein Tipp auf ein
+  Icon der Action-Bar löst die Taste daneben aus. Nach links wischen wechselt
+  zum vorherigen Eintrag, nach rechts wischen stoppt den Timer.
+* **Favoriten:** Bis zu vier Kacheln (Beschreibung + Projekt), in den
+  Einstellungen der Pebble-App angelegt. Dazu die Kacheln "Diktieren" und
+  "Liste". UP/DOWN wählen, SELECT startet, oder direkt antippen.
+* **Diktat:** SELECT lang drücken (oder Kachel "Diktieren"), Beschreibung
+  sprechen, Projekt wählen, fertig.
+* **Status-Screen:** laufender Eintrag mit Projekt (in Projektfarbe), Kunde und
+  Tags, Laufzeit sekundengenau, Startzeit und Tagessumme. Nach Start/Stopp
+  vibriert die Uhr kurz und bestätigt "Gestartet: …" bzw. "Gestoppt".
+* **Liste:** zuletzt verwendete Einträge der letzten 30 Tage (mit der heute
+  darauf gebuchten Zeit) sowie alle aktiven Projekte. Ein laufender Timer wird
+  beim Start eines neuen automatisch gestoppt.
+* **Erinnerungen:** Die Uhr weckt die App, wenn ein Timer länger als N Stunden
+  oder über eine Uhrzeit hinaus läuft ("Läuft noch?"), und optional werktags
+  morgens, wenn kein Timer läuft. Beides in den Einstellungen konfigurierbar.
+* **Rundung:** Optional wird ein gestoppter Eintrag auf 5, 15 oder 30 Minuten
+  gerundet.
 * Der letzte Status bleibt gespeichert und erscheint sofort beim Öffnen; im
-  Launcher zeigt der App-Glance, welcher Timer gerade läuft.
-
-| Pebble Time 2 (emery) | Liste | Pebble Time (basalt) |
-|---|---|---|
-| ![Status auf emery](docs/screenshots/emery-status.png) | ![Liste auf emery](docs/screenshots/emery-list.png) | ![Status auf basalt](docs/screenshots/basalt-status.png) |
+  Launcher zeigt der App-Glance den laufenden Eintrag mit fortlaufender Dauer.
+* **Demo-Modus:** Mit dem API-Token `demo` läuft die App gegen Beispieldaten,
+  ohne Toggl-Konto.
 
 Die Uhr spricht nur mit dem Handy (PebbleKit JS); das Handy spricht mit der
 [Toggl Track API v9](https://engineering.toggl.com/docs/). Der API-Token bleibt
@@ -79,10 +88,13 @@ wscript                Standard-Build-Skript des Pebble-SDK
 src/c/main.c           Einstieg, App-Glance
 src/c/model.[ch]       Gemeinsamer Zustand, Persistenz des letzten Status
 src/c/comm.[ch]        AppMessage-Protokoll zur Handy-Seite
-src/c/status_window.c  Hauptbildschirm mit gezeichneter Action-Bar
-src/c/list_window.c    Auswahlliste (Zuletzt / Projekte)
+src/c/status_window.c  Hauptbildschirm mit gezeichneter Action-Bar, Touch, Wischgesten
+src/c/favorites_window.c Kacheln: Favoriten, Diktieren, Liste
+src/c/list_window.c    Auswahlliste (Zuletzt / Projekte), auch Projektwahl nach Diktat
+src/c/dictation.c      Spracheingabe der Beschreibung
+src/c/reminders.c      Wakeup-Erinnerungen
 src/pkjs/index.js      Handy-Seite: Protokoll, Cache, Aktionen
-src/pkjs/toggl.js      Kleiner Client für die Toggl-API v9
+src/pkjs/toggl.js      Kleiner Client für die Toggl-API v9 plus Demo-Backend
 src/pkjs/config.js     Einstellungsseite als data:-URL (kein Hosting nötig)
 tests/pkjs_smoke.js    Node-Test mit nachgebauter Toggl-API
 ```
@@ -94,18 +106,21 @@ tests/pkjs_smoke.js    Node-Test mit nachgebauter Toggl-API
 | 1 `REFRESH` | Uhr → Handy | – |
 | 2 `START`   | Uhr → Handy | `PROJECT_ID` (0 = ohne), `DESCRIPTION` |
 | 3 `STOP`    | Uhr → Handy | – |
-| 10 `STATUS` | Handy → Uhr | `RUNNING`, `DESCRIPTION`, `PROJECT_NAME`, `PROJECT_COLOR`, `START_TIME` (UTC) |
+| 4 `PREVIOUS`| Uhr → Handy | – (laufenden Eintrag stoppen, vorherigen starten) |
+| 10 `STATUS` | Handy → Uhr | `RUNNING`, `DESCRIPTION`, `PROJECT_NAME`, `PROJECT_COLOR`, `START_TIME` (UTC), `TODAY_SECONDS`, `CLIENT_NAME` |
 | 11 `PROJECT`| Handy → Uhr | `INDEX`, `COUNT`, `PROJECT_ID`, `PROJECT_NAME`, `PROJECT_COLOR` |
-| 12 `RECENT` | Handy → Uhr | `INDEX`, `COUNT`, `PROJECT_ID`, `DESCRIPTION`, `PROJECT_NAME`, `PROJECT_COLOR` |
+| 12 `RECENT` | Handy → Uhr | `INDEX`, `COUNT`, `PROJECT_ID`, `DESCRIPTION`, `PROJECT_NAME`, `PROJECT_COLOR`, `TODAY_SECONDS` |
 | 13 `ERROR` / 14 `INFO` | Handy → Uhr | `MESSAGE` |
+| 15 `FAVORITE` | Handy → Uhr | `INDEX`, `COUNT`, `PROJECT_ID`, `DESCRIPTION`, `PROJECT_NAME`, `PROJECT_COLOR` |
+| 16 `CONFIG` | Handy → Uhr | `REMIND_FLAGS`, `REMIND_MAX_HOURS`, `REMIND_LATE_HOUR`, `REMIND_START_HOUR` |
 
 Projektfarben werden am Handy auf die 64 Pebble-Farben (`GColor8`) umgerechnet.
 
 ## Bekannte Grenzen
 
-* Die Beschreibung eines neuen Eintrags kommt aus der Liste der letzten
-  Einträge; freie Texteingabe (Diktat) gibt es noch nicht.
-* Toggl-Tags, Kunden und Abrechenbarkeit werden nicht angezeigt.
+* Timeline-Pins sind nicht umgesetzt: Die Timeline-API braucht eine im
+  Appstore veröffentlichte App, eine sideloaded App bekommt kein Token.
+* Abrechenbarkeit (billable) wird nicht angezeigt oder gesetzt.
 * Gebaut mit Pebble SDK 4.33.1 für alle sieben Plattformen und im Emulator
   (emery, basalt) getestet: Status-Screen, Liste, Tasten. Die Handy-Logik ist
   mit einer nachgebauten Toggl-API getestet. Der Lauf mit echtem API-Token und

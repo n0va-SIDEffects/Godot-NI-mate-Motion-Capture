@@ -96,6 +96,18 @@ than a few KB of data belongs in JS; the watch only renders and reacts.
   with QEMU running = pypkjs could not bind (no IPv6 in containers); fix and
   other container findings in `references/cli-and-emulator.md`.
 
+## Design habits that paid off
+
+- Give the phone side a **demo backend** behind a magic token (e.g. `demo`):
+  the watch UI can be exercised and screenshotted without an account, and
+  users can try the app before configuring it.
+- Confirm every phone-side action on the watch (short vibe + "Gestartet: …"
+  for two seconds, cleared by an `app_timer`) so users need not look twice.
+- Keep a **sticky hint** separate from transient messages: reminders set the
+  hint, normal status updates clear only the message, any button clears both.
+- Version persisted structs by moving to a new persist key when the layout
+  changes; reading an old layout into a grown struct yields garbage.
+
 ## Reference map
 
 | Need | Read |
