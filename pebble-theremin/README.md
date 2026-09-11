@@ -89,6 +89,11 @@ Die zuletzt gewählte Wellenform wird gespeichert.
 2. Die Datei antippen und mit der Pebble-App öffnen.
 3. Die Pebble-App installiert die App per Bluetooth auf der Uhr.
 
+## Store-Material
+
+Beschreibungstext (Deutsch und Englisch) und Screenshots in nativer
+Auflösung für den Pebble Appstore liegen im Ordner `store/`.
+
 ## Selbst bauen
 
 ```bash
