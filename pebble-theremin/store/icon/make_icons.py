@@ -36,9 +36,9 @@ icon(25, launcher=True).save(os.path.join(base,'..','..','resources','images','m
 # SIDE effect's Logo klein unten links.
 W,H=720,320; SS=3
 DARK=(22,30,42); SUB=(170,190,210)
-def wave_poly(d, y, amp, cycles, color, width, x0=0, x1=W, s=1):
-    top=[(x*s, (y-amp*math.sin(2*math.pi*cycles*(x-x0)/(x1-x0))-width/2)*s) for x in range(x0,x1+1,2)]
-    bot=[(x*s, (y-amp*math.sin(2*math.pi*cycles*(x-x0)/(x1-x0))+width/2)*s) for x in range(x1,x0-1,-2)]
+def wave_poly(d, y, amp, cycles, color, width, x0=0, x1=W, s=1, phase=0.0):
+    top=[(x*s, (y-amp*math.sin(2*math.pi*cycles*(x-x0)/(x1-x0)+phase)-width/2)*s) for x in range(x0,x1+1,2)]
+    bot=[(x*s, (y-amp*math.sin(2*math.pi*cycles*(x-x0)/(x1-x0)+phase)+width/2)*s) for x in range(x1,x0-1,-2)]
     d.polygon(top+bot, fill=color)
 def icon_colored(size, color, wave):
     im=Image.new('RGBA',(N,N),(0,0,0,0)); d=ImageDraw.Draw(im)
@@ -49,8 +49,9 @@ def icon_colored(size, color, wave):
     d.rounded_rectangle([420,840,604,900], radius=24, fill=color)
     return im.resize((size,size), Image.LANCZOS)
 big=Image.new('RGBA',(W*SS,H*SS),DARK); d=ImageDraw.Draw(big)
-wave_poly(d, 224, 40, 2.2, (45,75,105), 22, s=SS)   # tiefer, damit der Text frei bleibt
-wave_poly(d, 224, 40, 2.2, BLUE, 7, s=SS)
+# Wellenberg ueber dem Logo (Phase), damit sich Logo und Welle nicht beruehren
+wave_poly(d, 224, 40, 2.2, (45,75,105), 22, s=SS, phase=-0.73)
+wave_poly(d, 224, 40, 2.2, BLUE, 7, s=SS, phase=-0.73)
 ban=big.resize((W,H),Image.LANCZOS); d=ImageDraw.Draw(ban)
 ban.alpha_composite(icon_colored(120, WHITE, BLUE),(30,26))
 try:
@@ -73,7 +74,7 @@ for yy in range(logo.height):
         r,g,b,a=px[xx,yy]
         if r>235 and g>235 and b>235: px[xx,yy]=(r,g,b,0)
 bbox=logo.getbbox(); logo=logo.crop(bbox)
-lw_=150; logo=logo.resize((lw_, int(logo.height*lw_/logo.width)), Image.LANCZOS)
+lw_=185; logo=logo.resize((lw_, int(logo.height*lw_/logo.width)), Image.LANCZOS)
 # Pulslinie und Schriftzug (rechter Teil) auf dem dunklen Grund aufhellen;
 # der Pac-Man samt schwarzem X bleibt unveraendert
 px=logo.load(); split=int(logo.width*0.42)
