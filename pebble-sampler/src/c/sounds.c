@@ -514,8 +514,12 @@ static const SpeakerTrack MAGIC[] = {
   { .name = nm, .hint = hnt, .argb = col, .kind = SoundKindNotes, .notes = arr, .count = ARRAY_LENGTH(arr) }
 #define TRACKS(nm, hnt, col, arr) \
   { .name = nm, .hint = hnt, .argb = col, .kind = SoundKindTracks, .tracks = arr, .count = ARRAY_LENGTH(arr) }
+#define SAMPLE(nm, hnt, col, res, fmt) \
+  { .name = nm, .hint = hnt, .argb = col, .kind = SoundKindSample, .resource_id = res, .pcm_format = fmt },
 
 const Sound SOUNDS[] = {
+  // Imported audio samples come first (see tools/import_sample.py).
+#include "samples.inc"
   SYNTH ("Applaus",       "Standing Ovation",      GColorOrangeARGB8,             3200, gen_applause),
   TRACKS("Tusch",         "Ta-daaa!",              GColorChromeYellowARGB8,       FANFARE),
   SYNTH ("Furz",          "Pardon.",               GColorArmyGreenARGB8,          1200, gen_fart),

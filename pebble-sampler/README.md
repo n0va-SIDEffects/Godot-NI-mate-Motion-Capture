@@ -9,6 +9,7 @@ ist deshalb winzig (~17 KB) und braucht keine Handy-Verbindung.
 | Sound | Was man hört | Technik |
 |---|---|---|
 | Zufall | Ein zufälliger Sound aus der Liste | – |
+| (eigene Samples) | Importierte Clips erscheinen ganz oben | PCM aus dem Flash |
 | Applaus | Klatschende Menge mit An- und Abschwellen | PCM-Synthese |
 | Tusch | Dreistimmige Fanfare „Ta-daaa!“ | Noten, 3 Tracks |
 | Furz | Wabernder Brummton mit Flattern und Sputtern | PCM-Synthese |
@@ -49,6 +50,36 @@ Lautstärke und Schüttel-Option werden gespeichert. Ist der Lautsprecher in den
 Uhr-Einstellungen oder per Quiet Time stumm geschaltet, zeigt die Kopfzeile das
 an und die Uhr vibriert kurz statt zu spielen.
 
+## Eigene Samples (Suno, Freesound, Aufnahmen)
+
+Manche Geräusche klingen als echte Aufnahme einfach besser. Die App kann
+deshalb zusätzlich Audio-Samples aus dem Flash streamen. Der Import geht
+mit einem Befehl:
+
+```bash
+python3 tools/import_sample.py meinclip.mp3 --name "Applaus" --hint "Echte Menge"
+pebble build
+```
+
+Das Werkzeug wandelt den Clip in Mono-PCM für den Uhrlautsprecher
+(Standard: 16 kHz, 8 Bit, also 16 KB pro Sekunde), schneidet Stille weg,
+kürzt auf `--max-seconds` (Standard 4 s), filtert Bässe unter 150 Hz heraus
+(die der Lautsprecher ohnehin nicht wiedergibt), normalisiert und trägt das
+Sample in `package.json` und `src/c/samples.inc` ein. Danach erscheint es
+ganz oben in der Liste. Für MP3/M4A muss `ffmpeg` installiert sein, WAV geht
+ohne. Mit `--start 2.5` lässt sich ein Ausschnitt wählen, `--replace`
+überschreibt ein vorhandenes Sample, `--color GColorRedARGB8` setzt die
+Menüfarbe. `python3 tools/import_sample.py --help` zeigt alle Optionen.
+
+Budget: Eine Pebble-App darf insgesamt 256 KB Ressourcen haben, das sind
+rund 15 Sekunden Audio bei 16 kHz/8 Bit oder 30 Sekunden bei 8 kHz/8 Bit
+(`--rate 8000`, für Geräusche wie Applaus oder Explosionen völlig
+ausreichend). Das Werkzeug zeigt nach jedem Import den Füllstand an.
+
+Tipp für Suno: Kurze Prompts wie „sound effect only, no music, crowd
+applause, 3 seconds“ liefern brauchbare Clips; der Free Plan erlaubt nur
+private Nutzung. Alternativ liefert freesound.org viele CC0-Geräusche.
+
 ## Bauen und installieren
 
 Voraussetzung ist das aktuelle Pebble SDK (4.9 oder neuer, wegen der
@@ -82,6 +113,8 @@ src/c/synth.h, synth.c   Fixed-Point-Synthesizer (16 kHz, 16 Bit, ohne Floats)
 src/c/sounds.c           Sound-Bank: Generatoren und Notensequenzen
 src/c/player.c           Streaming-Pumpe für PCM plus Noten/Track-Wiedergabe
 src/c/main.c             Menü, Action-Menü, Schütteln, Einstellungen
+src/c/samples.inc        Liste importierter Samples (vom Import-Werkzeug gepflegt)
+tools/import_sample.py   Audio-Clip -> Sample-Ressource
 ```
 
 Jeder synthetisierte Sound ist eine Funktion, die pro Aufruf ein Sample

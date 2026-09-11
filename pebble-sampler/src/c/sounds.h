@@ -6,6 +6,7 @@ typedef enum {
   SoundKindSynth,   // procedurally rendered PCM stream
   SoundKindNotes,   // speaker_play_notes()
   SoundKindTracks,  // speaker_play_tracks() (polyphonic)
+  SoundKindSample,  // raw PCM resource streamed from flash
 } SoundKind;
 
 typedef struct {
@@ -18,6 +19,8 @@ typedef struct {
   const SpeakerNote *notes;     // SoundKindNotes only
   const SpeakerTrack *tracks;   // SoundKindTracks only
   uint8_t count;                // number of notes / tracks
+  uint32_t resource_id;         // SoundKindSample only
+  uint8_t pcm_format;           // SoundKindSample only (SpeakerPcmFormat)
 } Sound;
 
 extern const Sound SOUNDS[];

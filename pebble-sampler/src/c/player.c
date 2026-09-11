@@ -5,12 +5,19 @@
  */
 #include "player.h"
 
-#define CHUNK_SAMPLES        512     // 32 ms of audio per chunk
+#define CHUNK_BYTES          1024    // 32 ms of 16-bit audio, 64 ms of 8-bit audio
+#define CHUNK_SAMPLES        (CHUNK_BYTES / 2)
 #define PUMP_INTERVAL_MS     10
 #define MAX_CHUNKS_PER_PUMP  12      // upper bound on work per timer tick
 
+typedef enum { SourceNone, SourceSynth, SourceResource } StreamSource;
+
+static StreamSource s_source;
 static Synth s_synth;
-static int16_t s_chunk[CHUNK_SAMPLES];
+static ResHandle s_res;
+static uint32_t s_res_size;
+static uint32_t s_res_off;
+static union { int16_t pcm16[CHUNK_SAMPLES]; uint8_t bytes[CHUNK_BYTES]; } s_chunk;
 static uint32_t s_chunk_bytes;
 static uint32_t s_chunk_off;
 static AppTimer *s_timer;
@@ -26,23 +33,48 @@ static void prv_cancel_timer(void) {
   }
 }
 
+static bool prv_source_done(void) {
+  switch (s_source) {
+    case SourceSynth:    return synth_done(&s_synth);
+    case SourceResource: return s_res_off >= s_res_size;
+    default:             return true;
+  }
+}
+
+// Fills s_chunk from the active source; returns the number of bytes produced.
+static uint32_t prv_fill_chunk(void) {
+  switch (s_source) {
+    case SourceSynth:
+      return synth_render(&s_synth, s_chunk.pcm16, CHUNK_SAMPLES) * sizeof(int16_t);
+    case SourceResource: {
+      uint32_t want = s_res_size - s_res_off;
+      if (want > CHUNK_BYTES) want = CHUNK_BYTES;
+      uint32_t got = resource_load_byte_range(s_res, s_res_off, s_chunk.bytes, want);
+      if (got == 0) s_res_off = s_res_size;  // read error: end the sound
+      s_res_off += got;
+      return got;
+    }
+    default:
+      return 0;
+  }
+}
+
 static void prv_pump(void *ctx) {
   s_timer = NULL;
   if (!s_streaming) return;
 
   for (int i = 0; i < MAX_CHUNKS_PER_PUMP; i++) {
     if (s_chunk_off >= s_chunk_bytes) {
-      if (synth_done(&s_synth)) {
+      if (prv_source_done()) {
         // Everything has been handed over; let the buffer drain.
         s_streaming = false;
         speaker_stream_close();
         return;
       }
-      uint32_t n = synth_render(&s_synth, s_chunk, CHUNK_SAMPLES);
-      s_chunk_bytes = n * sizeof(int16_t);
+      s_chunk_bytes = prv_fill_chunk();
       s_chunk_off = 0;
     }
-    uint32_t written = speaker_stream_write((const uint8_t *)s_chunk + s_chunk_off,
+    uint32_t written = speaker_stream_write(s_chunk.bytes + s_chunk_off,
                                             s_chunk_bytes - s_chunk_off);
     s_chunk_off += written;
     if (s_chunk_off < s_chunk_bytes) {
@@ -81,21 +113,35 @@ bool player_is_playing(void) {
   return s_streaming || speaker_get_status() != SpeakerStatusIdle;
 }
 
+static bool prv_start_stream(StreamSource source, SpeakerPcmFormat format, uint8_t volume) {
+  if (!speaker_stream_open(format, volume)) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "speaker_stream_open failed");
+    s_source = SourceNone;
+    return false;
+  }
+  s_source = source;
+  s_streaming = true;
+  s_chunk_bytes = 0;
+  s_chunk_off = 0;
+  prv_pump(NULL);  // pre-fill the stream buffer right away
+  return true;
+}
+
 bool player_play(const Sound *sound, uint8_t volume) {
   player_stop();
   switch (sound->kind) {
-    case SoundKindSynth: {
+    case SoundKindSynth:
       synth_start(&s_synth, sound->render, sound->duration_ms, (uint32_t)rand() | 1u);
-      if (!speaker_stream_open(SpeakerPcmFormat_16kHz_16bit, volume)) {
-        APP_LOG(APP_LOG_LEVEL_ERROR, "speaker_stream_open failed");
+      return prv_start_stream(SourceSynth, SpeakerPcmFormat_16kHz_16bit, volume);
+    case SoundKindSample:
+      s_res = resource_get_handle(sound->resource_id);
+      s_res_size = resource_size(s_res);
+      s_res_off = 0;
+      if (s_res_size == 0) {
+        APP_LOG(APP_LOG_LEVEL_ERROR, "sample resource %s is empty", sound->name);
         return false;
       }
-      s_streaming = true;
-      s_chunk_bytes = 0;
-      s_chunk_off = 0;
-      prv_pump(NULL);  // pre-fill the stream buffer right away
-      return true;
-    }
+      return prv_start_stream(SourceResource, (SpeakerPcmFormat)sound->pcm_format, volume);
     case SoundKindNotes: {
       bool ok = speaker_play_notes(sound->notes, sound->count, volume);
       if (!ok) APP_LOG(APP_LOG_LEVEL_ERROR, "speaker_play_notes failed for %s", sound->name);
