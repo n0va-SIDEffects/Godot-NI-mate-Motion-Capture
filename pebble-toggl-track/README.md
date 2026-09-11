@@ -6,12 +6,12 @@ Kein offizielles Toggl-Produkt.
 
 ```
 ┌──────────────────────┬───┐
-│  ▌ Bühne ▐           │ ↻ │   UP      – Status neu laden        Tipp auf Bildschirm: Projektliste
+│  ▌ Website ▐         │ ↻ │   UP      – Status neu laden        Tipp auf Bildschirm: Projektliste
 │                      │   │
 │      1:23:45         │ ■ │   SELECT  – Timer stoppen / (wenn keiner läuft) neuen starten
 │                      │   │            lang drücken: Aufgabe wechseln
-│  Licht einrichten    │   │
-│  Probe Hamlet        │ ≡ │   DOWN    – Liste: zuletzt verwendete Einträge + Projekte
+│  Homepage relaunch   │   │
+│  Design review       │ ≡ │   DOWN    – Liste: zuletzt verwendete Einträge + Projekte
 │      seit 14:02      │   │
 └──────────────────────┴───┘
 ```

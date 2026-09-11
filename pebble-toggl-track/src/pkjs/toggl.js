@@ -202,17 +202,17 @@ Toggl.prototype.update = function (workspaceId, entryId, fields, callback) {
 function DemoToggl() {
   var now = Date.now();
   this.projects_ = [
-    { id: 101, name: 'Bühne', color: '#e36a00', active: true, workspace_id: 1, client_id: 7 },
+    { id: 101, name: 'Website', color: '#e36a00', active: true, workspace_id: 1, client_id: 7 },
     { id: 102, name: 'Admin', color: '#0b83d9', active: true, workspace_id: 1, client_id: null },
-    { id: 103, name: 'Video', color: '#9e5bd9', active: true, workspace_id: 1, client_id: 7 },
+    { id: 103, name: 'Mobile App', color: '#9e5bd9', active: true, workspace_id: 1, client_id: 7 },
     { id: 104, name: 'Meetings', color: '#c9806b', active: true, workspace_id: 1, client_id: null }
   ];
-  this.clients_ = [{ id: 7, name: 'Theater St.Gallen' }];
+  this.clients_ = [{ id: 7, name: 'Acme Corp' }];
   this.entries_ = [
-    { id: 1, description: 'Probe Hamlet', project_id: 101, workspace_id: 1, start: new Date(now - 3 * 3600000).toISOString(), stop: new Date(now - 2 * 3600000).toISOString(), duration: 3600, tags: ['Probe'] },
-    { id: 2, description: 'Dienstplan', project_id: 102, workspace_id: 1, start: new Date(now - 26 * 3600000).toISOString(), stop: new Date(now - 25 * 3600000).toISOString(), duration: 3600, tags: [] },
-    { id: 3, description: 'Video-Setup Saal', project_id: 103, workspace_id: 1, start: new Date(now - 50 * 3600000).toISOString(), stop: new Date(now - 47 * 3600000).toISOString(), duration: 10800, tags: ['Technik'] },
-    { id: 4, description: 'Teamsitzung', project_id: 104, workspace_id: 1, start: new Date(now - 72 * 3600000).toISOString(), stop: new Date(now - 71 * 3600000).toISOString(), duration: 3600, tags: [] }
+    { id: 1, description: 'Design review', project_id: 101, workspace_id: 1, start: new Date(now - 3 * 3600000).toISOString(), stop: new Date(now - 2 * 3600000).toISOString(), duration: 3600, tags: ['Design'] },
+    { id: 2, description: 'Weekly report', project_id: 102, workspace_id: 1, start: new Date(now - 26 * 3600000).toISOString(), stop: new Date(now - 25 * 3600000).toISOString(), duration: 3600, tags: [] },
+    { id: 3, description: 'Bug fixing', project_id: 103, workspace_id: 1, start: new Date(now - 50 * 3600000).toISOString(), stop: new Date(now - 47 * 3600000).toISOString(), duration: 10800, tags: ['Sprint 12'] },
+    { id: 4, description: 'Team meeting', project_id: 104, workspace_id: 1, start: new Date(now - 72 * 3600000).toISOString(), stop: new Date(now - 71 * 3600000).toISOString(), duration: 3600, tags: [] }
   ];
   this.running_ = null;
   this.nextId_ = 100;
