@@ -6,7 +6,7 @@ Pebble Time 2, direkt aus dem Emulator). Empfohlene Reihenfolge im Store:
 
 Icon und Banner liegen in `icon/`: `icon_144.png` (Store-Icon, größere
 Varianten 512 und kleinere 96/48 daneben, jeweils auch transparent) und
-`banner_720x320.png` (Kopfbild mit SIDE effect's Logo). Die App ist
+`banner_720x320.png` (Kopfbild, SIDE effect's Logo als Wasserzeichen). Die App ist
 zweisprachig (Deutsch/Englisch), Uhr und Handy-Seite wählen die Sprache
 automatisch.
 

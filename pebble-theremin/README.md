@@ -100,12 +100,13 @@ Die Konfigurationsseite in der Handy-App erscheint in der Sprache des Handys.
 
 Im Ordner `store/` liegen Beschreibungstext (Deutsch und Englisch,
 `DESCRIPTION.md`), Screenshots in nativer Auflösung (`screenshots/`) sowie
-Icon und Banner (`icon/`). Das Icon zeigt die klassischen Theremin-Antennen
-am SIDE effect's Logo und ist in 512, 144, 96 und 48 Pixel vorhanden, je mit
-weißem und transparentem Hintergrund. Das Launcher-Icon der Uhr liegt unter
-`resources/images/menu_icon.png` (25 × 25). Die Icons werden vom Skript-
-Kommentar in `store/icon/` beschrieben und lassen sich aus dem Repo neu
-erzeugen.
+Icon und Banner (`icon/`). Das Icon ist ein modern stilisiertes Theremin:
+die senkrechte Tonhöhen-Antenne, durch die eine blaue Welle läuft. Es liegt
+in 512, 144, 96 und 48 Pixeln vor, je mit weißem und transparentem
+Hintergrund. Das Launcher-Icon der Uhr (`resources/images/menu_icon.png`,
+25 × 25) ist eine kräftigere Variante desselben Motivs. Im Banner erscheint
+das SIDE effect's Logo nur als dezentes Wasserzeichen. Alle Grafiken erzeugt
+`store/icon/make_icons.py` (braucht Pillow).
 
 ## Selbst bauen
 
