@@ -65,6 +65,7 @@ dort den echten Stand zeigt. Die Seite ist mit
 | Max. Lautstärke   | 60 %, 80 %, 100 %                                       |
 | Wellenform        | Sinus, Dreieck, Rechteck, Sägezahn                      |
 | Wellenanzeige     | Aus, Statisch, Animiert (Welle im Hintergrund)          |
+| Rauschsperre      | An / Aus (Lautsprecher bei völliger Stille abschalten)  |
 
 SELECT auf einem Eintrag schaltet zum nächsten Wert. Alle Einstellungen
 werden auf der Uhr gespeichert.
@@ -110,6 +111,16 @@ Das Ergebnis liegt danach unter `build/pebble-theremin.pbw`.
   deutlich mehr (gemessen: 8 KB plus DMA-Blöcke von 256 Bytes), die App
   begrenzt die Latenz also selbst. Fühlt sich der Ton träge an, kann der Wert
   verkleinert werden; setzt der Ton aus, vergrößern.
+- **Rauschsperre:** Der Verstärker des Lautsprechers rauscht leise, sobald
+  ein Stream offen ist, auch bei digitaler Stille. Ist die Lautstärke ganz
+  zurückgekippt und der Ton eine halbe Sekunde still, schließt die App den
+  Stream und schaltet damit den Verstärker ab. Beim nächsten Ton wird der
+  Stream neu geöffnet und weich eingeblendet (der Notenname erscheint grau,
+  solange die Sperre aktiv ist). Rauschen, das während eines Tons hörbar ist,
+  stammt aus dem Verstärker und lässt sich per Software nicht entfernen.
+- **Wellenformtabellen:** 16 Bit mit 512 Einträgen pro Periode und linearer
+  Interpolation (Fehler unter -80 dB), damit die Tonerzeugung selbst kein
+  Körnen oder Zischen beisteuert.
 - **Anzeige und Audio:** Ein Bildaufbau blockiert die App für einige
   Millisekunden, in denen die Audio-Pumpe nicht nachfüllen kann. Die
   Hintergrundwelle wird deshalb sparsam gezeichnet (ohne Kantenglättung, in

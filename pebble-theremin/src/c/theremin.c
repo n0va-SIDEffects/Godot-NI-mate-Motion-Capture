@@ -36,9 +36,10 @@
 #define CHUNK_SAMPLES     256            // 16 ms Audio pro Block (512 Bytes)
 #define WRITES_PER_TICK   8
 #define CAL_SAMPLES       20             // Sensor-Callbacks fuer die Kalibrierung (~0.8 s)
+#define GATE_CLOSE_MS     500            // Rauschsperre: nach so viel Stille den Lautsprecher abschalten
 
 #define PERSIST_KEY_SETTINGS  10
-#define SETTINGS_VERSION      3
+#define SETTINGS_VERSION      4
 
 // ---------------------------------------------------------------------------
 // Einstellungen
@@ -62,6 +63,7 @@ typedef struct {
   uint8_t glide;         // 0 kurz, 1 mittel, 2 lang
   uint8_t volume_idx;    // Index in VOLUME_LEVELS
   uint8_t wave_anim;     // 0 aus, 1 statisch, 2 animiert
+  uint8_t gate;          // Rauschsperre 0/1
 } Settings;
 
 static Settings s_set;
@@ -71,7 +73,7 @@ static const Settings DEFAULT_SETTINGS = {
   .pitch_axis = AxisLift, .vol_axis = AxisRoll,
   .invert_pitch = 0, .invert_vol = 0,
   .root_idx = 1, .octaves = 4, .scale = ScaleFree,
-  .pitch_sens = 1, .vol_sens = 1, .glide = 1, .volume_idx = 2, .wave_anim = 2,
+  .pitch_sens = 1, .vol_sens = 1, .glide = 1, .volume_idx = 2, .wave_anim = 2, .gate = 1,
 };
 
 static const char *WAVE_NAMES[WaveCount]   = { "Sinus", "Dreieck", "Rechteck", "Sägezahn" };
@@ -116,6 +118,8 @@ static Window *s_menu_window;
 static MenuLayer *s_menu;
 
 static bool s_playing = false;
+static bool s_gate_closed = false;          // Rauschsperre aktiv: Stream geschlossen, Lautsprecher aus
+static uint16_t s_silent_ticks = 0;
 static bool s_settings_dirty = false;
 static const char *s_status = "Ruhig halten...";
 static void send_settings_to_phone(void);
@@ -329,21 +333,60 @@ static void apply_sensor_subscriptions(void) {
 // Audio
 // ---------------------------------------------------------------------------
 static void generate_chunk(void) {
-  const int8_t *table = WAVETABLES[s_set.wave][s_band];
+  const int16_t *table = WAVETABLES[s_set.wave][s_band];
   for (int i = 0; i < CHUNK_SAMPLES; i++) {
     s_phase_inc += (uint32_t)(((int32_t)(s_target_inc - s_phase_inc)) >> s_glide_shift);
     s_amp += (s_target_amp - s_amp) >> 9;
     s_phase += s_phase_inc;
-    int32_t v = (int32_t)table[s_phase >> 24] * s_amp;   // -128*65536 .. 127*65536
-    s_chunk[i] = (int16_t)(v >> 8);
+    // Tabellenwert mit linearer Interpolation (9 Bit Index, 8 Bit Bruchteil)
+    uint32_t idx = s_phase >> (32 - WAVE_TABLE_BITS);
+    uint32_t frac = (s_phase >> (32 - WAVE_TABLE_BITS - 8)) & 0xFF;
+    int32_t a = table[idx];
+    int32_t b = table[(idx + 1) & (WAVE_TABLE_SIZE - 1)];
+    int32_t w = a + (((b - a) * (int32_t)frac) >> 8);        // -32000 .. 32000
+    int32_t v = (w * (s_amp >> 4)) >> 12;                     // * Amplitude (Q16) -> 16 Bit
+    s_chunk[i] = (int16_t)v;
   }
   s_chunk_len = CHUNK_SAMPLES * sizeof(int16_t);
   s_chunk_pos = 0;
 }
 
+static bool stream_begin(void) {
+  if (!speaker_stream_open(PCM_FORMAT, VOLUME_LEVELS[s_set.volume_idx])) return false;
+  s_last_raw_ms = now_ms();
+  s_clock_ms = 0;
+  s_samples_written = 0;
+  s_chunk_len = s_chunk_pos = 0;
+  s_amp = 0;                 // weich einblenden
+  s_phase_inc = s_target_inc;
+  return true;
+}
+
 static void audio_tick(void *ctx) {
   s_timer = NULL;
   if (!s_playing) return;
+
+  // Rauschsperre: Bei voelliger Stille (Lautstaerke ganz zurueckgekippt) den
+  // Stream schliessen, damit der Verstaerker nicht leer rauscht. Sobald wieder
+  // Lautstaerke anliegt, wird der Stream neu geoeffnet und weich eingeblendet.
+  if (s_gate_closed) {
+    if (s_target_amp > 0 && s_set.gate) {
+      if (stream_begin()) { s_gate_closed = false; s_silent_ticks = 0; }
+    } else if (!s_set.gate) {
+      if (stream_begin()) s_gate_closed = false;
+    }
+    if (s_gate_closed) { s_timer = app_timer_register(TICK_MS * 4, audio_tick, NULL); return; }
+  } else if (s_set.gate && s_target_amp == 0 && s_amp < 64) {
+    if (++s_silent_ticks >= GATE_CLOSE_MS / TICK_MS) {
+      speaker_stream_close();
+      s_gate_closed = true;
+      if (s_canvas) layer_mark_dirty(s_canvas);
+      s_timer = app_timer_register(TICK_MS * 4, audio_tick, NULL);
+      return;
+    }
+  } else {
+    s_silent_ticks = 0;
+  }
 
   // Hoechstens LEAD_MS vor der Wiedergabe schreiben: kleine Latenz, egal wie
   // gross der interne Puffer der Firmware ist (~1 s).
@@ -361,19 +404,15 @@ static void audio_tick(void *ctx) {
 
 static void start_audio(void) {
   if (s_playing) return;
-  if (!speaker_stream_open(PCM_FORMAT, VOLUME_LEVELS[s_set.volume_idx])) {
+  if (!stream_begin()) {
     s_status = "Lautsprecher-Fehler";
     layer_mark_dirty(s_canvas);
     return;
   }
   s_playing = true;
+  s_gate_closed = false;
+  s_silent_ticks = 0;
   if (s_calibrated) s_status = "SELECT: Stop";
-  s_last_raw_ms = now_ms();
-  s_clock_ms = 0;
-  s_samples_written = 0;
-  s_chunk_len = s_chunk_pos = 0;
-  s_amp = 0;
-  s_phase_inc = s_target_inc;
   audio_tick(NULL);
   layer_mark_dirty(s_canvas);
 }
@@ -383,7 +422,8 @@ static void stop_audio(void) {
   s_playing = false;
   if (s_calibrated) s_status = "SELECT: Start";
   if (s_timer) { app_timer_cancel(s_timer); s_timer = NULL; }
-  speaker_stream_close();
+  if (!s_gate_closed) speaker_stream_close();
+  s_gate_closed = false;
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
@@ -400,10 +440,13 @@ static void settings_apply(void) {
 static void settings_load(void) {
   s_set = DEFAULT_SETTINGS;
   if (persist_exists(PERSIST_KEY_SETTINGS)) {
-    Settings tmp;
-    if (persist_read_data(PERSIST_KEY_SETTINGS, &tmp, sizeof(tmp)) == (int)sizeof(tmp) &&
-        tmp.version == SETTINGS_VERSION) {
+    // Aeltere Versionen haben nur weniger Felder am Ende; die fehlenden behalten
+    // ihre Standardwerte, gespeicherte Einstellungen gehen nicht verloren.
+    Settings tmp = DEFAULT_SETTINGS;
+    int n = persist_read_data(PERSIST_KEY_SETTINGS, &tmp, sizeof(tmp));
+    if (n >= 2 && tmp.version >= 2 && tmp.version <= SETTINGS_VERSION) {
       s_set = tmp;
+      s_set.version = SETTINGS_VERSION;
     }
   }
   // Grenzen absichern
@@ -418,6 +461,7 @@ static void settings_load(void) {
   if (s_set.glide > 2) s_set.glide = 1;
   if (s_set.volume_idx >= VOLUME_COUNT) s_set.volume_idx = 2;
   if (s_set.wave_anim > 2) s_set.wave_anim = 2;
+  if (s_set.gate > 1) s_set.gate = 1;
 }
 
 static void settings_save(void) {
@@ -475,6 +519,7 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   set_u8(&s_set.volume_idx,   dict_find(iter, MESSAGE_KEY_Volume),      0, VOLUME_COUNT - 1);
   set_u8(&s_set.wave,         dict_find(iter, MESSAGE_KEY_Wave),        0, WaveCount - 1);
   set_u8(&s_set.wave_anim,    dict_find(iter, MESSAGE_KEY_WaveAnim),    0, 2);
+  set_u8(&s_set.gate,         dict_find(iter, MESSAGE_KEY_Gate),        0, 1);
   settings_apply();
   s_settings_dirty = true;
   if (!s_playing) settings_save();       // beim Spielen erst am Ende (Flash-Zugriff wuerde knacken)
@@ -499,6 +544,7 @@ static void send_settings_to_phone(void) {
   dict_write_uint8(iter, MESSAGE_KEY_Volume,      s_set.volume_idx);
   dict_write_uint8(iter, MESSAGE_KEY_Wave,        s_set.wave);
   dict_write_uint8(iter, MESSAGE_KEY_WaveAnim,    s_set.wave_anim);
+  dict_write_uint8(iter, MESSAGE_KEY_Gate,        s_set.gate);
   app_message_outbox_send();
 }
 
@@ -507,14 +553,14 @@ static void send_settings_to_phone(void) {
 // ---------------------------------------------------------------------------
 enum {
   RowCalibrate = 0, RowPitchAxis, RowVolAxis, RowInvertPitch, RowInvertVol,
-  RowRoot, RowOctaves, RowScale, RowPitchSens, RowVolSens, RowGlide, RowVolume, RowWave, RowAnim,
+  RowRoot, RowOctaves, RowScale, RowPitchSens, RowVolSens, RowGlide, RowVolume, RowWave, RowAnim, RowGate,
   RowCount
 };
 
 static const char *ROW_TITLES[RowCount] = {
   "Kalibrieren", "Tonhöhe", "Lautstärke", "Tonhöhe umkehren", "Lautst. umkehren",
   "Tiefster Ton", "Umfang", "Tonleiter", "Empf. Tonhöhe", "Empf. Lautstärke",
-  "Portamento", "Max. Lautstärke", "Wellenform", "Wellenanzeige",
+  "Portamento", "Max. Lautstärke", "Wellenform", "Wellenanzeige", "Rauschsperre",
 };
 
 static const char *row_value(int row, char *buf, size_t len) {
@@ -533,6 +579,7 @@ static const char *row_value(int row, char *buf, size_t len) {
     case RowVolume:      return VOLUME_NAMES[s_set.volume_idx];
     case RowWave:        return WAVE_NAMES[s_set.wave];
     case RowAnim:        return ANIM_NAMES[s_set.wave_anim];
+    case RowGate:        return s_set.gate ? "An (Stille = Lautspr. aus)" : "Aus";
     default:             return "";
   }
 }
@@ -571,6 +618,7 @@ static void menu_select(MenuLayer *ml, MenuIndex *idx, void *data) {
     case RowVolume:      s_set.volume_idx = (s_set.volume_idx + 1) % VOLUME_COUNT; break;
     case RowWave:        s_set.wave = (s_set.wave + 1) % WaveCount; break;
     case RowAnim:        s_set.wave_anim = (s_set.wave_anim + 1) % 3; break;
+    case RowGate:        s_set.gate ^= 1; break;
   }
   settings_apply();
   s_settings_dirty = true;
@@ -627,7 +675,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   // Anzahl der Perioden folgt der Tonhoehe, Ausschlag der Lautstaerke,
   // beim Spielen wandert sie durchs Bild.
   if (s_set.wave_anim != 0) {
-    const int8_t *table = WAVETABLES[s_set.wave][0];       // volle Form, damit sie erkennbar bleibt
+    const int16_t *table = WAVETABLES[s_set.wave][0];      // volle Form, damit sie erkennbar bleibt
     const int16_t cy = 64;                                   // Mittellinie hinter der Frequenz
     uint32_t range_q8 = (uint32_t)semitone_range() * 256;
     uint32_t cycles_q8 = 2 * 256 + (uint32_t)(5 * 256) * s_semis_q8 / range_q8;   // 2 .. 7 Perioden
@@ -640,9 +688,9 @@ static void canvas_update(Layer *layer, GContext *ctx) {
     graphics_context_set_antialiased(ctx, false);
     GPoint prev = GPoint(0, 0);
     for (int16_t x = 0; x <= w; x += 4) {
-      uint32_t pos = ((uint32_t)(x + s_anim_px) * cycles_q8 / (uint32_t)w);   // Phase in 1/256 Perioden * 256
-      uint8_t p = (uint8_t)pos;
-      GPoint pt = GPoint(x, cy - (int16_t)((int32_t)table[p] * amp_px / 127));
+      uint32_t pos = ((uint32_t)(x + s_anim_px) * cycles_q8 / (uint32_t)w);   // Phase in 1/256 Perioden
+      uint16_t p = (uint16_t)((pos * 2) & (WAVE_TABLE_SIZE - 1));
+      GPoint pt = GPoint(x, cy - (int16_t)((int32_t)table[p] * amp_px / 32000));
       if (x > 0) graphics_draw_line(ctx, prev, pt);
       prev = pt;
     }
@@ -663,7 +711,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   static char note_buf[8];
   uint32_t midi = ROOT_MIDI[s_set.root_idx] + ((s_semis_q8 + 128) >> 8);
   snprintf(note_buf, sizeof(note_buf), "%s%u", NOTE_NAMES[midi % 12], (unsigned)(midi / 12) - 1);
-  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_context_set_text_color(ctx, s_gate_closed ? GColorLightGray : GColorBlack);
   graphics_draw_text(ctx, note_buf, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
                      GRect(0, 70, w, 32), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
@@ -671,6 +719,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   static char label[40];
   const int16_t px = 14, pw = w - 2 * px, py = 126;
   snprintf(label, sizeof(label), "Tonhöhe: %s", AXIS_NAMES[s_set.pitch_axis]);
+  graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, label, fonts_get_system_font(FONT_KEY_GOTHIC_14),
                      GRect(0, py - 18, w, 16), GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   graphics_context_set_stroke_color(ctx, GColorBlack);

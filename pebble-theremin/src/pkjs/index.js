@@ -5,7 +5,7 @@ var clayConfig = require('./config');
 var clay = new Clay(clayConfig);
 
 // Auswahlfelder erwarten Textwerte, Schalter Wahrheitswerte.
-var TOGGLE_KEYS = { InvertPitch: true, InvertVol: true };
+var TOGGLE_KEYS = { InvertPitch: true, InvertVol: true, Gate: true };
 
 // Die Uhr schickt beim Start (und nach Aenderungen im Uhr-Menue) ihre
 // aktuellen Einstellungen. Damit zeigt die Konfigurationsseite den echten Stand.

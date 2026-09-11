@@ -33,7 +33,8 @@
       "Glide",
       "Volume",
       "Wave",
-      "WaveAnim"
+      "WaveAnim",
+      "Gate"
     ],
     "resources": {
       "media": []

@@ -74,6 +74,8 @@ module.exports = [
         "options": [
           { "label": "Aus", "value": "0" }, { "label": "Statisch", "value": "1" }, { "label": "Animiert", "value": "2" }
         ] },
+      { "type": "toggle", "messageKey": "Gate", "label": "Rauschsperre", "defaultValue": true,
+        "description": "Schaltet den Lautsprecher bei völliger Stille ab, damit er nicht leer rauscht. Beim nächsten Ton wird er weich wieder eingeblendet." },
       { "type": "select", "messageKey": "Volume", "label": "Maximale Lautstärke", "defaultValue": "2",
         "options": [
           { "label": "60 %", "value": "0" }, { "label": "80 %", "value": "1" }, { "label": "100 %", "value": "2" }
