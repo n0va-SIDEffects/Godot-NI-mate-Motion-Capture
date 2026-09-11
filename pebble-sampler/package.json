@@ -1,0 +1,29 @@
+{
+  "name": "pebble-sampler",
+  "author": "Mike Heissen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Sampler",
+    "uuid": "da4c3014-f45d-4a8b-a923-416aaafe030b",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": ["emery"],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [],
+    "resources": {
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "MENU_ICON",
+          "file": "images/icon.png",
+          "menuIcon": true
+        }
+      ]
+    }
+  }
+}
