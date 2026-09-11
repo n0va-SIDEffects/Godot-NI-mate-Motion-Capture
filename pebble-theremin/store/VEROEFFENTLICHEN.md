@@ -8,7 +8,7 @@ Der Ordner `release/` enthält alles, was der Store abfragt:
 
 | Datei | Verwendung im Portal |
 |-------|----------------------|
-| `Theremin-1.0.0.pbw` | Release-Datei (die App) |
+| `Theremin-1.0.pbw` | Release-Datei (die App) |
 | `icon_80.png` | Icon (80 × 80, so verlangt es das Portal) |
 | `icon_144.png`, `icon_48.png` | Large und Small Icon, falls das Portal zusätzlich danach fragt |
 | `banner_720x320.png` | Marketing Banner (Kopfbild der Listung) |
@@ -33,7 +33,7 @@ sprengen das, also eine Sprache wählen oder kürzen).
    - Support email: deine Adresse
    - Icon: `icon_80.png` (80 × 80)
 4. Listing anlegen ("Create").
-5. "Add a release": `Theremin-1.0.0.pbw` hochladen, optional Release Notes
+5. "Add a release": `Theremin-1.0.pbw` hochladen, optional Release Notes
    (z. B. "Erste Version"). Seite neu laden, dann neben dem Release auf
    "Publish" klicken.
 6. "Manage Asset Collections" → "Create" für die Plattform **emery**
@@ -66,7 +66,7 @@ lassen sich stattdessen die vorbereiteten Bilder hochladen. Ohne
 `--is-published` bleibt das Release zunächst unveröffentlicht und kann im
 Portal geprüft werden.
 
-Für spätere Updates: Version in `package.json` erhöhen (z. B. `1.0.1`),
+Für spätere Updates: Version in `package.json` erhöhen (z. B. `1.1`; der Store erwartet das Format Major.Minor, also zwei Zahlen),
 `pebble build`, `pebble publish`. Die UUID der App darf sich nie ändern,
 sonst gilt sie als neue App.
 
