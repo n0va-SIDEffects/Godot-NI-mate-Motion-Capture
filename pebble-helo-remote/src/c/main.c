@@ -211,8 +211,11 @@ static void inbox_received_cb(DictionaryIterator *iter, void *context) {
     s_status.temp_c = (int) t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_VIBRATE)))
     s_status.vibrate = t->value->int32 != 0;
-  if ((t = dict_find(iter, MESSAGE_KEY_MESSAGE)) && t->value->cstring[0]) {
-    set_hint(t->value->cstring, s_status.conn != CONN_OK);
+  if ((t = dict_find(iter, MESSAGE_KEY_MESSAGE))) {
+    /* go through a pointer: indexing the SDK's zero-length cstring[] member
+     * directly trips -Wzero-length-bounds on GCC 14 */
+    const char *msg = t->value->cstring;
+    if (msg[0]) set_hint(msg, s_status.conn != CONN_OK);
   }
 
   if (got_status) {

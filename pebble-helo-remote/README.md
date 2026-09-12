@@ -7,9 +7,10 @@ Gerätetemperatur auf einen Blick.
 Zielplattform ist die **Pebble Time 2** (`emery`, 200×228 Farbdisplay). Die App baut
 zusätzlich für Pebble Time (`basalt`) und Pebble 2 / Core 2 Duo (`diorite`).
 
-> **Status:** Der Code wurde per Syntax-Check und gegen den mitgelieferten HELO-Simulator
-> getestet (`tools/helo-simulator.js`), aber noch **nicht auf echter Hardware** (Uhr + HELO).
-> Siehe [Bekannte Unsicherheiten](#bekannte-unsicherheiten).
+> **Status:** Baut warnungsfrei mit dem Pebble-SDK 4.33.1 für emery, basalt und diorite und
+> läuft im Pebble-Emulator gegen den mitgelieferten HELO-Simulator (`tools/helo-simulator.js`),
+> siehe [Screenshots](#screenshots-emulator). Auf **echter Hardware** (Uhr + HELO) noch nicht
+> getestet. Siehe [Bekannte Unsicherheiten](#bekannte-unsicherheiten).
 
 ---
 
@@ -84,14 +85,14 @@ Der Pebble-SDK-Workflow von Core Devices (Stand 2026):
 
 ```bash
 # 1. Werkzeug installieren (einmalig)
-uv tool install "pebble-tool" --python 3.13     # oder: pip install pebble-tool
-pebble sdk install latest
-pebble sdk activate <version>                   # z.B. 4.17 – Ausgabe von "pebble sdk list"
+uv tool install "pebble-tool==5.0.40" --python 3.13   # oder: pip install pebble-tool
+pebble sdk install latest                             # installiert und aktiviert z.B. 4.33.1
+pebble sdk list                                       # zeigt die aktive Version
 
 # 2. Bauen
 cd pebble-helo-remote
 npm install            # holt pebble-clay
-pebble build           # -> build/helo-remote.pbw
+pebble build           # -> build/pebble-helo-remote.pbw (benannt nach dem Projektordner)
 
 # 3. Installieren
 pebble install --emulator emery        # Emulator Pebble Time 2
@@ -99,6 +100,24 @@ pebble install --phone <IP-des-Telefons>   # echte Uhr (Developer Connection in 
 ```
 
 Logs des JS-Teils (hilfreich beim Einrichten): `pebble logs --phone <IP>`.
+
+Verifiziert mit pebble-tool 5.0.40 und SDK 4.33.1 (GCC 14.2.1): `pebble build` läuft für alle
+drei Plattformen ohne Warnungen durch. Der `wscript` setzt dafür `-Wl,--no-warn-rwx-segments`,
+weil neuere binutils das vom SDK-Linkerskript erzeugte RWX-Segment sonst bemängeln.
+
+### Emulator unter Linux (ohne Display)
+
+- QEMU des SDK braucht `libsdl2-2.0-0` und `libpulse0` (Debian/Ubuntu: `apt install`).
+- Ohne Monitor: `Xvfb :99 -screen 0 1280x800x24 &` und `export DISPLAY=:99`.
+- In Containern ohne IPv6 scheitert die Telefon-Simulation `pypkjs` mit
+  `[Errno 97] Address family not supported`. Abhilfe: in
+  `site-packages/pypkjs/runner/websocket.py` das Bind-Tupel `("", self.port)` durch
+  `("0.0.0.0", self.port)` ersetzen.
+- Einstellungen lassen sich ohne Clay-Seite direkt in den localStorage des Emulators schreiben
+  (`~/.local/share/pebble-sdk/<SDK>/<plattform>/localstorage/<app-uuid>`, Format `dbm.dumb`,
+  Schlüssel `helo_remote_settings`, Wert JSON wie `{"host":"127.0.0.1","port":8080,"poll":2}`).
+- Tasten: `pebble emu-button --emulator emery click up|select|down|back`;
+  Screenshot: `pebble screenshot --emulator emery --no-open datei.png`.
 
 ### Ohne Hardware testen
 
@@ -120,12 +139,28 @@ Requests.
 
 ---
 
+## Screenshots (Emulator)
+
+Aufgenommen mit `pebble screenshot` gegen den HELO-Simulator, Emery = Pebble Time 2.
+
+| Keine IP konfiguriert | Bereit | Aufnahme läuft |
+|---|---|---|
+| ![](docs/emery_01_keine_konfig.png) | ![](docs/emery_02_bereit.png) | ![](docs/emery_03_aufnahme.png) |
+
+| Aufnahme + Stream | Stopp-Bestätigung (2. Druck) | Basalt (Pebble Time) | Diorite (Pebble 2) |
+|---|---|---|---|
+| ![](docs/emery_04_aufnahme_und_stream.png) | ![](docs/emery_05_stopp_bestaetigen.png) | ![](docs/basalt_aufnahme.png) | ![](docs/diorite_aufnahme.png) |
+
+---
+
 ## Projektstruktur
 
 ```
 pebble-helo-remote/
 ├── package.json              Pebble-Projekt (Plattformen, messageKeys, Clay-Abhängigkeit)
-├── wscript                   Standard-Buildskript des Pebble-SDK
+├── package-lock.json         festgepinnte Clay-Version
+├── wscript                   Standard-Buildskript des Pebble-SDK (+ Linker-Flag, s. o.)
+├── docs/                     Emulator-Screenshots
 ├── src/c/main.c              Watch-App: UI, Tasten, AppMessage
 ├── src/pkjs/index.js         Phone-Seite: HELO-REST-Polling, Befehle, Auth, Clay
 ├── src/pkjs/config.js        Clay-Konfigurationsseite
@@ -146,9 +181,15 @@ Telefon → Uhr: `CONN` (0 unbekannt, 1 OK, 2 offline, 3 Auth-Fehler, 4 keine IP
 
 ## Bekannte Unsicherheiten
 
-- **Nicht auf Hardware getestet.** Der Build-Server des Pebble-SDK war aus der Entwicklungsumgebung
-  nicht erreichbar, daher wurde der C-Code nur gegen einen API-Stub syntaxgeprüft und der JS-Teil
-  gegen den Simulator. Erster echter Test: `pebble build` ausführen und Emulator starten.
+- **Nicht auf Hardware getestet.** Build (SDK 4.33.1) und Emulator sind verifiziert: Status,
+  Rec/Stream-Start und -Stopp inkl. Bestätigung, Medien-/Temperaturanzeige laufen gegen den
+  Simulator. Offen bleibt der Test mit echter Uhr und echtem HELO (`pebble install --phone <IP>`,
+  dann Logs mit `pebble logs --phone <IP>` prüfen).
+- **Kleine Displays (basalt/diorite, 144×168):** Die Laufzeit-Ziffern werden rechts leicht
+  abgeschnitten und „Medien xx % frei“ stößt an die Temperatur (siehe Screenshots). Auf emery
+  (Pebble Time 2) passt alles; für die kleinen Plattformen wäre ein kompakteres Layout sinnvoll.
+- **Hinweiszeile auf emery:** Lange Meldungen wie „Nochmal: Aufnahme STOPP“ werden mit „…“
+  gekürzt. Funktional unkritisch, ggf. kürzere Texte wählen.
 - `eParamID_SysName` ist aus der Ki-Pro-API übernommen; liefert der HELO ihn nicht, zeigt die
   Kopfzeile einfach die IP.
 - `value_name` der Zustände wird am HELO als Enum-Name geliefert (z. B. `eRRSRecording`). Die

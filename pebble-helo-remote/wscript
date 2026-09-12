@@ -25,6 +25,9 @@ def build(ctx):
     for platform in ctx.env.TARGET_PLATFORMS:
         ctx.set_env(ctx.all_envs[platform])
         ctx.set_group(ctx.env.PLATFORM_NAME)
+        # binutils >= 2.39 warns about the RWX LOAD segment produced by the SDK's
+        # pebble_app.ld; that layout is what the Pebble loader expects, so silence it.
+        ctx.env.append_unique('LINKFLAGS', ['-Wl,--no-warn-rwx-segments'])
         app_elf = '{}/pebble-app.elf'.format(ctx.env.BUILD_DIR)
         ctx.pbl_build(source=ctx.path.ant_glob('src/c/**/*.c'), target=app_elf, bin_type='app')
 
