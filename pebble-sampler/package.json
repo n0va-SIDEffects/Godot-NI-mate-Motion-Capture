@@ -6,7 +6,9 @@
     "pebble-app"
   ],
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "@rebble/clay": "^1.1.0"
+  },
   "pebble": {
     "displayName": "Sampler",
     "uuid": "da4c3014-f45d-4a8b-a923-416aaafe030b",
@@ -18,7 +20,22 @@
     "watchapp": {
       "watchface": false
     },
-    "messageKeys": [],
+    "messageKeys": [
+      "Ready",
+      "Hello",
+      "Volume",
+      "Shake",
+      "Touch",
+      "SampleName[4]",
+      "SampleUrl[4]",
+      "XferSlot",
+      "XferTotal",
+      "XferOffset",
+      "XferData",
+      "XferName",
+      "XferDone",
+      "XferError"
+    ],
     "resources": {
       "media": [
         {
@@ -118,6 +135,9 @@
           "file": "samples/pferd.ima"
         }
       ]
-    }
+    },
+    "capabilities": [
+      "configurable"
+    ]
   }
 }

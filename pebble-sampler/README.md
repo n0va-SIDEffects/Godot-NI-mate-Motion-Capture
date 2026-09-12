@@ -13,6 +13,7 @@ Jingles werden auf der Uhr synthetisiert.
 | Sound | Was man hört | Technik |
 |---|---|---|
 | Zufall | Ein zufälliger Sound aus der Liste | – |
+| (Handy-Samples) | Vom Handy geladene Clips, siehe unten | ADPCM im RAM |
 | Applaus | Echter Konzertsaal-Applaus | Aufnahme |
 | Furz | Pardon. | Aufnahme |
 | Rülpser | Wohl bekomm's | Aufnahme |
@@ -39,6 +40,7 @@ Jingles werden auf der Uhr synthetisiert.
 | Pfiff | Wolf-Pfiff | PCM-Synthese |
 | Laser | Pew pew pew | PCM-Synthese |
 | Klingel | Ding dong mit Oktav-Schimmer | Noten, 2 Tracks |
+| Tetris | Korobeiniki im Game-Boy-Stil, Lead plus Bass | Noten, 2 Tracks |
 
 ## Bedienung
 
@@ -47,8 +49,41 @@ Jingles werden auf der Uhr synthetisiert.
 | Hoch / Runter | Durch die Liste blättern |
 | Select | Ausgewählten Sound abspielen (erste Zeile: Zufall) |
 | Select lang | Menü: Stopp, Zufalls-Sound, Lautstärke (20–100 %), Schütteln an/aus |
+| Touchscreen | Wischen blättert, Antippen spielt ab (Pebble Time 2) |
 | Uhr schütteln | Zufälligen Sound abspielen |
 | Zurück | App beenden |
+
+## Einstellungen in der Handy-App
+
+In der Pebble-App auf dem Handy hat die App eine Einstellungsseite
+(Zahnrad-Symbol): Lautstärke, Schütteln an/aus, Touch-Bedienung an/aus und
+bis zu vier **Handy-Samples**. Die Einstellungen werden beim Speichern an
+die Uhr geschickt und dort gemerkt.
+
+### Handy-Samples
+
+Die Uhr hat nur 4 KB dauerhaften Speicher pro App, eigene Samples können
+also nicht auf der Uhr gespeichert werden. Stattdessen lädt die Handy-App
+bei jedem Start der Uhr-App bis zu vier Samples von konfigurierten URLs und
+schiebt sie in den Arbeitsspeicher der Uhr (max. 3 Sekunden je Sample). Sie
+erscheinen oben in der Liste, zuerst mit Fortschrittsanzeige, dann als
+„Handy-Sample“. So geht's:
+
+```bash
+python3 tools/import_sample.py meinclip.mp3 --max-seconds 3 --export chef.ima
+```
+
+Die `.ima`-Datei unter einer https-Adresse ablegen (Dropbox-Link mit
+`dl=1`, GitHub raw, eigener Webspace) und in den Einstellungen Name und URL
+eintragen, speichern. Die Übertragung dauert je nach Bluetooth-Verbindung
+einige Sekunden pro Sample.
+
+### Aufnehmen mit der Uhr
+
+Geht leider nicht: Das Pebble SDK bietet für das Mikrofon nur die
+Diktier-Funktion (Sprache zu Text über das Handy), keinen Zugriff auf
+Rohaudio. Eigene Aufnahmen entstehen deshalb am Handy oder Rechner und
+kommen als Handy-Sample oder fest eingebautes Sample in die App.
 
 Lautstärke und Schüttel-Option werden gespeichert. Ist der Lautsprecher in den
 Uhr-Einstellungen oder per Quiet Time stumm geschaltet, zeigt die Kopfzeile das
@@ -121,7 +156,10 @@ src/c/synth.h, synth.c   Fixed-Point-Synthesizer (16 kHz, 16 Bit, ohne Floats)
 src/c/sounds.c           Sound-Bank: Generatoren und Notensequenzen
 src/c/player.c           Streaming-Pumpe für PCM plus Noten/Track-Wiedergabe
 src/c/ima_adpcm.h        IMA-ADPCM-Decoder für die Samples
-src/c/main.c             Menü, Action-Menü, Schütteln, Einstellungen
+src/c/main.c             Menü, Action-Menü, Schütteln, Touch, Einstellungen
+src/c/phone.c            AppMessage: Einstellungen und Sample-Übertragung vom Handy
+src/pkjs/index.js        Handy-Seite: Clay-Einstellungen, Sample-Download und -Übertragung
+src/pkjs/config.js       Aufbau der Einstellungsseite
 src/c/samples.inc        Liste importierter Samples (vom Import-Werkzeug gepflegt)
 tools/import_sample.py   Audio-Clip -> Sample-Ressource
 ```

@@ -1,24 +1,30 @@
 /*
  * Sampler -- a soundboard for the Pebble Time 2 speaker.
  *
- *   Up / Down          browse sounds
- *   Select             play the selected sound (first row = random)
+ *   Up / Down          browse sounds (or swipe on the touchscreen)
+ *   Select / tap       play the selected sound (first row = random)
  *   Select (long)      options: stop, random, volume, shake toggle
  *   Shake the watch    play a random sound
  *   Back               exit
+ *
+ * Settings can also be changed on the phone (Clay config page), and up to
+ * four user samples are loaded from the phone into RAM on each start.
  */
 #include <pebble.h>
 #include "sounds.h"
 #include "player.h"
+#include "phone.h"
 
 #define PERSIST_KEY_VOLUME  1
 #define PERSIST_KEY_SHAKE   2
+#define PERSIST_KEY_TOUCH   3
 
 #define DEFAULT_VOLUME      80
 #define ROW_RANDOM          0           // first row is the random entry
 #define CELL_HEIGHT         PBL_IF_RECT_ELSE(48, 52)
 #define STATUS_HEIGHT       22
 #define SHAKE_COOLDOWN_MS   900
+#define PLAYING_PHONE_BASE  1000        // s_playing >= this: phone slot (s_playing - base)
 
 enum {
   ActionStop = 1,
@@ -35,29 +41,46 @@ static ActionMenuLevel *s_action_volume;
 
 static int s_volume = DEFAULT_VOLUME;
 static bool s_shake_enabled = true;
-static int s_playing = -1;          // index into SOUNDS, -1 when idle
+static bool s_touch_enabled = true;
+static int s_playing = -1;          // -1 idle, sound index, or PLAYING_PHONE_BASE + slot
 static int s_last_random = -1;
 static uint64_t s_last_shake_ms;
 static char s_header[48];
+static char s_hint_buf[32];
 
-/* ---------------------------------------------------------------------- */
+/* ---- row model ---------------------------------------------------------- */
 
-static const Sound RANDOM_ENTRY = {
-  .name = "Zufall",
-  .hint = "Ueberraschung!",
-  .argb = GColorDarkGrayARGB8,
-  .kind = SoundKindNotes,
-};
+typedef enum { RowRandom, RowPhone, RowSound } RowKind;
 
-static const Sound *prv_sound_for_row(uint16_t row) {
-  return row == ROW_RANDOM ? &RANDOM_ENTRY : &SOUNDS[row - 1];
+typedef struct {
+  RowKind kind;
+  int index;   // phone slot or sound index
+} RowRef;
+
+static RowRef prv_row(uint16_t row) {
+  if (row == ROW_RANDOM) return (RowRef) { RowRandom, 0 };
+  int phone = phone_active_slots();
+  if ((int)row <= phone) return (RowRef) { RowPhone, row - 1 };
+  return (RowRef) { RowSound, row - 1 - phone };
+}
+
+static uint16_t prv_row_for_sound(int index) {
+  return (uint16_t)(1 + phone_active_slots() + index);
+}
+
+static const char *prv_playing_name(void) {
+  if (s_playing >= PLAYING_PHONE_BASE) {
+    const PhoneSlot *slot = phone_slot(s_playing - PLAYING_PHONE_BASE);
+    return slot ? slot->name : "?";
+  }
+  return SOUNDS[s_playing].name;
 }
 
 static void prv_update_header(void) {
   if (speaker_is_muted()) {
     snprintf(s_header, sizeof(s_header), "Lautsprecher stumm!");
   } else if (s_playing >= 0) {
-    snprintf(s_header, sizeof(s_header), "Spielt: %s", SOUNDS[s_playing].name);
+    snprintf(s_header, sizeof(s_header), "Spielt: %s", prv_playing_name());
   } else {
     snprintf(s_header, sizeof(s_header), "SAMPLER   Vol %d%%", s_volume);
   }
@@ -65,19 +88,26 @@ static void prv_update_header(void) {
   if (s_menu) layer_mark_dirty(menu_layer_get_layer(s_menu));
 }
 
+static uint8_t prv_row_argb(uint16_t row) {
+  RowRef r = prv_row(row);
+  switch (r.kind) {
+    case RowRandom: return GColorDarkGrayARGB8;
+    case RowPhone:  return GColorVividCeruleanARGB8;
+    default:        return SOUNDS[r.index].argb;
+  }
+}
+
 static void prv_apply_highlight(uint16_t row) {
-  GColor bg = (GColor){ .argb = prv_sound_for_row(row)->argb };
+  GColor bg = (GColor){ .argb = prv_row_argb(row) };
   menu_layer_set_highlight_colors(s_menu, PBL_IF_COLOR_ELSE(bg, GColorBlack),
                                   PBL_IF_COLOR_ELSE(gcolor_legible_over(bg), GColorWhite));
 }
 
-static void prv_play_index(int index) {
-  if (index < 0 || index >= NUM_SOUNDS) return;
-  if (speaker_is_muted()) {
-    vibes_short_pulse();  // give at least some feedback
-  }
-  if (player_play(&SOUNDS[index], (uint8_t)s_volume)) {
-    s_playing = index;
+/* ---- playback ----------------------------------------------------------- */
+
+static void prv_after_play(bool ok, int playing_id) {
+  if (ok) {
+    s_playing = playing_id;
   } else {
     s_playing = -1;
     vibes_double_pulse();
@@ -85,13 +115,45 @@ static void prv_play_index(int index) {
   prv_update_header();
 }
 
+static void prv_play_index(int index) {
+  if (index < 0 || index >= NUM_SOUNDS) return;
+  if (speaker_is_muted()) vibes_short_pulse();  // give at least some feedback
+  prv_after_play(player_play(&SOUNDS[index], (uint8_t)s_volume), index);
+}
+
+static void prv_play_phone(int slot) {
+  const PhoneSlot *s = phone_slot(slot);
+  if (!s || s->state != PhoneSlotReady) {
+    vibes_short_pulse();
+    return;
+  }
+  if (speaker_is_muted()) vibes_short_pulse();
+  prv_after_play(player_play_memory(s->data, s->total, (uint8_t)s_volume), PLAYING_PHONE_BASE + slot);
+}
+
 static void prv_play_random(void) {
-  int pick = rand() % NUM_SOUNDS;
-  if (pick == s_last_random && NUM_SOUNDS > 1) pick = (pick + 1) % NUM_SOUNDS;
+  int ready_phone = 0;
+  for (int i = 0; i < PHONE_MAX_SLOTS; i++) {
+    if (phone_slot(i)->state == PhoneSlotReady) ready_phone++;
+  }
+  int pool = NUM_SOUNDS + ready_phone;
+  int pick = rand() % pool;
+  if (pick == s_last_random && pool > 1) pick = (pick + 1) % pool;
   s_last_random = pick;
-  // Jump the selection to the picked sound so the user sees what is playing.
-  menu_layer_set_selected_index(s_menu, MenuIndex(0, pick + 1), MenuRowAlignCenter, true);
-  prv_play_index(pick);
+  if (pick < NUM_SOUNDS) {
+    menu_layer_set_selected_index(s_menu, MenuIndex(0, prv_row_for_sound(pick)), MenuRowAlignCenter, true);
+    prv_play_index(pick);
+    return;
+  }
+  int nth = pick - NUM_SOUNDS;
+  for (int i = 0; i < PHONE_MAX_SLOTS; i++) {
+    if (phone_slot(i)->state != PhoneSlotReady) continue;
+    if (nth-- == 0) {
+      menu_layer_set_selected_index(s_menu, MenuIndex(0, 1 + i), MenuRowAlignCenter, true);
+      prv_play_phone(i);
+      return;
+    }
+  }
 }
 
 static void prv_stop(void) {
@@ -105,10 +167,46 @@ static void prv_on_finished(SpeakerFinishReason reason) {
   prv_update_header();
 }
 
+/* ---- phone callbacks ---------------------------------------------------- */
+
+static void prv_on_phone_slot_changed(int slot) {
+  const PhoneSlot *s = phone_slot(slot);
+  // A slot that is being replaced while it plays must not keep playing freed memory.
+  if (s_playing == PLAYING_PHONE_BASE + slot && s->state != PhoneSlotReady) {
+    prv_stop();
+  }
+  if (s_menu) {
+    menu_layer_reload_data(s_menu);
+    layer_mark_dirty(menu_layer_get_layer(s_menu));
+  }
+}
+
+static void prv_apply_touch(void) {
+  app_touch_navigation_enable(s_touch_enabled);
+}
+
+static void prv_on_phone_settings(const PhoneSettings *st) {
+  if (st->volume >= 10 && st->volume <= 100) {
+    s_volume = st->volume;
+    persist_write_int(PERSIST_KEY_VOLUME, s_volume);
+    speaker_set_volume((uint8_t)s_volume);
+  }
+  if (st->shake >= 0) {
+    s_shake_enabled = st->shake != 0;
+    persist_write_bool(PERSIST_KEY_SHAKE, s_shake_enabled);
+  }
+  if (st->touch >= 0) {
+    s_touch_enabled = st->touch != 0;
+    persist_write_bool(PERSIST_KEY_TOUCH, s_touch_enabled);
+    prv_apply_touch();
+  }
+  prv_update_header();
+}
+
 /* ---- menu callbacks --------------------------------------------------- */
 
 static uint16_t prv_get_num_rows(MenuLayer *menu, uint16_t section, void *ctx) {
-  return NUM_SOUNDS + 1;
+  return 1 + phone_active_slots() + NUM_SOUNDS;
 }
 
 static int16_t prv_get_cell_height(MenuLayer *menu, MenuIndex *idx, void *ctx) {
@@ -137,35 +235,80 @@ static void prv_draw_play_icon(GContext *ctx, GPoint center, GColor color) {
   gpath_destroy(path);
 }
 
+// Fills name/hint/disc glyph for a row.
+static void prv_row_text(uint16_t row, const char **name, const char **hint, const char **glyph, bool *playing) {
+  RowRef r = prv_row(row);
+  *glyph = NULL;
+  *playing = false;
+  switch (r.kind) {
+    case RowRandom:
+      *name = "Zufall";
+      *hint = "Ueberraschung!";
+      *glyph = "?";
+      break;
+    case RowPhone: {
+      const PhoneSlot *s = phone_slot(r.index);
+      *name = s->name;
+      switch (s->state) {
+        case PhoneSlotLoading: {
+          int pct = s->total ? (int)((s->received * 100) / s->total) : 0;
+          snprintf(s_hint_buf, sizeof(s_hint_buf), "Laedt vom Handy %d%%", pct);
+          *hint = s_hint_buf;
+          *glyph = "...";
+          break;
+        }
+        case PhoneSlotReady:
+          snprintf(s_hint_buf, sizeof(s_hint_buf), "Handy-Sample %lu,%lu s",
+                   (unsigned long)(s->total / 8000), (unsigned long)((s->total % 8000) / 800));
+          *hint = s_hint_buf;
+          break;
+        default:
+          *hint = "Laden fehlgeschlagen";
+          *glyph = "!";
+          break;
+      }
+      *playing = (s_playing == PLAYING_PHONE_BASE + r.index);
+      break;
+    }
+    default:
+      *name = SOUNDS[r.index].name;
+      *hint = SOUNDS[r.index].hint;
+      *playing = (s_playing == r.index);
+      break;
+  }
+}
+
 static void prv_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *idx, void *data) {
   GRect b = layer_get_bounds(cell_layer);
-  const Sound *snd = prv_sound_for_row(idx->row);
   bool selected = menu_cell_layer_is_highlighted(cell_layer);
-  bool playing = (idx->row != ROW_RANDOM) && (s_playing == (int)idx->row - 1);
+  const char *name, *hint, *glyph;
+  bool playing;
+  prv_row_text(idx->row, &name, &hint, &glyph, &playing);
 
-  GColor accent = (GColor){ .argb = snd->argb };
+  GColor accent = (GColor){ .argb = prv_row_argb(idx->row) };
   GColor fg = selected ? PBL_IF_COLOR_ELSE(gcolor_legible_over(accent), GColorWhite) : GColorBlack;
   GColor disc = selected ? fg : PBL_IF_COLOR_ELSE(accent, GColorBlack);
+  GColor on_disc = selected ? PBL_IF_COLOR_ELSE(accent, GColorBlack) : GColorWhite;
 
   // Accent disc with a play triangle while this sound is running.
   GPoint c = GPoint(b.origin.x + 22, b.origin.y + b.size.h / 2);
   graphics_context_set_fill_color(ctx, disc);
   graphics_fill_circle(ctx, c, 12);
   if (playing) {
-    prv_draw_play_icon(ctx, GPoint(c.x + 1, c.y), selected ? PBL_IF_COLOR_ELSE(accent, GColorBlack) : GColorWhite);
-  } else if (idx->row == ROW_RANDOM) {
-    graphics_context_set_text_color(ctx, selected ? PBL_IF_COLOR_ELSE(accent, GColorBlack) : GColorWhite);
-    graphics_draw_text(ctx, "?", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                       GRect(c.x - 12, c.y - 13, 24, 24), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    prv_draw_play_icon(ctx, GPoint(c.x + 1, c.y), on_disc);
+  } else if (glyph) {
+    graphics_context_set_text_color(ctx, on_disc);
+    graphics_draw_text(ctx, glyph, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                       GRect(c.x - 14, c.y - 13, 28, 24), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
   }
 
   graphics_context_set_text_color(ctx, fg);
   int16_t x = b.origin.x + 44;
   int16_t w = b.size.w - 48;
-  graphics_draw_text(ctx, snd->name, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+  graphics_draw_text(ctx, name, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
                      GRect(x, b.origin.y - 1, w, 28), GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentLeft, NULL);
-  graphics_draw_text(ctx, snd->hint, fonts_get_system_font(FONT_KEY_GOTHIC_18),
+  graphics_draw_text(ctx, hint, fonts_get_system_font(FONT_KEY_GOTHIC_18),
                      GRect(x, b.origin.y + 22, w, 22), GTextOverflowModeTrailingEllipsis,
                      GTextAlignmentLeft, NULL);
 }
@@ -175,10 +318,11 @@ static void prv_selection_changed(MenuLayer *menu, MenuIndex new_idx, MenuIndex 
 }
 
 static void prv_select_click(MenuLayer *menu, MenuIndex *idx, void *ctx) {
-  if (idx->row == ROW_RANDOM) {
-    prv_play_random();
-  } else {
-    prv_play_index(idx->row - 1);
+  RowRef r = prv_row(idx->row);
+  switch (r.kind) {
+    case RowRandom: prv_play_random(); break;
+    case RowPhone:  prv_play_phone(r.index); break;
+    default:        prv_play_index(r.index); break;
   }
 }
 
@@ -297,14 +441,15 @@ static void prv_init(void) {
   srand((unsigned)time(NULL));
   if (persist_exists(PERSIST_KEY_VOLUME)) {
     s_volume = persist_read_int(PERSIST_KEY_VOLUME);
-    if (s_volume < 20 || s_volume > 100) s_volume = DEFAULT_VOLUME;
+    if (s_volume < 10 || s_volume > 100) s_volume = DEFAULT_VOLUME;
   }
-  if (persist_exists(PERSIST_KEY_SHAKE)) {
-    s_shake_enabled = persist_read_bool(PERSIST_KEY_SHAKE);
-  }
+  if (persist_exists(PERSIST_KEY_SHAKE)) s_shake_enabled = persist_read_bool(PERSIST_KEY_SHAKE);
+  if (persist_exists(PERSIST_KEY_TOUCH)) s_touch_enabled = persist_read_bool(PERSIST_KEY_TOUCH);
 
   player_init(prv_on_finished);
+  phone_init(prv_on_phone_slot_changed, prv_on_phone_settings);
   accel_tap_service_subscribe(prv_tap_handler);
+  prv_apply_touch();
 
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
@@ -317,6 +462,7 @@ static void prv_init(void) {
 static void prv_deinit(void) {
   accel_tap_service_unsubscribe();
   player_deinit();
+  phone_deinit();
   window_destroy(s_window);
 }
 

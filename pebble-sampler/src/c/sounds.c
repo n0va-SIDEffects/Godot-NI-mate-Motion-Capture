@@ -154,6 +154,43 @@ static const SpeakerTrack DOORBELL[] = {
   { .notes = BELL_HIGH, .num_notes = ARRAY_LENGTH(BELL_HIGH), .sample = NULL },
 };
 
+
+// Tetris theme (Korobeiniki, a traditional Russian folk song) -- Game Boy style
+#define Q 400
+#define E 200
+static const SpeakerNote TETRIS_LEAD[] = {
+  N(76, SQ, Q, 105), N(71, SQ, E, 100), N(72, SQ, E, 100),
+  N(74, SQ, Q, 105), N(72, SQ, E, 100), N(71, SQ, E, 100),
+  N(69, SQ, Q, 105), N(69, SQ, E, 100), N(72, SQ, E, 100),
+  N(76, SQ, Q, 105), N(74, SQ, E, 100), N(72, SQ, E, 100),
+  N(71, SQ, Q + E, 105), N(72, SQ, E, 100),
+  N(74, SQ, Q, 105), N(76, SQ, Q, 105),
+  N(72, SQ, Q, 105), N(69, SQ, Q, 105),
+  N(69, SQ, Q, 105), REST(Q),
+  N(74, SQ, Q + E, 105), N(77, SQ, E, 100),
+  N(81, SQ, Q, 110), N(79, SQ, E, 100), N(77, SQ, E, 100),
+  N(76, SQ, Q + E, 105), N(72, SQ, E, 100),
+  N(76, SQ, Q, 105), N(74, SQ, E, 100), N(72, SQ, E, 100),
+  N(71, SQ, Q, 105), N(71, SQ, E, 100), N(72, SQ, E, 100),
+  N(74, SQ, Q, 105), N(76, SQ, Q, 105),
+  N(72, SQ, Q, 105), N(69, SQ, Q, 105),
+  N(69, SQ, Q, 105), REST(Q),
+};
+#define BASS_BAR(root, fifth) N(root, SAW, E, 60), N(fifth, SAW, E, 55), N(root, SAW, E, 60), N(fifth, SAW, E, 55)
+static const SpeakerNote TETRIS_BASS[] = {
+  BASS_BAR(52, 59), BASS_BAR(52, 59), BASS_BAR(57, 64), BASS_BAR(57, 64),   // Em Em Am Am
+  BASS_BAR(59, 66), BASS_BAR(52, 59), BASS_BAR(57, 64), BASS_BAR(57, 64),   // B7 Em Am Am
+  BASS_BAR(50, 57), BASS_BAR(50, 57), BASS_BAR(48, 55), BASS_BAR(57, 64),   // Dm Dm C  Am
+  BASS_BAR(59, 66), BASS_BAR(52, 59), BASS_BAR(57, 64), BASS_BAR(52, 59),   // B7 Em Am Em
+};
+#undef BASS_BAR
+#undef Q
+#undef E
+static const SpeakerTrack TETRIS[] = {
+  { .notes = TETRIS_LEAD, .num_notes = ARRAY_LENGTH(TETRIS_LEAD), .sample = NULL },
+  { .notes = TETRIS_BASS, .num_notes = ARRAY_LENGTH(TETRIS_BASS), .sample = NULL },
+};
+
 /* ======================================================================
  * The bank
  * ====================================================================== */
@@ -179,6 +216,7 @@ const Sound SOUNDS[] = {
   SYNTH ("Pfiff",        "Wolf-Pfiff",       GColorPictonBlueARGB8,          1300, gen_whistle),
   SYNTH ("Laser",        "Pew pew pew",      GColorElectricUltramarineARGB8,  780, gen_laser),
   TRACKS("Klingel",      "Ding dong",        GColorTiffanyBlueARGB8,         DOORBELL),
+  TRACKS("Tetris",       "Korobeiniki",      GColorVividVioletARGB8,         TETRIS),
 };
 
 const uint8_t NUM_SOUNDS = ARRAY_LENGTH(SOUNDS);

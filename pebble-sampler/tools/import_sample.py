@@ -46,7 +46,7 @@ def slugify(name):
     return s or "sample"
 
 
-def decode_to_wav(path, rate, start, max_seconds, highpass_hz, denoise_db):
+def decode_to_wav(path, rate, start, max_seconds, highpass_hz, denoise_db, compress=True):
     """Returns (wav path, temp path or None, True if ffmpeg did the processing)."""
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
@@ -59,6 +59,10 @@ def decode_to_wav(path, rate, start, max_seconds, highpass_hz, denoise_db):
     if denoise_db > 0:
         # FFT de-noiser with automatic noise floor tracking, then a gentle gate
         filters.append("afftdn=nr=%g:nf=-45:tn=1" % denoise_db)
+    if compress:
+        # even out levels for the tiny speaker: gentle compression, then a brickwall limiter
+        filters.append("acompressor=threshold=-18dB:ratio=3:attack=5:release=80:makeup=2")
+        filters.append("alimiter=limit=0.89:attack=2:release=40:level=false")
     filters.append("aresample=resampler=soxr:precision=28" if _has_soxr(ffmpeg) else "aresample")
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.close()
@@ -250,13 +254,17 @@ def resource_usage():
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("input", help="audio file (WAV directly, anything else via ffmpeg)")
-    ap.add_argument("--name", required=True, help="menu title, e.g. 'Applaus'")
+    ap.add_argument("--name", default="Sample", help="menu title, e.g. 'Applaus'")
     ap.add_argument("--hint", default="Sample", help="menu subtitle")
     ap.add_argument("--color", default=None, help="GColor...ARGB8 constant for the menu accent")
     ap.add_argument("--rate", type=int, choices=[8000, 16000], default=16000)
     ap.add_argument("--codec", choices=["adpcm", "pcm8", "pcm16"], default="adpcm",
                     help="adpcm: 4 bit/sample, good quality (default); pcm8/pcm16: raw")
     ap.add_argument("--denoise", type=float, default=8.0, help="ffmpeg afftdn noise reduction in dB (0 = off)")
+    ap.add_argument("--no-compress", action="store_true", help="skip the compressor/limiter stage")
+    ap.add_argument("--export", metavar="FILE", default=None,
+                    help="only write the encoded sample to FILE (e.g. for hosting it for the phone loader); "
+                         "do not register it in the app")
     ap.add_argument("--max-seconds", type=float, default=4.0, help="hard cut after this many seconds")
     ap.add_argument("--start", type=float, default=0.0, help="skip this many seconds at the start")
     ap.add_argument("--trim-db", type=float, default=-45.0, help="silence threshold for trimming")
@@ -267,7 +275,7 @@ def main():
     args = ap.parse_args()
 
     wav_path, tmp, processed = decode_to_wav(args.input, args.rate, args.start, args.max_seconds,
-                                             args.highpass, args.denoise)
+                                             args.highpass, args.denoise, not args.no_compress)
     try:
         data, rate = read_wav(wav_path)
     finally:
@@ -287,6 +295,12 @@ def main():
         pcm = encode_ima_adpcm(data)
     else:
         pcm = encode(data, 8 if args.codec == "pcm8" else 16)
+
+    if args.export:
+        with open(args.export, "wb") as f:
+            f.write(pcm)
+        print("wrote %s: %.2f s, %d bytes (%s, %s)" % (args.export, len(data) / args.rate, len(pcm), args.rate, args.codec))
+        return
 
     slug = slugify(args.name)
     resource_name = "SAMPLE_" + slug.upper()
