@@ -2,9 +2,23 @@
 
 Alle Aufnahmen stammen von Wikimedia Commons und sind gemeinfrei (CC0 oder
 Public Domain). Sie wurden auf Mono 16 kHz gebracht, entrauscht, gekürzt, normalisiert
-und als IMA-ADPCM gespeichert. Ba-Dum-Tss ist aus dem Snare- und dem Becken-Sample gemischt. Der
-Trommelwirbel selbst ist synthetisiert (`tools/build_drumroll.py`), nur
-sein Finale nutzt die beiden Aufnahmen.
+und als IMA-ADPCM gespeichert. Ba-Dum-Tss ist aus dem Snare- und dem Becken-Sample gemischt.
+
+Der Trommelwirbel stammt aus einer sehr leisen Aufnahme und brauchte vor dem
+Import eine kraeftige Aufbereitung:
+
+```bash
+ffmpeg -i Drum_Roll_Intro.wav -af \
+  "highpass=f=280:poles=2,afftdn=nr=24:nf=-40:tn=1,\
+   acompressor=threshold=-24dB:ratio=4:attack=5:release=100:makeup=6,\
+   alimiter=limit=0.92" wirbel.wav
+python3 tools/import_sample.py wirbel.wav --name "Trommelwirbel" \
+  --hint "Und der Gewinner ist" --color GColorDarkCandyAppleRedARGB8 \
+  --max-seconds 4.2 --no-compress --denoise 0 --highpass 0 --trim-db -60 --replace
+```
+
+Die Schalter `--no-compress --denoise 0 --highpass 0` verhindern, dass das
+Import-Werkzeug die schon erledigte Aufbereitung ein zweites Mal anwendet.
 
 | Sample | Quelle (Commons-Datei) | Autor | Lizenz |
 |---|---|---|---|
@@ -12,7 +26,7 @@ sein Finale nutzt die beiden Aufnahmen.
 | furz.ima | [Wet fart tummy rumbles.ogg](https://commons.wikimedia.org/wiki/File:Wet_fart_tummy_rumbles.ogg) | natalie (pdsounds) | Public Domain |
 | ruelpser.ima | [Burp.ogg](https://commons.wikimedia.org/wiki/File:Burp.ogg) | ezwa (pdsounds) | Public Domain |
 | explosion.ima | [Explosion 10.ogg](https://commons.wikimedia.org/wiki/File:Explosion_10.ogg) | tcpp | Public Domain |
-| trommelwirbel.ima | Wirbel synthetisiert (`tools/build_drumroll.py`), Finale aus [Snare (1) Sample.wav](https://commons.wikimedia.org/wiki/File:Snare_(1)_Sample.wav) und [CrashCymbalSample.ogg](https://commons.wikimedia.org/wiki/File:CrashCymbalSample.ogg) | UnKnownrNone; RyGuy | CC0; Public Domain |
+| trommelwirbel.ima | [Drum Roll Intro.ogg](https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg), entrauscht und angehoben (siehe unten) | Iwan Sounds and DIY | CC0 |
 | ba_dum_tss.ima | [Snare (1) Sample.wav](https://commons.wikimedia.org/wiki/File:Snare_(1)_Sample.wav) + [CrashCymbalSample.ogg](https://commons.wikimedia.org/wiki/File:CrashCymbalSample.ogg) | UnKnownrNone; RyGuy | CC0; Public Domain |
 | ka_ching.ima | [Cash register.ogg](https://commons.wikimedia.org/wiki/File:Cash_register.ogg) | „Me“ | Public Domain |
 | katze.ima | [Meow of a Siamese cat - freemaster2.wav](https://commons.wikimedia.org/wiki/File:Meow_of_a_Siamese_cat_-_freemaster2.wav) | freemaster2 | CC0 |

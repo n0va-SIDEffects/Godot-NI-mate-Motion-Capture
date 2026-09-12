@@ -18,7 +18,7 @@ Jingles werden auf der Uhr synthetisiert.
 | Furz | Pardon. | Aufnahme |
 | Rülpser | Wohl bekomm's | Aufnahme |
 | Explosion | Kabumm | Aufnahme |
-| Trommelwirbel | Beschleunigender Wirbel mit Crescendo, Becken-Finale | Synthetisiert plus Becken |
+| Trommelwirbel | Wirbel mit Crescendo und Becken-Finale | Aufnahme |
 | Ba-Dum-Tss | Zwei Snare-Schläge und Becken | Aufnahme (gemischt) |
 | Ka-Ching | Registrierkasse | Aufnahme |
 | Katze | Siamkatze, Miau | Aufnahme |
