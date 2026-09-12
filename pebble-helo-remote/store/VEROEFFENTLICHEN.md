@@ -30,9 +30,10 @@ englischen Text. Beide Texte zusammen sprengen das Limit, also eine Sprache wäh
 3. Grunddaten eintragen:
    - Title: `HELO Remote`
    - Category: `Tools & Utilities`
-   - Website / Source code URL: leer lassen oder vollständig mit `https://`
-     (der Code liegt derzeit im Unterordner `pebble-helo-remote/` eines anderen Repos;
-     für einen sauberen Link lohnt ein eigenes Repository)
+   - Source code URL: **Pflichtfeld** (laut Rebble-Doku), vollständig mit `https://`:
+     `https://github.com/n0va-SIDEffects/Godot-NI-mate-Motion-Capture/tree/claude/pebble-watch-aja-helo-app-yr3c5o/pebble-helo-remote`
+     Leer oder ohne `https://` antwortet das Portal mit „Server error (400)“.
+     Website: optional, leer lassen oder ebenfalls vollständige URL.
    - Support email: deine Adresse
    - Icon: `icon_80.png`
 4. „Create“.
@@ -74,7 +75,9 @@ Für Updates: `version` in `package.json` erhöhen (Format `Major.Minor`, z. B. 
 |---------|---------|---------|
 | „Server error (400)“ beim Release | `version` nicht `Major.Minor` | steht auf `1.0`, nach Änderung neu bauen |
 | Icon abgelehnt | Alphakanal | `icon_80.png` ist RGB; `_transparent` nur als Reserve |
-| 400 beim Anlegen der Listung | ungültige Quell-URL | vollständige URL oder Feld leer |
+| 400 beim Anlegen der Listung | Source code URL leer oder ohne `https://` | Pflichtfeld, vollständige URL eintragen |
+| 400 beim Release-Upload nach einem Fehlversuch | UUID gilt schon als belegt (halb angelegte Listung) | im Dashboard die vorhandene Listung öffnen und dort weitermachen, nicht neu anlegen |
+| 400 bei der Asset Collection | Screenshot-Größe passt nicht zur Plattform | emery 200×228, basalt/diorite 144×168, jeweils aus dem passenden Ordner |
 | Gear/Einstellungen fehlt im Store | `configurable` fehlt | `build/appinfo.json` prüfen (`enableMultiJS` + `messageKeys`) |
 
 ## Vor dem Absenden prüfen
