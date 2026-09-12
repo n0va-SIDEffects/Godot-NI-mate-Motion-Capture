@@ -161,6 +161,7 @@ pebble-helo-remote/
 ├── package-lock.json         festgepinnte Clay-Version
 ├── wscript                   Standard-Buildskript des Pebble-SDK (+ Linker-Flag, s. o.)
 ├── docs/                     Emulator-Screenshots
+├── store/                    Store-Assets: Icon- und Banner-Generator, fertige PNGs (siehe store/README.md)
 ├── src/c/main.c              Watch-App: UI, Tasten, AppMessage
 ├── src/pkjs/index.js         Phone-Seite: HELO-REST-Polling, Befehle, Auth, Clay
 ├── src/pkjs/config.js        Clay-Konfigurationsseite
