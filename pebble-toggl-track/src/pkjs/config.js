@@ -13,7 +13,8 @@ var DEFAULTS = {
   workspaceId: '',
   favorites: [],                 // [{description, projectId}]
   remind: { running: true, maxHours: 4, lateHour: 22, noTimer: false, startHour: 9 },
-  roundMinutes: 0
+  roundMinutes: 0,
+  timelinePins: true
 };
 
 function clampInt(v, min, max, fallback) {
@@ -40,7 +41,8 @@ function normalise(cfg) {
       noTimer: !!r.noTimer,
       startHour: clampInt(r.startHour, 0, 23, DEFAULTS.remind.startHour)
     },
-    roundMinutes: clampInt(cfg.roundMinutes, 0, 60, 0)
+    roundMinutes: clampInt(cfg.roundMinutes, 0, 60, 0),
+    timelinePins: cfg.timelinePins !== false && cfg.timelinePins !== 'false'
   };
 }
 
@@ -121,6 +123,9 @@ function buildConfigUrl(settings, projects, diag) {
     '<h2>' + escapeHtml(t('rounding')) + '</h2>' +
     '<label for="round">' + escapeHtml(t('roundLabel')) + '</label>' +
     '<select id="round">' + roundOptions + '</select>' +
+    '<h2>' + escapeHtml(t('timeline')) + '</h2>' +
+    '<label class="row"><input id="tp" type="checkbox"' + (settings.timelinePins ? ' checked' : '') + '> ' + escapeHtml(t('timelinePin')) + '</label>' +
+    '<div class="hint">' + escapeHtml(t('timelineHint')) + '</div>' +
     '<button type="submit">' + escapeHtml(t('save')) + '</button>' +
     '</form>' +
     '<div class="support"><h2 style="margin-top:0">' + escapeHtml(t('support')) + '</h2>' +
@@ -138,7 +143,7 @@ function buildConfigUrl(settings, projects, diag) {
     'document.getElementById("f").addEventListener("submit",function(ev){ev.preventDefault();' +
     'var favs=[];for(var i=0;i<' + MAX_FAVORITES + ';i++){favs.push({description:v("fd"+i),projectId:parseInt(v("fp"+i),10)||0});}' +
     'var cfg={token:v("token").replace(/\\s+/g,""),workspaceId:v("wid").replace(/\\D+/g,""),favorites:favs,' +
-    'remind:{running:c("rr"),maxHours:v("rh"),lateHour:v("rl"),noTimer:c("rn"),startHour:v("rs")},roundMinutes:v("round")};' +
+    'remind:{running:c("rr"),maxHours:v("rh"),lateHour:v("rl"),noTimer:c("rn"),startHour:v("rs")},roundMinutes:v("round"),timelinePins:c("tp")};' +
     'document.location="pebblejs://close#"+encodeURIComponent(JSON.stringify(cfg));});' +
     '</script></body></html>';
   return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);

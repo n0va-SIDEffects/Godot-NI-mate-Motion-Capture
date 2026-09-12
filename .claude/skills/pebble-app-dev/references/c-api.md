@@ -292,6 +292,20 @@ word order can differ per language. Gothic fonts render Latin-1 accents. On
 the phone side, `Pebble.getActiveWatchInfo().language` gives the same code,
 so error messages sent to the watch and the settings page can follow it.
 
+## Timeline pins (published apps only)
+
+Pins are pushed from the phone side to `https://timeline-api.rebble.io/v1/user/pins/<id>`
+(`PUT` JSON, `DELETE`) with header `X-User-Token` from `Pebble.getTimelineToken()`.
+The token exists only for apps published in the store; sideloaded builds get
+an error, so treat pins as best effort. A pin action
+`{type: "openWatchApp", launchCode: N}` launches the app with
+`launch_reason() == APP_LAUNCH_TIMELINE_ACTION` and `launch_get_args() == N`.
+The phone-side JS is not up yet at that moment: remember the intent and act
+on the first AppMessage from the phone. If the JS starts a refresh on
+`ready`, do not drop commands that arrive while it is busy — defer them.
+Emulator test: `pebble insert-pin --id <id> pin.json`, then watchface →
+DOWN → pin → SELECT → SELECT opens the action menu.
+
 ## Other services
 
 - Vibration: `vibes_short_pulse()`, `vibes_double_pulse()`, `vibes_long_pulse()`.

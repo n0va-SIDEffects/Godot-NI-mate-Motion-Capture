@@ -36,6 +36,9 @@ Kein offizielles Toggl-Produkt.
   morgens, wenn kein Timer läuft. Beides in den Einstellungen konfigurierbar.
 * **Rundung:** Optional wird ein gestoppter Eintrag auf 5, 15 oder 30 Minuten
   gerundet.
+* **Timeline-Pin:** Der laufende Timer erscheint als Pin auf der Timeline, mit
+  der Aktion "Timer stoppen" direkt vom Pin aus (abschaltbar in den
+  Einstellungen).
 * Der letzte Status bleibt gespeichert und erscheint sofort beim Öffnen; im
   Launcher zeigt der App-Glance den laufenden Eintrag mit fortlaufender Dauer.
 * **Demo-Modus:** Mit dem API-Token `demo` läuft die App gegen Beispieldaten,
@@ -145,8 +148,8 @@ steht auch unten auf der Einstellungsseite in der Pebble-App.
 
 ## Bekannte Grenzen
 
-* Timeline-Pins sind nicht umgesetzt: Die Timeline-API braucht eine im
-  Appstore veröffentlichte App, eine sideloaded App bekommt kein Token.
+* Timeline-Pins brauchen die im Appstore veröffentlichte Version; eine
+  sideloaded Kopie bekommt kein Timeline-Token und überspringt den Pin.
 * Abrechenbarkeit (billable) wird nicht angezeigt oder gesetzt.
 * Gebaut mit Pebble SDK 4.33.1 für alle sieben Plattformen und im Emulator
   (emery, basalt) getestet: Status, Favoriten, Liste, Tasten, Touch,

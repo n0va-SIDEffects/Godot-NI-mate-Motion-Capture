@@ -220,6 +220,11 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   if (cmd == CMD_STATUS || cmd == CMD_ERROR) {
     prv_reply_received();   // the phone is alive and answered our action
   }
+  if (model_get()->stop_on_connect) {
+    // Launched from the timeline pin: stop as soon as the phone talks to us.
+    model_get()->stop_on_connect = false;
+    comm_send_stop();
+  }
   switch (cmd) {
     case CMD_STATUS:   prv_handle_status(iter); break;
     case CMD_PROJECT:  prv_handle_project(iter); break;

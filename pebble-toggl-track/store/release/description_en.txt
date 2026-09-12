@@ -6,10 +6,11 @@ Features
 • Favourite tiles: up to four entries you use every day, one tap to start
 • Recent entries and all projects, with the time booked today
 • Voice dictation of a new description, then pick the project (Pebble Time 2)
-• Touch: tap to open the picker, swipe left for the previous entry, swipe right to stop (Pebble Time 2)
-• Reminders: the watch wakes the app when a timer runs longer than you want or late in the evening, and optionally on weekday mornings when nothing is running
+• Touch: tap to pick, swipe left for the previous entry, swipe right to stop (Time 2)
+• Reminders when a timer runs too long or too late, optionally on weekday mornings when nothing runs
 • Optional rounding to 5, 15 or 30 minutes when stopping
 • Launcher glance with the running entry and its duration
+• Timeline pin for the running timer with a "Stop timer" action
 • Languages: English, German, French, Italian, Spanish (follows the watch)
 
 Buttons

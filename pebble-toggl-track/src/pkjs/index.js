@@ -9,6 +9,7 @@ var keys = require('message_keys');
 var strings = require('./strings');
 var toggl = require('./toggl');
 var config = require('./config');
+var timeline = require('./timeline');
 var t = strings.t;
 
 var CMD = {
@@ -56,8 +57,24 @@ var defaultWorkspaceId = null;
 var busyUntil = 0;             // a stuck request must never block the app for good
 var BUSY_MS = 20000;
 
+var deferred = null;           // one command waiting for the current request to finish
+
 function isBusy() { return Date.now() < busyUntil; }
-function setBusy(on) { busyUntil = on ? Date.now() + BUSY_MS : 0; }
+function setBusy(on) {
+  busyUntil = on ? Date.now() + BUSY_MS : 0;
+  if (!on && deferred) {
+    var run = deferred;
+    deferred = null;
+    setTimeout(run, 0);
+  }
+}
+
+// A command that arrives while a refresh is running (typical right after
+// launch) is executed as soon as the refresh is done instead of being dropped.
+function defer(fn) {
+  deferred = fn;
+  sendInfo(t('pleaseWait'));
+}
 
 // --- storage -----------------------------------------------------------------
 
@@ -210,7 +227,33 @@ function statusFromEntry(entry, entries) {
   return base;
 }
 
+// Keep the timeline pin in step with the running entry (best effort).
+var pinState = loadJson('toggl_pin') || { present: false, key: '' };
+
+function syncPin(status) {
+  if (!settings.timelinePins) {
+    if (pinState.present) { timeline.remove(function () {}); pinState = { present: false, key: '' }; saveJson('toggl_pin', pinState); }
+    return;
+  }
+  if (status.running) {
+    var key = status.entryId + '|' + status.start + '|' + status.description + '|' + status.projectName;
+    if (pinState.present && pinState.key === key) { return; }
+    timeline.put(status, t, function (err) {
+      if (err) { note('timeline', err); return; }
+      pinState = { present: true, key: key };
+      saveJson('toggl_pin', pinState);
+    });
+  } else if (pinState.present) {
+    timeline.remove(function (err) {
+      if (err) { note('timeline', err); }
+      pinState = { present: false, key: '' };
+      saveJson('toggl_pin', pinState);
+    });
+  }
+}
+
 function sendStatus(status) {
+  syncPin(status);
   enqueue(msg(CMD.STATUS, {
     RUNNING: status.running,
     DESCRIPTION: utf8Clip(status.description, DESC_BYTES),
@@ -468,7 +511,7 @@ function roundStopped(api, entry, callback) {
 
 function startTimer(projectId, description) {
   if (!requireToken()) { return; }
-  if (isBusy()) { return sendInfo(t('pleaseWait')); }
+  if (isBusy()) { return defer(function () { startTimer(projectId, description); }); }
   setBusy(true);
   var api = client();
   workspaceFor(projectId, function (err, workspaceId) {
@@ -498,7 +541,7 @@ function startTimer(projectId, description) {
 
 function stopTimer() {
   if (!requireToken()) { return; }
-  if (isBusy()) { return sendInfo(t('pleaseWait')); }
+  if (isBusy()) { return defer(stopTimer); }
   setBusy(true);
   stopRunning(client(), function (err) {
     setBusy(false);

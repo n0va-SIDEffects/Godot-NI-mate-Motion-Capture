@@ -26,6 +26,9 @@ var TABLES = {
     rounding: 'Rounding', roundLabel: 'When stopping, round to', roundOff: 'do not round', minutes: '%s minutes',
     save: 'Save',
     support: 'Support', supportText: 'This app is free and has no ads. If it makes your day a little easier, a coffee is much appreciated:',
+    timeline: 'Timeline', timelinePin: 'Show the running timer as a pin on the timeline',
+    timelineHint: 'The pin offers "Stop timer" right from the timeline.',
+    pinRunning: 'Running', pinBody: 'Toggl timer running', pinStop: 'Stop timer', pinOpen: 'Open Toggl Timer',
     coffee: '☕ Buy me a coffee'
   },
   de: {
@@ -49,6 +52,9 @@ var TABLES = {
     rounding: 'Rundung', roundLabel: 'Beim Stoppen runden auf', roundOff: 'nicht runden', minutes: '%s Minuten',
     save: 'Speichern',
     support: 'Unterstützen', supportText: 'Die App ist kostenlos und ohne Werbung. Wenn sie deinen Tag ein bisschen leichter macht, freue ich mich über einen Kaffee:',
+    timeline: 'Timeline', timelinePin: 'Laufenden Timer als Pin auf der Timeline zeigen',
+    timelineHint: 'Der Pin bietet "Timer stoppen" direkt aus der Timeline.',
+    pinRunning: 'Läuft', pinBody: 'Toggl-Timer läuft', pinStop: 'Timer stoppen', pinOpen: 'Toggl Timer öffnen',
     coffee: '☕ Buy me a coffee'
   },
   fr: {
@@ -72,6 +78,9 @@ var TABLES = {
     rounding: 'Arrondi', roundLabel: 'À l’arrêt, arrondir à', roundOff: 'ne pas arrondir', minutes: '%s minutes',
     save: 'Enregistrer',
     support: 'Soutenir', supportText: 'L’app est gratuite et sans publicité. Si elle vous facilite la journée, un café fait plaisir :',
+    timeline: 'Timeline', timelinePin: 'Afficher le minuteur en cours comme pin sur la timeline',
+    timelineHint: 'Le pin propose « Arrêter » directement depuis la timeline.',
+    pinRunning: 'En cours', pinBody: 'Minuteur Toggl en cours', pinStop: 'Arrêter le minuteur', pinOpen: 'Ouvrir Toggl Timer',
     coffee: '☕ Buy me a coffee'
   },
   it: {
@@ -95,6 +104,9 @@ var TABLES = {
     rounding: 'Arrotondamento', roundLabel: 'Allo stop arrotonda a', roundOff: 'non arrotondare', minutes: '%s minuti',
     save: 'Salva',
     support: 'Sostieni', supportText: 'L’app è gratuita e senza pubblicità. Se ti semplifica la giornata, un caffè è molto gradito:',
+    timeline: 'Timeline', timelinePin: 'Mostra il timer attivo come pin sulla timeline',
+    timelineHint: 'Il pin offre "Ferma timer" direttamente dalla timeline.',
+    pinRunning: 'In corso', pinBody: 'Timer Toggl attivo', pinStop: 'Ferma timer', pinOpen: 'Apri Toggl Timer',
     coffee: '☕ Buy me a coffee'
   },
   es: {
@@ -118,6 +130,9 @@ var TABLES = {
     rounding: 'Redondeo', roundLabel: 'Al parar, redondear a', roundOff: 'no redondear', minutes: '%s minutos',
     save: 'Guardar',
     support: 'Apoyar', supportText: 'La app es gratuita y sin anuncios. Si te facilita el día, un café se agradece:',
+    timeline: 'Timeline', timelinePin: 'Mostrar el temporizador activo como pin en la timeline',
+    timelineHint: 'El pin ofrece "Parar" directamente desde la timeline.',
+    pinRunning: 'Activo', pinBody: 'Temporizador Toggl activo', pinStop: 'Parar temporizador', pinOpen: 'Abrir Toggl Timer',
     coffee: '☕ Buy me a coffee'
   }
 };

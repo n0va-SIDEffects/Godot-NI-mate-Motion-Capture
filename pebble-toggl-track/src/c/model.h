@@ -79,6 +79,7 @@ typedef struct {
   char hint[HINT_LEN];       // sticky footer text (reminders), cleared by a button
   HintKind hint_kind;
   PendingAction pending;     // action whose confirmation is still outstanding
+  bool stop_on_connect;      // launched from the timeline pin's "Stop" action
 } AppModel;
 
 AppModel *model_get(void);

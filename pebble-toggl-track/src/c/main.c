@@ -7,6 +7,8 @@
 #include "reminders.h"
 #include "status_window.h"
 
+#define LAUNCH_STOP 3   // launchCode of the timeline pin's "Stop timer" action (src/pkjs/timeline.js)
+
 // Toggl Track for Pebble: start, stop and switch Toggl timers from the wrist.
 // The watch only talks to the phone (src/pkjs), which talks to the Toggl API.
 
@@ -64,6 +66,12 @@ static void prv_init(void) {
   app_touch_navigation_enable(true);
 #endif
   reminders_handle_launch();
+  APP_LOG(APP_LOG_LEVEL_INFO, "launch reason %d args %d", (int)launch_reason(), (int)launch_get_args());
+  if (launch_reason() == APP_LAUNCH_TIMELINE_ACTION && launch_get_args() == LAUNCH_STOP) {
+    // The phone side is not up yet; comm.c sends the stop once it answers.
+    model_get()->stop_on_connect = true;
+    model_set_message(STR(S_STOPPING), false);
+  }
   status_window_push();
 }
 

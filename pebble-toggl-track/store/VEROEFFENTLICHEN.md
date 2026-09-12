@@ -4,7 +4,7 @@ Alles Nötige liegt in `store/release/` (bzw. im ZIP `store/TogglTimer_Store_Pak
 
 | Datei | Verwendung im Portal |
 |-------|----------------------|
-| `TogglTimer-1.1.pbw` | Release hochladen |
+| `TogglTimer-1.2.pbw` | Release hochladen |
 | `icon_80.png` | Store-Icon (RGB, ohne Alpha) |
 | `icon_144.png`, `icon_48.png` | Large / Small Icon, falls abgefragt |
 | `banner_720x320.png` | Marketing Banner in jeder Asset Collection |
@@ -18,7 +18,7 @@ Alles Nötige liegt in `store/release/` (bzw. im ZIP `store/TogglTimer_Store_Pak
 2. Grunddaten: Title **Toggl Timer**, Developer **SIDEffect's**, Category **Tools & Utilities**,
    Support email eintragen, Website und Source code URL leer lassen (oder
    vollständig mit `https://`). Icon `icon_80.png` hochladen. **Create**.
-3. **Add a release**: `TogglTimer-1.1.pbw` hochladen, Release Notes
+3. **Add a release**: `TogglTimer-1.2.pbw` hochladen, Release Notes
    z. B. "First release". Seite neu laden, neben dem Release **Publish**.
 4. **Manage Asset Collections** → **Create** für jede Plattform aus
    `targetPlatforms` (aplite, basalt, chalk, diorite, emery, flint, gabbro):
@@ -43,7 +43,7 @@ pebble publish --release-notes "Was neu ist" --screenshots store/release/screens
 ## Checkliste
 
 - [ ] `uuid` in `package.json` unverändert (`f71873c5-ed3c-40d7-9f27-ef8cf9e15c80`), sonst gilt das Update als neue App
-- [ ] `version` im Format `Major.Minor` (aktuell `1.1`), vor jedem Update erhöhen
+- [ ] `version` im Format `Major.Minor` (aktuell `1.2`), vor jedem Update erhöhen
 - [ ] Beschreibung ≤ 1600 Zeichen (`scripts/check_description.py` im Publish-Skill)
 - [ ] `pebble build` ohne Fehler, `build/appinfo.json` enthält `configurable` und das Menü-Icon
 - [ ] Auf der echten Uhr mit eigenem Token getestet

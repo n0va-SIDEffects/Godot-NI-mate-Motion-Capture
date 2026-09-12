@@ -11,6 +11,7 @@ var path = require('path');
 var mock = require('./pkjs-mock.js');
 
 var running = null;     // fake Toggl state
+var timelineCalls = [];
 var nextId = 500;
 var PROJECTS = [
   { id: 11, name: 'Bühne', color: '#e36a00', active: true, workspace_id: 77, client_id: 5 },
@@ -63,6 +64,11 @@ function fakeToggl(method, url, body) {
 var rt = mock.install({
   packageJson: path.join(__dirname, '..', 'package.json'),
   fetch: function (method, url, body, headers) {
+    if (url.indexOf('timeline-api') >= 0) {
+      assert.strictEqual(headers['X-User-Token'], 'mock-timeline-token', 'timeline token header');
+      timelineCalls.push(method + ' ' + url.split('/pins/')[1] + (body ? ' ' + body.layout.title + '|' + body.actions[0].launchCode : ''));
+      return [200, {}];
+    }
     assert.strictEqual(headers.Authorization, 'Basic ' + Buffer.from('tok123:api_token').toString('base64'));
     return fakeToggl(method, url, body);
   }
@@ -142,6 +148,8 @@ settle(function () {
       assert.strictEqual(post[0].body.project_id, 11);
       var st2 = ofCmd(10)[0];
       assert.strictEqual(st2.RUNNING, 1);
+      assert.ok(timelineCalls.some(function (c) { return c === 'PUT toggl-timer-running Probe|3'; }), 'pin put after start: ' + timelineCalls);
+      timelineCalls = [];
       assert.strictEqual(st2.DESCRIPTION, 'Probe');
       assert.strictEqual(st2.PROJECT_NAME, 'Bühne', 'project name despite pid-only reply');
       assert.strictEqual(st2.CLIENT_NAME, 'Theater', 'client line');
@@ -166,6 +174,7 @@ settle(function () {
           assert.ok(reqs('PUT').length === 1, 'PUT rounding sent');
           assert.strictEqual(last(10).RUNNING, 0);
           assert.strictEqual(running, null);
+          assert.ok(timelineCalls.indexOf('DELETE toggl-timer-running') >= 0, 'pin removed after stop: ' + timelineCalls);
           rt.sent = []; rt.requests = [];
 
           // 6. Refresh with the cache warm: status always, lists only when changed.
