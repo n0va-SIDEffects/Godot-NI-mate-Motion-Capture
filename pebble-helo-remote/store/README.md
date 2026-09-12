@@ -3,7 +3,7 @@
 Alles hier wird per Skript erzeugt, damit Änderungen reproduzierbar bleiben.
 
 ```bash
-python3 store/icon/make_icons.py signal   # Icons (144/80/48, RGB + transparent) + Launcher-Icon 25 px
+python3 store/icon/make_icons.py cards    # Icons (144/80/48, RGB + transparent) + Launcher-Icon 25 px
 python3 store/banner/make_banner.py       # Banner 720x320, Deutsch und Englisch
 ```
 
