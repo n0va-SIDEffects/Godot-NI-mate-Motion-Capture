@@ -18,6 +18,7 @@
 #define PERSIST_KEY_VOLUME  1
 #define PERSIST_KEY_SHAKE   2
 #define PERSIST_KEY_TOUCH   3
+#define PERSIST_KEY_ENABLED 4           // uint64_t bitmask of shown sounds
 
 #define DEFAULT_VOLUME      80
 #define ROW_RANDOM          0           // first row is the random entry
@@ -39,6 +40,9 @@ static MenuLayer *s_menu;
 static ActionMenuLevel *s_action_root;
 static ActionMenuLevel *s_action_volume;
 
+static uint64_t s_enabled_mask = ~(uint64_t)0;  // bit i: SOUNDS[i] is shown
+static uint8_t s_visible[64];                   // visible row order -> sound index
+static int s_num_visible;
 static int s_volume = DEFAULT_VOLUME;
 static bool s_shake_enabled = true;
 static bool s_touch_enabled = true;
@@ -49,6 +53,25 @@ static char s_header[48];
 static char s_hint_buf[32];
 
 /* ---- row model ---------------------------------------------------------- */
+
+// Rebuilds the list of shown sounds from the enabled mask. An empty selection
+// falls back to showing everything, so the list can never end up blank.
+static void prv_rebuild_visible(void) {
+  s_num_visible = 0;
+  for (int i = 0; i < NUM_SOUNDS && i < 64; i++) {
+    if (s_enabled_mask & ((uint64_t)1 << i)) s_visible[s_num_visible++] = (uint8_t)i;
+  }
+  if (s_num_visible == 0) {
+    for (int i = 0; i < NUM_SOUNDS && i < 64; i++) s_visible[s_num_visible++] = (uint8_t)i;
+  }
+}
+
+static int prv_visible_pos(int sound_index) {
+  for (int i = 0; i < s_num_visible; i++) {
+    if (s_visible[i] == sound_index) return i;
+  }
+  return -1;
+}
 
 typedef enum { RowRandom, RowPhone, RowSound } RowKind;
 
@@ -61,11 +84,12 @@ static RowRef prv_row(uint16_t row) {
   if (row == ROW_RANDOM) return (RowRef) { RowRandom, 0 };
   int phone = phone_active_slots();
   if ((int)row <= phone) return (RowRef) { RowPhone, row - 1 };
-  return (RowRef) { RowSound, row - 1 - phone };
+  return (RowRef) { RowSound, s_visible[row - 1 - phone] };
 }
 
 static uint16_t prv_row_for_sound(int index) {
-  return (uint16_t)(1 + phone_active_slots() + index);
+  int pos = prv_visible_pos(index);
+  return (uint16_t)(1 + phone_active_slots() + (pos < 0 ? 0 : pos));
 }
 
 static const char *prv_playing_name(void) {
@@ -136,16 +160,17 @@ static void prv_play_random(void) {
   for (int i = 0; i < PHONE_MAX_SLOTS; i++) {
     if (phone_slot(i)->state == PhoneSlotReady) ready_phone++;
   }
-  int pool = NUM_SOUNDS + ready_phone;
+  int pool = s_num_visible + ready_phone;
   int pick = rand() % pool;
   if (pick == s_last_random && pool > 1) pick = (pick + 1) % pool;
   s_last_random = pick;
-  if (pick < NUM_SOUNDS) {
-    menu_layer_set_selected_index(s_menu, MenuIndex(0, prv_row_for_sound(pick)), MenuRowAlignCenter, true);
-    prv_play_index(pick);
+  if (pick < s_num_visible) {
+    int index = s_visible[pick];
+    menu_layer_set_selected_index(s_menu, MenuIndex(0, prv_row_for_sound(index)), MenuRowAlignCenter, true);
+    prv_play_index(index);
     return;
   }
-  int nth = pick - NUM_SOUNDS;
+  int nth = pick - s_num_visible;
   for (int i = 0; i < PHONE_MAX_SLOTS; i++) {
     if (phone_slot(i)->state != PhoneSlotReady) continue;
     if (nth-- == 0) {
@@ -200,13 +225,23 @@ static void prv_on_phone_settings(const PhoneSettings *st) {
     persist_write_bool(PERSIST_KEY_TOUCH, s_touch_enabled);
     prv_apply_touch();
   }
+  if (st->has_enabled) {
+    s_enabled_mask = st->enabled_mask;
+    persist_write_data(PERSIST_KEY_ENABLED, &s_enabled_mask, sizeof(s_enabled_mask));
+    prv_rebuild_visible();
+    if (s_menu) {
+      menu_layer_reload_data(s_menu);
+      menu_layer_set_selected_index(s_menu, MenuIndex(0, ROW_RANDOM), MenuRowAlignTop, false);
+      prv_apply_highlight(ROW_RANDOM);
+    }
+  }
   prv_update_header();
 }
 
 /* ---- menu callbacks --------------------------------------------------- */
 
 static uint16_t prv_get_num_rows(MenuLayer *menu, uint16_t section, void *ctx) {
-  return 1 + phone_active_slots() + NUM_SOUNDS;
+  return 1 + phone_active_slots() + s_num_visible;
 }
 
 static int16_t prv_get_cell_height(MenuLayer *menu, MenuIndex *idx, void *ctx) {
@@ -445,6 +480,10 @@ static void prv_init(void) {
   }
   if (persist_exists(PERSIST_KEY_SHAKE)) s_shake_enabled = persist_read_bool(PERSIST_KEY_SHAKE);
   if (persist_exists(PERSIST_KEY_TOUCH)) s_touch_enabled = persist_read_bool(PERSIST_KEY_TOUCH);
+  if (persist_exists(PERSIST_KEY_ENABLED)) {
+    persist_read_data(PERSIST_KEY_ENABLED, &s_enabled_mask, sizeof(s_enabled_mask));
+  }
+  prv_rebuild_visible();
 
   player_init(prv_on_finished);
   phone_init(prv_on_phone_slot_changed, prv_on_phone_settings);

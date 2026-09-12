@@ -1,4 +1,9 @@
 // Configuration page shown in the Pebble phone app (rendered by Clay).
+var soundNames = require('./sounds.json');   // generated from the watch's sound table at build time
+
+var allOn = [];
+for (var i = 0; i < soundNames.length; i++) allOn.push(true);
+
 module.exports = [
   { type: 'heading', defaultValue: 'Sampler' },
   { type: 'text', defaultValue: 'Einstellungen für das Soundboard auf der Pebble Time 2.' },
@@ -11,6 +16,14 @@ module.exports = [
       { type: 'toggle', messageKey: 'Shake', label: 'Schütteln spielt Zufalls-Sound', defaultValue: true },
       { type: 'toggle', messageKey: 'Touch', label: 'Touch-Bedienung', defaultValue: true,
         description: 'Antippen spielt ab, Wischen blättert. Nur auf Uhren mit Touchscreen.' }
+    ]
+  },
+  {
+    type: 'section',
+    items: [
+      { type: 'heading', defaultValue: 'Sounds in der Liste' },
+      { type: 'text', defaultValue: 'Nur angehakte Sounds erscheinen auf der Uhr. Der Zufalls-Sound wählt ebenfalls nur aus diesen.' },
+      { type: 'checkboxgroup', messageKey: 'Enabled', label: 'Anzeigen', defaultValue: allOn, options: soundNames }
     ]
   },
   {

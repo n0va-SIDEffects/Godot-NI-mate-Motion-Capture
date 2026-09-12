@@ -56,9 +56,12 @@ Jingles werden auf der Uhr synthetisiert.
 ## Einstellungen in der Handy-App
 
 In der Pebble-App auf dem Handy hat die App eine Einstellungsseite
-(Zahnrad-Symbol): Lautstärke, Schütteln an/aus, Touch-Bedienung an/aus und
-bis zu vier **Handy-Samples**. Die Einstellungen werden beim Speichern an
-die Uhr geschickt und dort gemerkt.
+(Zahnrad-Symbol): Lautstärke, Schütteln an/aus, Touch-Bedienung an/aus, die
+Auswahl, **welche Sounds auf der Uhr angezeigt werden**, und bis zu vier
+**Handy-Samples**. Die Einstellungen werden beim Speichern an die Uhr
+geschickt und dort gemerkt. Abgehakte Sounds verschwinden aus der Liste und
+aus dem Zufalls-Topf; die Liste der Namen wird beim Build automatisch aus
+der Sound-Tabelle der Uhr erzeugt (`tools/gen_sound_list.py`).
 
 ### Handy-Samples
 

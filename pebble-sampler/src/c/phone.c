@@ -93,12 +93,18 @@ static void prv_inbox_received(DictionaryIterator *iter, void *ctx) {
   Tuple *vol = dict_find(iter, MESSAGE_KEY_Volume);
   Tuple *shake = dict_find(iter, MESSAGE_KEY_Shake);
   Tuple *touch = dict_find(iter, MESSAGE_KEY_Touch);
-  if (vol || shake || touch) {
-    PhoneSettings st = {
-      .volume = vol ? (int)vol->value->int32 : -1,
-      .shake = shake ? (int)shake->value->int32 : -1,
-      .touch = touch ? (int)touch->value->int32 : -1,
-    };
+  PhoneSettings st = {
+    .volume = vol ? (int)vol->value->int32 : -1,
+    .shake = shake ? (int)shake->value->int32 : -1,
+    .touch = touch ? (int)touch->value->int32 : -1,
+  };
+  for (int i = 0; i < PHONE_MAX_ENABLED_BITS; i++) {
+    Tuple *t = dict_find(iter, MESSAGE_KEY_Enabled + i);
+    if (!t) break;
+    st.has_enabled = true;
+    if (t->value->int32) st.enabled_mask |= ((uint64_t)1 << i);
+  }
+  if (vol || shake || touch || st.has_enabled) {
     if (s_settings_cb) s_settings_cb(&st);
   }
 }

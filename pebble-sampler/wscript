@@ -26,6 +26,10 @@ def configure(ctx):
 def build(ctx):
     ctx.load('pebble_sdk')
 
+    # Keep the phone settings page in sync with the watch's sound table.
+    import subprocess, sys
+    subprocess.check_call([sys.executable, os.path.join(ctx.path.abspath(), 'tools', 'gen_sound_list.py')])
+
     build_worker = os.path.exists('worker_src')
     binaries = []
 

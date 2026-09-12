@@ -8,6 +8,8 @@
  */
 var Clay = require('@rebble/clay');
 var clayConfig = require('./config');
+var messageKeys = require('message_keys');
+var soundNames = require('./sounds.json');
 var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
 var MAX_SLOTS = 4;
@@ -40,6 +42,13 @@ function sendSettings(settings) {
     Shake: settingValue(settings, 'Shake', true) ? 1 : 0,
     Touch: settingValue(settings, 'Touch', true) ? 1 : 0
   };
+  // Which sounds to show: one 0/1 per sound, in the watch's table order.
+  var enabled = settings.Enabled;
+  if (Array.isArray(enabled)) {
+    for (var i = 0; i < soundNames.length; i++) {
+      dict[messageKeys.Enabled + i] = enabled[i] ? 1 : 0;
+    }
+  }
   Pebble.sendAppMessage(dict, function() { log('settings sent'); },
     function(e) { log('settings failed: ' + JSON.stringify(e)); });
 }

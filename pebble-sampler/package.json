@@ -34,7 +34,8 @@
       "XferData",
       "XferName",
       "XferDone",
-      "XferError"
+      "XferError",
+      "Enabled[48]"
     ],
     "resources": {
       "media": [

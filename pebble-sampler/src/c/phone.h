@@ -24,10 +24,14 @@ typedef struct {
   uint32_t received;
 } PhoneSlot;
 
+#define PHONE_MAX_ENABLED_BITS 48
+
 typedef struct {
   int volume;      // -1 when not present
   int shake;       // -1 when not present
   int touch;       // -1 when not present
+  bool has_enabled;      // enabled_mask carries data
+  uint64_t enabled_mask; // bit i set: show sound i (watch table order)
 } PhoneSettings;
 
 // Called on the app task whenever a slot changes (progress, ready, error).
