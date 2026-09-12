@@ -76,6 +76,8 @@ Die Konfigurationsseite wird mit [Clay](https://github.com/pebble/clay) erzeugt:
 - **Passwort** – nur wenn am HELO *User Authentication* eingeschaltet ist
 - **Abfrage-Intervall** 1–15 s (Standard 3 s)
 - **Vibrieren bei Start/Stopp**
+- Unter „Speichern“: Abschnitt **Unterstützen** mit Buy-me-a-coffee-Button
+  (`src/pkjs/custom-clay.js` öffnet den Link im Browser des Telefons)
 
 ---
 
@@ -151,6 +153,8 @@ Aufgenommen mit `pebble screenshot` gegen den HELO-Simulator, Emery = Pebble Tim
 |---|---|---|---|
 | ![](docs/emery_04_aufnahme_und_stream.png) | ![](docs/emery_05_stopp_bestaetigen.png) | ![](docs/basalt_aufnahme.png) | ![](docs/diorite_aufnahme.png) |
 
+Einstellungsseite (Clay) in der Pebble-App: [docs/einstellungen_clay.png](docs/einstellungen_clay.png)
+
 ---
 
 ## Projektstruktur
@@ -165,6 +169,7 @@ pebble-helo-remote/
 ├── src/c/main.c              Watch-App: UI, Tasten, AppMessage
 ├── src/pkjs/index.js         Phone-Seite: HELO-REST-Polling, Befehle, Auth, Clay
 ├── src/pkjs/config.js        Clay-Konfigurationsseite
+├── src/pkjs/custom-clay.js   Buy-me-a-coffee-Button auf der Konfigurationsseite
 ├── resources/images/menu_icon.png
 ├── tools/helo-simulator.js   HELO-REST-Simulator für Tests
 └── tools/test-pkjs.js        Integrationstest Phone-Seite gegen den Simulator

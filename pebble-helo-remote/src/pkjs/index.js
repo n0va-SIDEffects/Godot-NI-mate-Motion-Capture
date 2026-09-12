@@ -19,7 +19,8 @@
  */
 var Clay = require('pebble-clay');
 var clayConfig = require('./config');
-var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
+var customClay = require('./custom-clay');
+var clay = new Clay(clayConfig, customClay, { autoHandleEvents: false });
 
 /* ---- Protocol constants (must match src/c/main.c) ---------------------- */
 var CMD = { REFRESH: 0, REC_START: 1, REC_STOP: 2, STREAM_START: 3, STREAM_STOP: 4 };

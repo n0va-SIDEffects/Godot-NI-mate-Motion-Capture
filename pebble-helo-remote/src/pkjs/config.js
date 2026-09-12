@@ -84,5 +84,26 @@ module.exports = [
   {
     type: 'submit',
     defaultValue: 'Speichern'
+  },
+  {
+    type: 'section',
+    items: [
+      {
+        type: 'heading',
+        defaultValue: 'Unterst\u00fctzen'
+      },
+      {
+        type: 'text',
+        defaultValue: 'Die App ist kostenlos und ohne Werbung. Wenn sie dir Freude macht, freue ich mich ' +
+          '\u00fcber einen Kaffee: <a href="https://buymeacoffee.com/SIDEffects" target="_blank">' +
+          'buymeacoffee.com/SIDEffects</a>'
+      },
+      {
+        type: 'button',
+        id: 'donate',
+        primary: true,
+        defaultValue: '\u2615 Buy me a coffee'
+      }
+    ]
   }
 ];
