@@ -8,7 +8,6 @@ SAMPLE("Applaus", "Echter Konzertsaal", GColorOrangeARGB8, RESOURCE_ID_SAMPLE_AP
 SAMPLE("Furz", "Pardon.", GColorArmyGreenARGB8, RESOURCE_ID_SAMPLE_FURZ, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
 SAMPLE("Ruelpser", "Wohl bekomm's", GColorWindsorTanARGB8, RESOURCE_ID_SAMPLE_RUELPSER, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
 SAMPLE("Explosion", "Kabumm!", GColorSunsetOrangeARGB8, RESOURCE_ID_SAMPLE_EXPLOSION, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
-SAMPLE("Trommelwirbel", "Und der Gewinner ist", GColorDarkCandyAppleRedARGB8, RESOURCE_ID_SAMPLE_TROMMELWIRBEL, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
 SAMPLE("Ba-Dum-Tss", "Schlechter Witz", GColorFollyARGB8, RESOURCE_ID_SAMPLE_BA_DUM_TSS, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
 SAMPLE("Ka-Ching", "Kasse klingelt", GColorIslamicGreenARGB8, RESOURCE_ID_SAMPLE_KA_CHING, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
 SAMPLE("Katze", "Miau", GColorPurpleARGB8, RESOURCE_ID_SAMPLE_KATZE, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
@@ -22,3 +21,4 @@ SAMPLE("Niesen", "Hatschi!", GColorJaegerGreenARGB8, RESOURCE_ID_SAMPLE_NIESEN, 
 SAMPLE("Lachen", "Ha ha ha", GColorMayGreenARGB8, RESOURCE_ID_SAMPLE_LACHEN, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
 SAMPLE("Elefant", "Toeroe!", GColorBulgarianRoseARGB8, RESOURCE_ID_SAMPLE_ELEFANT, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
 SAMPLE("Pferd", "Wiehern", GColorLimerickARGB8, RESOURCE_ID_SAMPLE_PFERD, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
+SAMPLE("Trommelwirbel", "Und der Gewinner ist", GColorDarkCandyAppleRedARGB8, RESOURCE_ID_SAMPLE_TROMMELWIRBEL, SpeakerPcmFormat_16kHz_16bit, SampleCodecImaAdpcm)
