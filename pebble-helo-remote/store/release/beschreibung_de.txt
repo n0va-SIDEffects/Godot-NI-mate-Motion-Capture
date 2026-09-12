@@ -1,0 +1,21 @@
+Steuere deinen AJA HELO vom Handgelenk: Aufnahme und Stream starten und stoppen, Status live im Blick.
+
+HELO Remote macht die Pebble zur Fernbedienung für den AJA HELO, den H.264-Streaming- und Recording-Encoder. Die Pebble-App auf dem Telefon spricht per WLAN mit der REST-API des HELO; die Uhr zeigt den Live-Status und schickt Befehle mit einem Tastendruck.
+
+Funktionen
+- Aufnahme und Stream starten und stoppen
+- Live-Status: Zustand von Aufnahme und Stream, Laufzeit, freier Speicher in Prozent, Gerätetemperatur
+- Gerätename und Verbindungspunkt in der Kopfzeile (grün OK, rot nicht erreichbar, gelb Passwort falsch)
+- Stoppen braucht einen zweiten Druck innerhalb von 4 Sekunden, damit nichts versehentlich endet
+- Kurzes Vibrieren bei Start, doppelt bei Stopp, lang bei Fehler (abschaltbar)
+- Einstellungen in der Pebble-App: HELO-Adresse, HTTP-Port, Passwort (nur bei aktivierter Benutzer-Authentifizierung), Abfrage-Intervall 1 bis 15 s
+
+Bedienung
+- OBEN: Aufnahme starten; läuft sie, zweimal drücken zum Stoppen
+- MITTE: Status sofort aktualisieren (bricht eine offene Stopp-Bestätigung ab)
+- UNTEN: Stream starten oder stoppen (gleiche Bestätigung)
+- ZURÜCK: App beenden
+
+Voraussetzung: Das Telefon muss den HELO per HTTP erreichen, also gleiches Netzwerk, kein HTTPS. Funktioniert mit HELO und HELO Plus. Läuft auf Pebble Time 2, Pebble Time und Pebble 2.
+
+Die App ist kostenlos und ohne Werbung. Wenn sie dir Freude macht, freue ich mich über einen Kaffee: https://buymeacoffee.com/SIDEffects

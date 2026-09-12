@@ -1,3 +1,4 @@
 build/
 node_modules/
 .lock-waf*
+store/HELORemote_Store_Paket.zip

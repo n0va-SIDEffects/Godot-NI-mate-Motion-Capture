@@ -74,7 +74,8 @@ static AppTimer   *s_hint_timer;
 static GFont s_font_small;
 static GFont s_font_small_bold;
 static GFont s_font_label;
-static GFont s_font_digits;
+static GFont s_font_digits;        /* emery */
+static GFont s_font_digits_small;  /* basalt/diorite: 144 px wide, LECO 26 does not fit */
 
 static GPath *s_path_play;
 static GPath *s_path_arrow;
@@ -223,7 +224,7 @@ static void inbox_received_cb(DictionaryIterator *iter, void *context) {
     if (s_status.conn == CONN_OK) {
       s_busy = false;
       /* a status update supersedes a sticky connection hint, but not a
-       * pending stop confirmation ("Nochmal: ... STOPP") */
+       * pending stop confirmation ("Stopp? Nochmal ...") */
       if (s_hint[0] && !s_hint_timer && !s_confirm_cmd) s_hint[0] = '\0';
     } else {
       s_busy = false;
@@ -272,7 +273,7 @@ static void handle_toggle(bool is_rec) {
       clear_confirm();
       s_confirm_cmd = stop_cmd;
       s_confirm_timer = app_timer_register(CONFIRM_TIMEOUT_MS, confirm_timeout_cb, NULL);
-      set_hint(is_rec ? "Nochmal: Aufnahme STOPP" : "Nochmal: Stream STOPP", true);
+      set_hint(is_rec ? "Stopp? Nochmal OBEN" : "Stopp? Nochmal UNTEN", true);
     }
   } else {
     clear_confirm();
@@ -357,7 +358,7 @@ static void draw_card(GContext *ctx, GRect r, const char *label, int state,
   GRect dur_box = GRect(r.origin.x + pad, r.origin.y + r.size.h - digits_h - (big ? 6 : 3),
                         r.size.w - 2 * pad, digits_h);
   const char *dur_shown = (have_data && dur && dur[0]) ? dur : "--:--:--";
-  graphics_draw_text(ctx, dur_shown, s_font_digits, dur_box,
+  graphics_draw_text(ctx, dur_shown, big ? s_font_digits : s_font_digits_small, dur_box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
   /* blinking-style marker when active */
@@ -434,7 +435,7 @@ static void draw_footer(GContext *ctx, GRect f, bool big) {
                                     GColorBlack);
     graphics_context_set_fill_color(ctx, fill);
     if (w > 0) graphics_fill_rect(ctx, GRect(bar.origin.x + 1, bar.origin.y + 1, w, bar_h - 2), 1, GCornersAll);
-    snprintf(buf, sizeof(buf), "Medien %d%% frei", pct);
+    snprintf(buf, sizeof(buf), big ? "Medien %d%% frei" : "Medien %d%%", pct);
   } else {
     snprintf(buf, sizeof(buf), "Medien --");
   }
@@ -558,6 +559,7 @@ static void init(void) {
   s_font_small_bold = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
   s_font_label      = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   s_font_digits     = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
+  s_font_digits_small = fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
 
   s_path_play  = gpath_create(&PLAY_PATH_INFO);
   s_path_arrow = gpath_create(&ARROW_PATH_INFO);

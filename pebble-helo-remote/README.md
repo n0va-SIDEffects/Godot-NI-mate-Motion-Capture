@@ -7,10 +7,11 @@ Gerätetemperatur auf einen Blick.
 Zielplattform ist die **Pebble Time 2** (`emery`, 200×228 Farbdisplay). Die App baut
 zusätzlich für Pebble Time (`basalt`) und Pebble 2 / Core 2 Duo (`diorite`).
 
-> **Status:** Baut warnungsfrei mit dem Pebble-SDK 4.33.1 für emery, basalt und diorite und
-> läuft im Pebble-Emulator gegen den mitgelieferten HELO-Simulator (`tools/helo-simulator.js`),
-> siehe [Screenshots](#screenshots-emulator). Auf **echter Hardware** (Uhr + HELO) noch nicht
-> getestet. Siehe [Bekannte Unsicherheiten](#bekannte-unsicherheiten).
+> **Status:** Version 1.0, baut warnungsfrei mit dem Pebble-SDK 4.33.1 für emery, basalt und
+> diorite und läuft im Pebble-Emulator gegen den mitgelieferten HELO-Simulator
+> (`tools/helo-simulator.js`), siehe [Screenshots](#screenshots-emulator). Das Store-Paket liegt
+> fertig in `store/` ([Veröffentlichen](store/VEROEFFENTLICHEN.md)). Auf **echter Hardware**
+> (Uhr + HELO) noch nicht getestet. Siehe [Bekannte Unsicherheiten](#bekannte-unsicherheiten).
 
 ---
 
@@ -143,15 +144,16 @@ Requests.
 
 ## Screenshots (Emulator)
 
-Aufgenommen mit `pebble screenshot` gegen den HELO-Simulator, Emery = Pebble Time 2.
+Aufgenommen mit `pebble screenshot` gegen den HELO-Simulator; dieselben fünf Motive liegen für
+alle drei Plattformen in `store/screenshots_<plattform>/`. Emery = Pebble Time 2:
 
-| Keine IP konfiguriert | Bereit | Aufnahme läuft |
-|---|---|---|
-| ![](docs/emery_01_keine_konfig.png) | ![](docs/emery_02_bereit.png) | ![](docs/emery_03_aufnahme.png) |
+| Keine IP konfiguriert | Bereit | Aufnahme läuft | Aufnahme + Stream | Stopp-Bestätigung |
+|---|---|---|---|---|
+| ![](store/screenshots_emery/01_keine_ip.png) | ![](store/screenshots_emery/02_bereit.png) | ![](store/screenshots_emery/03_aufnahme.png) | ![](store/screenshots_emery/04_aufnahme_stream.png) | ![](store/screenshots_emery/05_stopp_bestaetigen.png) |
 
-| Aufnahme + Stream | Stopp-Bestätigung (2. Druck) | Basalt (Pebble Time) | Diorite (Pebble 2) |
-|---|---|---|---|
-| ![](docs/emery_04_aufnahme_und_stream.png) | ![](docs/emery_05_stopp_bestaetigen.png) | ![](docs/basalt_aufnahme.png) | ![](docs/diorite_aufnahme.png) |
+| Basalt (Pebble Time) | Diorite (Pebble 2) |
+|---|---|
+| ![](store/screenshots_basalt/04_aufnahme_stream.png) | ![](store/screenshots_diorite/04_aufnahme_stream.png) |
 
 Einstellungsseite (Clay) in der Pebble-App: [docs/einstellungen_clay.png](docs/einstellungen_clay.png)
 
@@ -164,8 +166,8 @@ pebble-helo-remote/
 ├── package.json              Pebble-Projekt (Plattformen, messageKeys, Clay-Abhängigkeit)
 ├── package-lock.json         festgepinnte Clay-Version
 ├── wscript                   Standard-Buildskript des Pebble-SDK (+ Linker-Flag, s. o.)
-├── docs/                     Emulator-Screenshots
-├── store/                    Store-Assets: Icon- und Banner-Generator, fertige PNGs (siehe store/README.md)
+├── docs/                     Screenshot der Clay-Einstellungsseite
+├── store/                    Store-Paket: Icons, Banner, Screenshots, Texte, Anleitung (siehe store/README.md)
 ├── src/c/main.c              Watch-App: UI, Tasten, AppMessage
 ├── src/pkjs/index.js         Phone-Seite: HELO-REST-Polling, Befehle, Auth, Clay
 ├── src/pkjs/config.js        Clay-Konfigurationsseite
@@ -191,11 +193,11 @@ Telefon → Uhr: `CONN` (0 unbekannt, 1 OK, 2 offline, 3 Auth-Fehler, 4 keine IP
   Rec/Stream-Start und -Stopp inkl. Bestätigung, Medien-/Temperaturanzeige laufen gegen den
   Simulator. Offen bleibt der Test mit echter Uhr und echtem HELO (`pebble install --phone <IP>`,
   dann Logs mit `pebble logs --phone <IP>` prüfen).
-- **Kleine Displays (basalt/diorite, 144×168):** Die Laufzeit-Ziffern werden rechts leicht
-  abgeschnitten und „Medien xx % frei“ stößt an die Temperatur (siehe Screenshots). Auf emery
-  (Pebble Time 2) passt alles; für die kleinen Plattformen wäre ein kompakteres Layout sinnvoll.
-- **Hinweiszeile auf emery:** Lange Meldungen wie „Nochmal: Aufnahme STOPP“ werden mit „…“
-  gekürzt. Funktional unkritisch, ggf. kürzere Texte wählen.
+- **Kleine Displays (basalt/diorite, 144×168):** Laufzeit in LECO 20 statt 26 und „Medien xx %“
+  ohne „frei“, damit alles in die Breite passt. Die Stopp-Bestätigung „Stopp? Nochmal OBEN/UNTEN“
+  wird dort noch mit „…“ gekürzt, auf emery ist sie vollständig lesbar.
+- **Oberfläche nur auf Deutsch.** Für den internationalen Store steht das im englischen
+  Beschreibungstext; eine englische Oberfläche wäre der nächste sinnvolle Schritt.
 - `eParamID_SysName` ist aus der Ki-Pro-API übernommen; liefert der HELO ihn nicht, zeigt die
   Kopfzeile einfach die IP.
 - `value_name` der Zustände wird am HELO als Enum-Name geliefert (z. B. `eRRSRecording`). Die
