@@ -2,8 +2,9 @@
 
 Alle Aufnahmen stammen von Wikimedia Commons und sind gemeinfrei (CC0 oder
 Public Domain). Sie wurden auf Mono 16 kHz gebracht, entrauscht, gekürzt, normalisiert
-und als IMA-ADPCM gespeichert. Ba-Dum-Tss und Trommelwirbel sind aus dem Snare- und dem Becken-Sample
-gebaut (`tools/build_drumroll.py` erzeugt den Wirbel).
+und als IMA-ADPCM gespeichert. Ba-Dum-Tss ist aus dem Snare- und dem Becken-Sample gemischt. Der
+Trommelwirbel selbst ist synthetisiert (`tools/build_drumroll.py`), nur
+sein Finale nutzt die beiden Aufnahmen.
 
 | Sample | Quelle (Commons-Datei) | Autor | Lizenz |
 |---|---|---|---|
@@ -11,7 +12,7 @@ gebaut (`tools/build_drumroll.py` erzeugt den Wirbel).
 | furz.ima | [Wet fart tummy rumbles.ogg](https://commons.wikimedia.org/wiki/File:Wet_fart_tummy_rumbles.ogg) | natalie (pdsounds) | Public Domain |
 | ruelpser.ima | [Burp.ogg](https://commons.wikimedia.org/wiki/File:Burp.ogg) | ezwa (pdsounds) | Public Domain |
 | explosion.ima | [Explosion 10.ogg](https://commons.wikimedia.org/wiki/File:Explosion_10.ogg) | tcpp | Public Domain |
-| trommelwirbel.ima | Wirbel aus vielen Anschlägen von [Snare (1) Sample.wav](https://commons.wikimedia.org/wiki/File:Snare_(1)_Sample.wav) gebaut, Finale mit [CrashCymbalSample.ogg](https://commons.wikimedia.org/wiki/File:CrashCymbalSample.ogg) | UnKnownrNone; RyGuy | CC0; Public Domain |
+| trommelwirbel.ima | Wirbel synthetisiert (`tools/build_drumroll.py`), Finale aus [Snare (1) Sample.wav](https://commons.wikimedia.org/wiki/File:Snare_(1)_Sample.wav) und [CrashCymbalSample.ogg](https://commons.wikimedia.org/wiki/File:CrashCymbalSample.ogg) | UnKnownrNone; RyGuy | CC0; Public Domain |
 | ba_dum_tss.ima | [Snare (1) Sample.wav](https://commons.wikimedia.org/wiki/File:Snare_(1)_Sample.wav) + [CrashCymbalSample.ogg](https://commons.wikimedia.org/wiki/File:CrashCymbalSample.ogg) | UnKnownrNone; RyGuy | CC0; Public Domain |
 | ka_ching.ima | [Cash register.ogg](https://commons.wikimedia.org/wiki/File:Cash_register.ogg) | „Me“ | Public Domain |
 | katze.ima | [Meow of a Siamese cat - freemaster2.wav](https://commons.wikimedia.org/wiki/File:Meow_of_a_Siamese_cat_-_freemaster2.wav) | freemaster2 | CC0 |
