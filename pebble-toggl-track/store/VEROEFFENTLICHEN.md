@@ -10,13 +10,12 @@ Alles Nötige liegt in `store/release/` (bzw. im ZIP `store/TogglTimer_Store_Pak
 | `banner_720x320.png` | Marketing Banner in jeder Asset Collection |
 | `screenshots_en/1_…5_*.png` | Screenshots für emery (Pebble Time 2), in dieser Reihenfolge |
 | `screenshots_en_basalt/*.png` | Screenshots für basalt/diorite/flint (144×168) |
-| `description_en.txt` | Zeile 1 = Kurzbeschreibung, Rest = Beschreibung (≤ 1600 Zeichen) |
-| `beschreibung_de.txt` | dasselbe auf Deutsch, falls eine deutsche Listung gewünscht ist |
+| `description_en.txt` | Zeile 1 = Kurzbeschreibung, Rest = Beschreibung (≤ 1600 Zeichen); der Store nimmt eine Sprache, Englisch |
 
 ## Portal (https://developer.repebble.com/dashboard)
 
 1. Anmelden mit dem Konto der Pebble-Handy-App, **Add Watchapp**.
-2. Grunddaten: Title **Toggl Timer**, Category **Tools & Utilities**,
+2. Grunddaten: Title **Toggl Timer**, Developer **SIDEffect's**, Category **Tools & Utilities**,
    Support email eintragen, Website und Source code URL leer lassen (oder
    vollständig mit `https://`). Icon `icon_80.png` hochladen. **Create**.
 3. **Add a release**: `TogglTimer-1.1.pbw` hochladen, Release Notes

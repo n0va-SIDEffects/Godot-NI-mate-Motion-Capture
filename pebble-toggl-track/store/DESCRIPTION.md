@@ -1,6 +1,8 @@
-# Store listing
+# Store listing (English, the store takes one language)
 
-## English
+**Title:** Toggl Timer
+**Developer:** SIDEffect's
+**Category:** Tools & Utilities
 
 **Short:** Start, stop and switch your Toggl Track timers from your wrist.
 
@@ -26,32 +28,4 @@ Open the settings in the Pebble app and paste your Toggl API token (found at the
 Works with every Pebble; dictation and touch need the Pebble Time 2. Not affiliated with Toggl.
 
 The app is free and has no ads. If it makes your day a little easier, a coffee is much appreciated: https://buymeacoffee.com/SIDEffects
-
-
-## Deutsch
-
-**Kurz:** Toggl-Track-Timer direkt vom Handgelenk starten, stoppen und wechseln.
-
-Toggl Timer bringt Toggl Track auf die Pebble. Du siehst den laufenden Eintrag mit Projekt, Kunde, Laufzeit und Tagessumme, stoppst ihn mit einem Druck oder startest den nächsten aus Favoriten, letzten Einträgen oder der Projektliste. Am Handy gestoppte Timer erscheinen nach einer halben Minute auf der Uhr.
-
-Funktionen
-• Status-Screen mit Projektfarbe, Beschreibung, Laufzeit und Tagessumme
-• Favoriten-Kacheln: bis zu vier Einträge, die du täglich brauchst, ein Tipp startet
-• Letzte Einträge und alle Projekte, mit der heute gebuchten Zeit
-• Diktat einer neuen Beschreibung, danach Projekt wählen (Pebble Time 2)
-• Touch: Tipp öffnet die Auswahl, nach links wischen holt den vorherigen Eintrag, nach rechts wischen stoppt (Pebble Time 2)
-• Erinnerungen, wenn ein Timer zu lange oder zu spät läuft, optional werktags morgens, wenn nichts läuft
-• Optionale Rundung auf 5, 15 oder 30 Minuten beim Stoppen
-• Launcher-Glance mit laufendem Eintrag und Dauer
-• Sprachen: Deutsch, Englisch, Französisch, Italienisch, Spanisch (folgt der Uhr)
-
-Tasten
-UP aktualisieren · SELECT starten/stoppen, lang drücken für Diktat · DOWN Favoriten oder Liste
-
-Einrichtung
-Einstellungen in der Pebble-App öffnen und den Toggl-API-Token eintragen (ganz unten auf track.toggl.com/profile). Mit dem Token "demo" läuft die App mit Beispieldaten.
-
-Läuft auf jeder Pebble; Diktat und Touch brauchen die Pebble Time 2. Kein offizielles Toggl-Produkt.
-
-Die App ist kostenlos und ohne Werbung. Wenn sie dir den Tag ein bisschen leichter macht, freue ich mich über einen Kaffee: https://buymeacoffee.com/SIDEffects
 
