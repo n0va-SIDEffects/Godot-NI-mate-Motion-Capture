@@ -17,7 +17,7 @@ Jingles werden auf der Uhr synthetisiert.
 | Applaus | Echter Konzertsaal-Applaus | Aufnahme |
 | Furz | Pardon. | Aufnahme |
 | Rülpser | Wohl bekomm's | Aufnahme |
-| Explosion | Kabumm | Aufnahme |
+| Explosion | Kabumm | Aufnahme, Obertöne angereichert |
 | Trommelwirbel | Wirbel mit Crescendo und Becken-Finale | Aufnahme |
 | Ba-Dum-Tss | Zwei Snare-Schläge und Becken | Aufnahme (gemischt) |
 | Ka-Ching | Registrierkasse | Aufnahme |
@@ -159,6 +159,7 @@ src/c/synth.h, synth.c   Fixed-Point-Synthesizer (16 kHz, 16 Bit, ohne Floats)
 src/c/sounds.c           Sound-Bank: Generatoren und Notensequenzen
 src/c/player.c           Streaming-Pumpe für PCM plus Noten/Track-Wiedergabe
 src/c/ima_adpcm.h        IMA-ADPCM-Decoder für die Samples
+tools/build_explosion.py Explosion für den Kleinlautsprecher aufbereiten
 src/c/main.c             Menü, Action-Menü, Schütteln, Touch, Einstellungen
 src/c/phone.c            AppMessage: Einstellungen und Sample-Übertragung vom Handy
 src/pkjs/index.js        Handy-Seite: Clay-Einstellungen, Sample-Download und -Übertragung

@@ -25,7 +25,7 @@ Import-Werkzeug die schon erledigte Aufbereitung ein zweites Mal anwendet.
 | applaus.ima | [277021 sandermotions applause-2.wav](https://commons.wikimedia.org/wiki/File:277021_sandermotions_applause-2.wav) | Sandermotions | CC0 |
 | furz.ima | [Wet fart tummy rumbles.ogg](https://commons.wikimedia.org/wiki/File:Wet_fart_tummy_rumbles.ogg) | natalie (pdsounds) | Public Domain |
 | ruelpser.ima | [Burp.ogg](https://commons.wikimedia.org/wiki/File:Burp.ogg) | ezwa (pdsounds) | Public Domain |
-| explosion.ima | [Explosion 10.ogg](https://commons.wikimedia.org/wiki/File:Explosion_10.ogg) | tcpp | Public Domain |
+| explosion.ima | [Explosion 10.ogg](https://commons.wikimedia.org/wiki/File:Explosion_10.ogg), fuer den Kleinlautsprecher aufbereitet (siehe unten) | tcpp | Public Domain |
 | trommelwirbel.ima | [Drum Roll Intro.ogg](https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg), entrauscht und angehoben (siehe unten) | Iwan Sounds and DIY | CC0 |
 | ba_dum_tss.ima | [Snare (1) Sample.wav](https://commons.wikimedia.org/wiki/File:Snare_(1)_Sample.wav) + [CrashCymbalSample.ogg](https://commons.wikimedia.org/wiki/File:CrashCymbalSample.ogg) | UnKnownrNone; RyGuy | CC0; Public Domain |
 | ka_ching.ima | [Cash register.ogg](https://commons.wikimedia.org/wiki/File:Cash_register.ogg) | „Me“ | Public Domain |
@@ -40,3 +40,23 @@ Import-Werkzeug die schon erledigte Aufbereitung ein zweites Mal anwendet.
 | lachen.ima | [Laughter then bell ring.ogg](https://commons.wikimedia.org/wiki/File:Laughter_then_bell_ring.ogg) (Ausschnitt) | ezwa (pdsounds) | Public Domain |
 | elefant.ima | [Elephant voice - trumpeting.ogg](https://commons.wikimedia.org/wiki/File:Elephant_voice_-_trumpeting.ogg) | தகவலுழவன் | CC0 |
 | pferd.ima | [Wiehern.ogg](https://commons.wikimedia.org/wiki/File:Wiehern.ogg) | Hü. | Public Domain |
+
+## Explosion: Oberton-Anreicherung
+
+Eine Explosion besteht fast nur aus Tiefbass, den der Uhrlautsprecher gar
+nicht wiedergibt: Von der Originalaufnahme ueberlebten nur -9 dB den
+Frequenzgang der Uhr. Die eingebaute Fassung erzeugt deshalb aus dem
+Bassanteil kuenstlich dessen Obertoene (Saettigung plus Gleichrichtung,
+danach auf 520 bis 2600 Hz begrenzt). Das Ohr ergaenzt daraus den fehlenden
+Grundton, der Knall wirkt wieder wuchtig. Dazu kommt ein heller
+Knall-Transient und ein Hochpass bei 300 Hz, der den ohnehin unhoerbaren
+Rest wegnimmt. Ergebnis: nur noch -5,8 dB Verlust, die Spitze kommt
+praktisch vollstaendig durch.
+
+Erzeugt wird die Datei mit dem Skript `tools/build_explosion.py`, danach:
+
+```bash
+python3 tools/import_sample.py explosion.wav --name "Explosion" \
+  --hint "Kabumm!" --color GColorSunsetOrangeARGB8 \
+  --max-seconds 2.2 --no-compress --denoise 0 --highpass 0 --trim-db -60 --replace
+```
