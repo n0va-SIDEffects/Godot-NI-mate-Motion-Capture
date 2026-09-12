@@ -8,3 +8,7 @@ dist.zip
 
 # Ignore installed node modules
 node_modules/
+
+# Python-Cache der Werkzeuge
+__pycache__/
+*.pyc
