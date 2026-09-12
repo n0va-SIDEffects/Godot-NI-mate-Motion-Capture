@@ -45,7 +45,11 @@ var REMIND_RUNNING = 1;     // "still running?" after N hours / late in the even
 var REMIND_NO_TIMER = 2;    // "nothing running" on weekday mornings
 
 var DIAG_KEY = 'toggl_diag';
-var POLL_MS = 30000;           // how often the running entry is re-checked while the app is open
+var POLL_MS = 60000;           // how often the running entry is re-checked while the app is open
+var PROJECTS_TTL_MS = 6 * 3600000;   // projects/clients rarely change
+var ENTRIES_TTL_MS = 5 * 60000;      // recent entries: local edits are applied without a refetch
+var RATE_LIMIT_PAUSE_MS = 5 * 60000; // after a 429 from Toggl
+var rateLimitedUntil = 0;
 
 var settings = config.normalise(loadJson(SETTINGS_KEY));
 var cache = loadJson(CACHE_KEY) || { projects: [], recent: [], status: null };
@@ -419,72 +423,110 @@ function entrySummary(e) {
 }
 
 // --- Actions -----------------------------------------------------------------
+// Toggl's per-user quota is small (a 429 says "30 / 30 requests"), so every
+// action is designed around one or two requests and the rest comes from the
+// cache: projects every few hours, entries every few minutes, and local
+// edits are applied to the cached entries instead of re-downloading them.
 
-// Full refresh: projects, clients and entries first (needed for names and the
-// daily total), then the status, then the lists if they changed.
-function refreshAll(showProgress) {
+function age(ts) { return ts ? Date.now() - ts : Infinity; }
+
+function rateLimited() { return Date.now() < rateLimitedUntil; }
+
+function onError(err) {
+  if (/429|zu viele|too many|trop de|troppe|demasiadas/i.test(String(err))) {
+    rateLimitedUntil = Date.now() + RATE_LIMIT_PAUSE_MS;
+    note('rateLimit', 'paused until ' + new Date(rateLimitedUntil).toISOString());
+  }
+  sendError(err);
+}
+
+// Send status + lists computed from the cache (no network).
+function publishFromCache(entry) {
+  var status = statusFromEntry(entry, cache.entries);
+  sendStatus(status);
+  var recent = buildRecent(cache.entries || []);
+  if (JSON.stringify(recent) !== JSON.stringify(cache.recent)) {
+    sendRecent(recent);
+  }
+  cache.recent = recent;
+  cache.status = status;
+  saveCache();
+}
+
+function applyEntryLocally(entry) {
+  if (!entry || !entry.id) { return; }
+  cache.entries = (cache.entries || []).filter(function (e) { return e.id !== entry.id; });
+  cache.entries.unshift(entry);
+}
+
+// Refresh: current entry always (1 request); entries when stale (+1);
+// projects and clients when stale (+2). `force` reloads entries too.
+function refreshAll(showProgress, force) {
   if (!requireToken()) { return; }
   if (isBusy()) { return; }
+  if (rateLimited()) {
+    if (cache.status) { sendStatus(cache.status); }
+    return sendInfo(t('rateLimited'));
+  }
   setBusy(true);
   if (showProgress) { sendInfo(t('refreshing')); }
   var api = client();
+  var needProjects = !cache.projects || !cache.projects.length || age(cache.projectsAt) > (force ? 3600000 : PROJECTS_TTL_MS);
+  var needEntries = force || !cache.entries || age(cache.entriesAt) > ENTRIES_TTL_MS;
 
+  function step3() {
+    api.current(function (err, entry) {
+      setBusy(false);
+      if (err) { return onError(err); }
+      if (entry && entry.id) { applyEntryLocally(entry); }
+      else if (cache.entries) { cache.entries = cache.entries.filter(function (e) { return e.duration >= 0; }); }
+      var projectsChanged = JSON.stringify(cache.projectsSent || []) !== JSON.stringify(cache.projects);
+      if (projectsChanged) {
+        sendProjects(cache.projects);
+        sendFavorites();
+        cache.projectsSent = cache.projects;
+      }
+      publishFromCache(entry);
+    });
+  }
+  function step2() {
+    if (!needEntries) { return step3(); }
+    api.recentEntries(RECENT_DAYS, function (err, entries) {
+      if (err) { setBusy(false); return onError(err); }
+      cache.entries = entries;
+      cache.entriesAt = Date.now();
+      step3();
+    });
+  }
+  if (!needProjects) { return step2(); }
   api.projects(function (err, projects) {
-    if (err) { setBusy(false); return sendError(err); }
+    if (err) { setBusy(false); return onError(err); }
     indexProjects(projects);
     note('projects', projects.length + ' active');
-
     api.clients(function (errC, clients) {
-      if (errC) { clients = []; }          // clients are decoration only
+      if (errC) { clients = cache.clients || []; }
       indexClients(clients);
-
-      api.recentEntries(RECENT_DAYS, function (err3, entries) {
-        if (err3) { setBusy(false); return sendError(err3); }
-
-        api.current(function (err2, entry) {
-          setBusy(false);
-          if (err2) { return sendError(err2); }
-          cache.entries = entries;
-          var status = statusFromEntry(entry, entries);
-          sendStatus(status);
-
-          if (JSON.stringify(projects) !== JSON.stringify(cache.projects)) {
-            sendProjects(projects);
-            sendFavorites();                 // favourites carry project names
-          }
-          var recent = buildRecent(entries);
-          if (JSON.stringify(recent) !== JSON.stringify(cache.recent)) {
-            sendRecent(recent);
-          }
-          cache.projects = projects;
-          cache.clients = clients;
-          cache.recent = recent;
-          cache.status = status;
-          saveCache();
-        });
-      });
+      cache.projects = projects;
+      cache.clients = clients;
+      cache.projectsAt = Date.now();
+      step2();
     });
   });
 }
 
-// After a start/stop: fresh entries -> status (daily total) and recent list.
-function refreshAfterChange(entry) {
-  client().recentEntries(RECENT_DAYS, function (err, entries) {
-    if (err) { return; }
-    cache.entries = entries;
-    var status = statusFromEntry(entry, entries);
-    sendStatus(status);
-    var recent = buildRecent(entries);
-    if (JSON.stringify(recent) !== JSON.stringify(cache.recent)) {
-      sendRecent(recent);
-    }
-    cache.recent = recent;
-    cache.status = status;
-    saveCache();
-  });
-}
-
+// Stop whatever runs: uses the cached entry (0 extra requests) and falls
+// back to asking Toggl only when the cache knows nothing.
 function stopRunning(api, callback) {
+  var st = cache.status;
+  if (st && st.running && st.entryId && st.workspaceId) {
+    return api.stop(st.workspaceId, st.entryId, function (err, stopped) {
+      if (err && /nicht gefunden|not found|introuvable|non trovato|no encontrado/i.test(String(err))) {
+        return callback(null, null);       // already stopped elsewhere
+      }
+      if (err) { return callback(err); }
+      roundStopped(api, stopped, callback);
+    });
+  }
   api.current(function (err, entry) {
     if (err) { return callback(err); }
     if (!entry || !entry.id) { return callback(null, null); }
@@ -512,28 +554,22 @@ function roundStopped(api, entry, callback) {
 function startTimer(projectId, description) {
   if (!requireToken()) { return; }
   if (isBusy()) { return defer(function () { startTimer(projectId, description); }); }
+  if (rateLimited()) { return sendInfo(t('rateLimited')); }
   setBusy(true);
   var api = client();
   workspaceFor(projectId, function (err, workspaceId) {
-    if (err) { setBusy(false); return sendError(err); }
+    if (err) { setBusy(false); return onError(err); }
     // Toggl allows only one running entry; stop the current one first.
-    stopRunning(api, function (err2) {
-      if (err2) { setBusy(false); return sendError(err2); }
+    stopRunning(api, function (err2, stopped) {
+      if (err2) { setBusy(false); return onError(err2); }
+      if (stopped) { applyEntryLocally(stopped); }
       note('lastStart', 'projectId=' + projectId + ' desc="' + description + '" wid=' + workspaceId);
       api.start(workspaceId, projectId, description, function (err3, entry) {
-        if (err3) { setBusy(false); return sendError(err3); }
+        setBusy(false);
+        if (err3) { return onError(err3); }
         note('lastStartReply', entrySummary(entry));
-        // Toggl's own view of the running entry is authoritative.
-        api.current(function (err4, current) {
-          setBusy(false);
-          if (!err4 && current && current.id) { entry = current; }
-          note('lastCurrent', entrySummary(entry));
-          var status = statusFromEntry(entry);
-          sendStatus(status);
-          cache.status = status;
-          saveCache();
-          refreshAfterChange(entry);
-        });
+        applyEntryLocally(entry);
+        publishFromCache(entry);
       });
     });
   });
@@ -542,55 +578,49 @@ function startTimer(projectId, description) {
 function stopTimer() {
   if (!requireToken()) { return; }
   if (isBusy()) { return defer(stopTimer); }
+  if (rateLimited()) { return sendInfo(t('rateLimited')); }
   setBusy(true);
-  stopRunning(client(), function (err) {
+  stopRunning(client(), function (err, stopped) {
     setBusy(false);
-    if (err) { return sendError(err); }
-    var status = statusFromEntry(null);
-    sendStatus(status);
-    cache.status = status;
-    saveCache();
-    refreshAfterChange(null);
+    if (err) { return onError(err); }
+    if (stopped) { applyEntryLocally(stopped); }
+    else if (cache.entries) { cache.entries = cache.entries.filter(function (e) { return e.duration >= 0; }); }
+    publishFromCache(null);
   });
 }
 
 // Swipe: back to the entry before the running one (or the last one, if idle).
+// Uses the cached recent list, no request of its own.
 function previousTimer() {
   if (!requireToken()) { return; }
-  var api = client();
-  api.current(function (err, current) {
-    if (err) { return sendError(err); }
-    api.recentEntries(RECENT_DAYS, function (err2, entries) {
-      if (err2) { return sendError(err2); }
-      var candidates = buildRecent(entries);
-      var cur = current ? ((current.project_id || 0) + '|' + (current.description || '').trim().toLowerCase()) : null;
-      var prev = null;
-      for (var i = 0; i < candidates.length; i++) {
-        var key = candidates[i].projectId + '|' + candidates[i].description.toLowerCase();
-        if (key !== cur) { prev = candidates[i]; break; }
-      }
-      if (!prev) { return sendInfo(t('noPrevious')); }
-      startTimer(prev.projectId, prev.description);
-    });
-  });
+  var st = cache.status || {};
+  var cur = st.running ? ((st.projectId || 0) + '|' + (st.description || '').trim().toLowerCase()) : null;
+  var candidates = cache.recent || [];
+  var prev = null;
+  for (var i = 0; i < candidates.length; i++) {
+    var key = candidates[i].projectId + '|' + candidates[i].description.toLowerCase();
+    if (key !== cur) { prev = candidates[i]; break; }
+  }
+  if (!prev) { return sendInfo(t('noPrevious')); }
+  startTimer(prev.projectId, prev.description);
 }
 
 // Re-check the running entry while the app is open, so a timer stopped or
 // started on the phone or the web shows up on the watch within POLL_MS.
 function pollStatus() {
-  if (!settings.token || isBusy()) { return; }
+  if (!settings.token || isBusy() || rateLimited()) { return; }
   var api = client();
   api.current(function (err, entry) {
-    if (err) { return; }
+    if (err) { if (/429|too many|zu viele/i.test(String(err))) { rateLimitedUntil = Date.now() + RATE_LIMIT_PAUSE_MS; } return; }
     var status = statusFromEntry(entry, cache.entries);
     var old = cache.status || {};
     var changed = status.running !== old.running || status.entryId !== old.entryId ||
       status.start !== old.start || status.description !== old.description || status.projectName !== old.projectName;
     if (!changed) { return; }
     note('pollChange', entrySummary(entry));
-    cache.status = status;
-    saveCache();
-    refreshAfterChange(entry);      // sends the status with a fresh daily total
+    if (entry && entry.id) { applyEntryLocally(entry); }
+    else if (cache.entries) { cache.entries = cache.entries.filter(function (e) { return e.duration >= 0; }); }
+    publishFromCache(entry);
   });
 }
 
@@ -618,10 +648,10 @@ Pebble.addEventListener('ready', function () {
   indexClients(cache.clients || []);
   sendConfig();
   if (cache.status) { sendStatus(cache.status); }
-  if (cache.projects && cache.projects.length) { sendProjects(cache.projects); }
+  if (cache.projects && cache.projects.length) { sendProjects(cache.projects); cache.projectsSent = cache.projects; }
   sendFavorites();
   if (cache.recent && cache.recent.length) { sendRecent(cache.recent); }
-  refreshAll(!cache.status);
+  refreshAll(!cache.status, false);
   startPolling();
 });
 
@@ -640,7 +670,7 @@ Pebble.addEventListener('appmessage', function (e) {
 function handleCommand(cmd, payload) {
   switch (cmd) {
     case CMD.REFRESH:
-      refreshAll(true);
+      refreshAll(true, true);
       break;
     case CMD.START:
       startTimer(Number(field(payload, 'PROJECT_ID')) || 0, field(payload, 'DESCRIPTION') || '');
@@ -670,12 +700,13 @@ Pebble.addEventListener('webviewclosed', function (e) {
   if (tokenChanged) {
     defaultWorkspaceId = null;
     cache = { projects: [], recent: [], status: null };
+    rateLimitedUntil = 0;
     saveCache();
   }
   sendInfo(t('savedSettings'));
   sendConfig();
   sendFavorites();
-  refreshAll(true);
+  refreshAll(true, true);
 });
 
 module.exports = { utf8Clip: utf8Clip, toPebbleColor: toPebbleColor, secondsToday: secondsToday,

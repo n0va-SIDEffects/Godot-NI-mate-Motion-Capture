@@ -29,6 +29,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Show the running timer as a pin on the timeline',
     timelineHint: 'The pin offers "Stop timer" right from the timeline.',
     pinRunning: 'Running', pinBody: 'Toggl timer running', pinStop: 'Stop timer', pinOpen: 'Open Toggl Timer',
+    rateLimited: 'Toggl limit reached, pausing 5 min',
     coffee: '☕ Buy me a coffee'
   },
   de: {
@@ -55,6 +56,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Laufenden Timer als Pin auf der Timeline zeigen',
     timelineHint: 'Der Pin bietet "Timer stoppen" direkt aus der Timeline.',
     pinRunning: 'Läuft', pinBody: 'Toggl-Timer läuft', pinStop: 'Timer stoppen', pinOpen: 'Toggl Timer öffnen',
+    rateLimited: 'Toggl-Limit erreicht, 5 Min Pause',
     coffee: '☕ Buy me a coffee'
   },
   fr: {
@@ -81,6 +83,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Afficher le minuteur en cours comme pin sur la timeline',
     timelineHint: 'Le pin propose « Arrêter » directement depuis la timeline.',
     pinRunning: 'En cours', pinBody: 'Minuteur Toggl en cours', pinStop: 'Arrêter le minuteur', pinOpen: 'Ouvrir Toggl Timer',
+    rateLimited: 'Limite Toggl atteinte, pause 5 min',
     coffee: '☕ Buy me a coffee'
   },
   it: {
@@ -107,6 +110,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Mostra il timer attivo come pin sulla timeline',
     timelineHint: 'Il pin offre "Ferma timer" direttamente dalla timeline.',
     pinRunning: 'In corso', pinBody: 'Timer Toggl attivo', pinStop: 'Ferma timer', pinOpen: 'Apri Toggl Timer',
+    rateLimited: 'Limite Toggl raggiunto, pausa 5 min',
     coffee: '☕ Buy me a coffee'
   },
   es: {
@@ -133,6 +137,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Mostrar el temporizador activo como pin en la timeline',
     timelineHint: 'El pin ofrece "Parar" directamente desde la timeline.',
     pinRunning: 'Activo', pinBody: 'Temporizador Toggl activo', pinStop: 'Parar temporizador', pinOpen: 'Abrir Toggl Timer',
+    rateLimited: 'Límite de Toggl, pausa de 5 min',
     coffee: '☕ Buy me a coffee'
   }
 };

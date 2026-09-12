@@ -77,7 +77,8 @@ var rt = mock.install({
 function settle(cb) { setTimeout(cb, 80); }
 function ofCmd(cmd) { return rt.sent.filter(function (m) { return m.CMD === cmd; }); }
 function last(cmd) { var l = ofCmd(cmd); return l[l.length - 1]; }
-function reqs(method) { return rt.requests.filter(function (r) { return r.method === method; }); }
+function reqs(method) { return rt.requests.filter(function (r) { return r.method === method && r.url.indexOf('toggl.com') >= 0; }); }
+function togglReqs() { return rt.requests.filter(function (r) { return r.url.indexOf('toggl.com') >= 0; }); }
 
 var app = require('../src/pkjs/index.js');
 
@@ -145,6 +146,7 @@ settle(function () {
     settle(function () {
       var post = reqs('POST');
       assert.strictEqual(post.length, 1, 'one POST to start');
+      assert.ok(togglReqs().length <= 2, 'start costs at most 2 Toggl requests, got ' + togglReqs().length);
       assert.strictEqual(post[0].body.project_id, 11);
       var st2 = ofCmd(10)[0];
       assert.strictEqual(st2.RUNNING, 1);
@@ -172,6 +174,7 @@ settle(function () {
         settle(function () {
           assert.ok(reqs('PATCH').length === 1, 'PATCH stop sent');
           assert.ok(reqs('PUT').length === 1, 'PUT rounding sent');
+          assert.strictEqual(togglReqs().length, 2, 'stop from cache costs 2 requests (stop + rounding)');
           assert.strictEqual(last(10).RUNNING, 0);
           assert.strictEqual(running, null);
           assert.ok(timelineCalls.indexOf('DELETE toggl-timer-running') >= 0, 'pin removed after stop: ' + timelineCalls);
@@ -182,6 +185,7 @@ settle(function () {
           settle(function () {
             assert.strictEqual(ofCmd(10).length, 1);
             assert.strictEqual(ofCmd(11).length, 0, 'unchanged project list not resent');
+            assert.strictEqual(togglReqs().length, 2, 'manual refresh with fresh projects: entries + current only');
             rt.sent = []; rt.requests = [];
 
             // 7. Polling: a timer started on the phone/web shows up without any watch action.
