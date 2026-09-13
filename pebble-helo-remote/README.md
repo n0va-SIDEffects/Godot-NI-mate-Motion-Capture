@@ -7,7 +7,7 @@ Gerätetemperatur auf einen Blick.
 Zielplattform ist die **Pebble Time 2** (`emery`, 200×228 Farbdisplay). Die App baut
 zusätzlich für Pebble Time (`basalt`) und Pebble 2 / Core 2 Duo (`diorite`).
 
-> **Status:** Version 1.1 (sieben Sprachen), baut warnungsfrei mit dem Pebble-SDK 4.33.1 für emery, basalt und
+> **Status:** Version 1.2 (sieben Sprachen, Timeline-Pins), baut warnungsfrei mit dem Pebble-SDK 4.33.1 für emery, basalt und
 > diorite und läuft im Pebble-Emulator gegen den mitgelieferten HELO-Simulator
 > (`tools/helo-simulator.js`), siehe [Screenshots](#screenshots-emulator). Das Store-Paket liegt
 > fertig in `store/` ([Veröffentlichen](store/VEROEFFENTLICHEN.md)). Auf **echter Hardware**
@@ -79,8 +79,24 @@ Die Konfigurationsseite wird mit [Clay](https://github.com/pebble/clay) erzeugt:
 - **Vibrieren bei Start/Stopp**
 - **Sprache**: Automatisch (wie die Uhr) oder fest Deutsch, English, Français, Español,
   Italiano, Português, Nederlands
+- **Timeline-Pins** an/aus und der Timeline-Server (Standard `https://timeline-api.rebble.io`)
 - Unter „Speichern“: Abschnitt **Unterstützen** mit Buy-me-a-coffee-Button
   (`src/pkjs/custom-clay.js` öffnet den Link im Browser des Telefons)
+
+### Timeline-Pins
+
+Jede Aufnahme und jeder Stream landet als Pin in der Timeline der Uhr: Beim Wechsel auf
+„aktiv“ legt die Telefon-Seite einen Pin mit Startzeit an (`helo-rec-<ms>` bzw.
+`helo-stream-<ms>`), beim Stopp wird derselbe Pin mit Dauer und Endzeit aktualisiert. Offene
+Pins überleben einen Neustart der Telefon-Seite (localStorage). Die Uhr selbst kann keine Pins
+anlegen, es läuft über `Pebble.getTimelineToken()` und `PUT <server>/v1/user/pins/<id>` mit
+`X-User-Token` (`src/pkjs/timeline.js`).
+
+Voraussetzungen: App aus dem Store installiert (der Token gehört zur veröffentlichten UUID)
+und im Entwickler-Dashboard einmal „Enable timeline“ geklickt. Pins erscheinen über die
+Web-API mit bis zu 15 Minuten Verzögerung. Welcher Timeline-Server 2026 antwortet, ist in
+den Einstellungen änderbar; der Simulator nimmt Pins ebenfalls an (`PUT /v1/user/pins/…`,
+`GET /__pins`), so testet `tools/test-pkjs.js` den Ablauf.
 
 ### Sprachen
 
@@ -194,6 +210,7 @@ pebble-helo-remote/
 ├── src/pkjs/config.js        Clay-Konfigurationsseite, je Sprache gebaut
 ├── src/pkjs/custom-clay.js   Buy-me-a-coffee-Button auf der Konfigurationsseite
 ├── src/pkjs/i18n.js          Telefon-Texte in 7 Sprachen (generiert)
+├── src/pkjs/timeline.js      Timeline-Pins je Aufnahme/Stream über die Timeline-Web-API
 ├── tools/i18n.py             einzige Quelle aller Übersetzungen, erzeugt die beiden Dateien oben
 ├── resources/images/menu_icon.png
 ├── tools/helo-simulator.js   HELO-REST-Simulator für Tests
@@ -203,6 +220,8 @@ pebble-helo-remote/
 ### Nachrichtenprotokoll (AppMessage)
 
 Uhr → Telefon: `CMD` = 0 Refresh, 1 Rec Start, 2 Rec Stop, 3 Stream Start, 4 Stream Stop.
+Einstellungen (Clay → Telefon, bleiben dort): `HELO_HOST`, `HELO_PORT`, `HELO_PASSWORD`,
+`POLL_INTERVAL`, `VIBRATE`, `LANGUAGE`, `TIMELINE`, `TIMELINE_HOST`.
 
 Telefon → Uhr: `CONN` (0 unbekannt, 1 OK, 2 offline, 3 Auth-Fehler, 4 keine IP konfiguriert),
 `REC_STATE`, `REC_NAME`, `REC_DUR`, `STREAM_STATE`, `STREAM_NAME`, `STREAM_DUR`, `MEDIA_PCT`,
@@ -220,6 +239,10 @@ Telefon → Uhr: `CONN` (0 unbekannt, 1 OK, 2 offline, 3 Auth-Fehler, 4 keine IP
 - **Kleine Displays (basalt/diorite, 144×168):** Laufzeit in LECO 20 statt 26 und „Medien xx %“
   ohne „frei“, damit alles in die Breite passt. Die Stopp-Bestätigung „Stopp? Nochmal OBEN/UNTEN“
   wird dort noch mit „…“ gekürzt, auf emery ist sie vollständig lesbar.
+- **Timeline-Server.** Die Doku nennt noch `timeline-api.getpebble.com`, Rebble betreibt
+  `timeline-api.rebble.io`, Core Devices zieht auf `repebble.com` um. Der Standard ist Rebble;
+  falls Pins ausbleiben, `pebble logs --phone <IP>` zeigt „timeline: pin … rejected/network
+  error“, dann Server in den Einstellungen anpassen. Im Emulator gibt es keinen Token.
 - **Übersetzungen** sind maschinell geprüft, aber nicht von Muttersprachlern gegengelesen.
   Korrekturen gehören in `tools/i18n.py`. Der Store selbst ist einsprachig (Englisch).
 - `eParamID_SysName` ist aus der Ki-Pro-API übernommen; liefert der HELO ihn nicht, zeigt die

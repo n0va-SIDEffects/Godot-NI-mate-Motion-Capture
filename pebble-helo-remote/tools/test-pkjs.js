@@ -54,7 +54,8 @@ var sent = [];
 global.Pebble = {
   addEventListener: function (ev, fn) { listeners[ev] = fn; },
   sendAppMessage: function (dict, ok) { sent.push(dict); setTimeout(ok, 5); },
-  openURL: function (u) { this.lastUrl = u; }
+  openURL: function (u) { this.lastUrl = u; },
+  getTimelineToken: function (ok) { setTimeout(function () { ok('test-timeline-token'); }, 5); }
 };
 
 // stub pebble-clay
@@ -79,6 +80,13 @@ process.on('exit', function () { try { sim.kill(); } catch (e) { /* ignore */ } 
 require(path.join(__dirname, '..', 'src', 'pkjs', 'index.js'));
 
 function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function getPins() {
+  return new Promise(function (resolve, reject) {
+    http.get('http://127.0.0.1:' + PORT + '/__pins', function (res) {
+      var data = ''; res.on('data', function (c) { data += c; }); res.on('end', function () { resolve(JSON.parse(data)); });
+    }).on('error', reject);
+  });
+}
 function last() { return sent[sent.length - 1]; }
 function lastStatus() { for (var i = sent.length - 1; i >= 0; i--) if ('CONN' in sent[i]) return sent[i]; return null; }
 
@@ -92,7 +100,8 @@ function lastStatus() { for (var i = sent.length - 1; i >= 0; i--) if ('CONN' in
 
   // 2. configure via Clay -> polling starts, status OK
   sent.length = 0;
-  var cfg = { HELO_HOST: 'http://127.0.0.1/', HELO_PORT: String(PORT), HELO_PASSWORD: PASSWORD, POLL_INTERVAL: { value: 1, precision: 0 }, VIBRATE: true };
+  var cfg = { HELO_HOST: 'http://127.0.0.1/', HELO_PORT: String(PORT), HELO_PASSWORD: PASSWORD, POLL_INTERVAL: { value: 1, precision: 0 }, VIBRATE: true,
+              TIMELINE: true, TIMELINE_HOST: 'http://127.0.0.1:' + PORT };
   listeners.webviewclosed({ response: encodeURIComponent(JSON.stringify(cfg)) });
   await wait(600);
   var st = lastStatus();
@@ -121,6 +130,12 @@ function lastStatus() { for (var i = sent.length - 1; i >= 0; i--) if ('CONN' in
   assert.strictEqual(st.REC_NAME, '');
   assert.ok(/^00:00:0\d$/.test(st.REC_DUR), 'duration ' + st.REC_DUR);
   console.log('OK  CMD 1 -> recording: ' + JSON.stringify(st));
+  var pins = await getPins();
+  var recPins = Object.keys(pins).filter(function (k) { return /^helo-rec-/.test(k); });
+  assert.strictEqual(recPins.length, 1, 'expected one recording pin, got ' + JSON.stringify(Object.keys(pins)));
+  assert.strictEqual(pins[recPins[0]].layout.title, 'HELO recording');
+  assert.strictEqual(pins[recPins[0]].duration, undefined, 'open pin must not have a duration yet');
+  console.log('OK  timeline pin created: ' + JSON.stringify(pins[recPins[0]].layout));
 
   // 4. stream start + record stop
   listeners.appmessage({ payload: { CMD: 3 } });
@@ -132,6 +147,10 @@ function lastStatus() { for (var i = sent.length - 1; i >= 0; i--) if ('CONN' in
   assert.strictEqual(st.STREAM_STATE, 2);
   assert.strictEqual(st.STREAM_NAME, '');
   console.log('OK  CMD 3 + CMD 2 -> stream live, rec idle');
+  pins = await getPins();
+  assert.strictEqual(pins[recPins[0]].duration, 1, 'recording pin should be closed with a duration');
+  assert.ok(Object.keys(pins).some(function (k) { return /^helo-stream-/.test(k); }), 'no stream pin');
+  console.log('OK  timeline pin closed: ' + pins[recPins[0]].layout.body + ', stream pin open');
 
   // 5. refresh
   sent.length = 0;

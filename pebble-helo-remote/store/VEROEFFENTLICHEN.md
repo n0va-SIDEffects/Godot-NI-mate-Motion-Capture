@@ -7,7 +7,7 @@ Der Ordner `release/` (Inhalt von `HELORemote_Store_Paket.zip`) enthält alles, 
 
 | Datei | Verwendung im Portal |
 |-------|----------------------|
-| `HELORemote-1.1.pbw` | Release-Datei (die App, alle drei Plattformen in einer Datei) |
+| `HELORemote-1.2.pbw` | Release-Datei (die App, alle drei Plattformen in einer Datei) |
 | `icon_80.png` | Icon (80 × 80, RGB ohne Alphakanal, so verlangt es das Portal) |
 | `icon_144.png`, `icon_48.png` | Large und Small Icon, falls das Portal zusätzlich danach fragt |
 | `banner_720x320_en.png` | Marketing Banner (Kopfbild der Listung) |
@@ -20,6 +20,13 @@ Der Ordner `release/` (Inhalt von `HELORemote_Store_Paket.zip`) enthält alles, 
 Der Store zeigt pro Plattform genau eine Beschreibung (Limit 1600 Zeichen) und einen
 Screenshot-Satz, ohne Sprachvarianten. Die Listung ist deshalb nur englisch; die App selbst
 folgt der Sprache der Uhr.
+
+## Update auf 1.2 (Timeline-Pins)
+
+Im Dashboard die App öffnen, „Add a release“ mit `HELORemote-1.2.pbw`, Release Notes aus
+`RELEASE_NOTES.md` (kurze Fassung), publizieren, Beschreibung durch `description_en.txt`
+ersetzen. **Zusätzlich einmalig:** auf der App-Seite im Dashboard „Enable timeline“ klicken,
+sonst bekommt die Telefon-Seite keinen Timeline-Token und es erscheinen keine Pins.
 
 ## Update auf 1.1 (sieben Sprachen, Layout-Korrekturen)
 
@@ -43,7 +50,7 @@ publizieren. Danach in den drei Asset Collections die Screenshots durch die engl
    - Support email: deine Adresse
    - Icon: `icon_80.png`
 4. „Create“.
-5. „Add a release“: `HELORemote-1.1.pbw` hochladen, Release Notes aus `RELEASE_NOTES.md`
+5. „Add a release“: `HELORemote-1.2.pbw` hochladen, Release Notes aus `RELEASE_NOTES.md`
    (kurze Fassung). Seite neu laden, neben dem Release auf „Publish“.
 6. „Manage Asset Collections“ → „Create“ für **jede** der drei Plattformen `emery`, `basalt`,
    `diorite` (alle stehen in `targetPlatforms`, ohne Asset Collection wird die Plattform nicht
@@ -79,7 +86,7 @@ Für Updates: `version` in `package.json` erhöhen (Format `Major.Minor`, z. B. 
 
 | Symptom | Ursache | Abhilfe |
 |---------|---------|---------|
-| „Server error (400)“ beim Release | `version` nicht `Major.Minor` | steht auf `1.1`, nach Änderung neu bauen |
+| „Server error (400)“ beim Release | `version` nicht `Major.Minor` | steht auf `1.2`, nach Änderung neu bauen |
 | „Server error (400)“ im ersten Schritt vom Handy aus | mobiler Browser | am PC im Browser einreichen (so ging 1.0 durch) |
 | Icon abgelehnt | Alphakanal | `icon_80.png` ist RGB; `_transparent` nur als Reserve |
 | 400 beim Anlegen der Listung | Source code URL leer oder ohne `https://` | Pflichtfeld, vollständige URL eintragen |

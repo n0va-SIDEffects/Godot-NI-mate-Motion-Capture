@@ -10,6 +10,7 @@ Features
 - Short vibration on start, double on stop, long on an error state (can be switched off)
 - Settings in the Pebble phone app: HELO address, HTTP port, password (only if user authentication is enabled on the HELO), polling interval 1 to 15 s
 - Seven languages (EN, DE, FR, ES, IT, PT, NL), following the watch language automatically
+- Optional timeline pin per recording and stream, with duration once stopped
 
 Controls
 - UP: start recording; while recording, press twice to stop

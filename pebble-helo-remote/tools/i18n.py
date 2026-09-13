@@ -89,6 +89,15 @@ W["nl"] = dict(
 BMC = '<a href="https://buymeacoffee.com/SIDEffects" target="_blank">buymeacoffee.com/SIDEffects</a>'
 P = {}
 P["de"] = dict(
+    section_timeline='Timeline',
+    timeline_label='Pins in der Timeline (Start/Stopp)',
+    timeline_host_label='Timeline-Server (nur ändern, wenn nötig)',
+    timeline_note='Jede Aufnahme und jeder Stream erscheint als Pin in der Timeline der Uhr, beim Stopp mit Dauer. Braucht „Enable timeline“ im Entwickler-Dashboard; Pins erscheinen mit bis zu 15 Minuten Verzögerung.',
+    pin_rec='HELO Aufnahme',
+    pin_stream='HELO Stream',
+    pin_started='Gestartet',
+    pin_stopped='Gestoppt',
+    pin_min='Min.',
     msg_check_password="HELO: Passwort prüfen", msg_timeout="HELO: Timeout ", msg_unreachable="HELO nicht erreichbar: ",
     msg_cmd_sent="Befehl gesendet", msg_cmd_failed="Befehl fehlgeschlagen",
     intro="Verbindung zum AJA HELO. Das Telefon muss im selben Netzwerk wie der HELO sein.",
@@ -101,6 +110,15 @@ P["de"] = dict(
     support_text="Die App ist kostenlos und ohne Werbung. Wenn sie dir Freude macht, freue ich mich über einen Kaffee: " + BMC,
     donate="☕ Buy me a coffee")
 P["en"] = dict(
+    section_timeline='Timeline',
+    timeline_label='Timeline pins (start/stop)',
+    timeline_host_label='Timeline server (change only if needed)',
+    timeline_note='Every recording and stream shows up as a pin in the watch timeline, with its duration once stopped. Needs “Enable timeline” in the developer dashboard; pins can take up to 15 minutes to appear.',
+    pin_rec='HELO recording',
+    pin_stream='HELO stream',
+    pin_started='Started',
+    pin_stopped='Stopped',
+    pin_min='min',
     msg_check_password="HELO: check password", msg_timeout="HELO: timeout ", msg_unreachable="HELO not reachable: ",
     msg_cmd_sent="Command sent", msg_cmd_failed="Command failed",
     intro="Connection to the AJA HELO. The phone must be on the same network as the HELO.",
@@ -113,6 +131,15 @@ P["en"] = dict(
     support_text="The app is free and has no ads. If you enjoy it, a coffee is much appreciated: " + BMC,
     donate="☕ Buy me a coffee")
 P["fr"] = dict(
+    section_timeline='Timeline',
+    timeline_label='Épingles dans la timeline (démarrage/arrêt)',
+    timeline_host_label='Serveur timeline (à modifier seulement si nécessaire)',
+    timeline_note="Chaque enregistrement et chaque stream apparaît comme épingle dans la timeline de la montre, avec sa durée après l'arrêt. Nécessite « Enable timeline » dans le tableau de bord développeur ; jusqu'à 15 minutes de délai.",
+    pin_rec='HELO enregistrement',
+    pin_stream='HELO stream',
+    pin_started='Démarré',
+    pin_stopped='Arrêté',
+    pin_min='min',
     msg_check_password="HELO : vérifiez le mot de passe", msg_timeout="HELO : délai dépassé ", msg_unreachable="HELO injoignable : ",
     msg_cmd_sent="Commande envoyée", msg_cmd_failed="Commande échouée",
     intro="Connexion au AJA HELO. Le téléphone doit être sur le même réseau que le HELO.",
@@ -125,6 +152,15 @@ P["fr"] = dict(
     support_text="L'app est gratuite et sans publicité. Si elle vous plaît, un café fait plaisir : " + BMC,
     donate="☕ Buy me a coffee")
 P["es"] = dict(
+    section_timeline='Timeline',
+    timeline_label='Pins en la timeline (inicio/parada)',
+    timeline_host_label='Servidor de timeline (cambiar solo si es necesario)',
+    timeline_note='Cada grabación y cada stream aparece como pin en la timeline del reloj, con su duración al parar. Requiere “Enable timeline” en el panel de desarrollador; los pins pueden tardar hasta 15 minutos.',
+    pin_rec='HELO grabación',
+    pin_stream='HELO stream',
+    pin_started='Iniciado',
+    pin_stopped='Parado',
+    pin_min='min',
     msg_check_password="HELO: revisa la contraseña", msg_timeout="HELO: tiempo agotado ", msg_unreachable="HELO no accesible: ",
     msg_cmd_sent="Comando enviado", msg_cmd_failed="Comando fallido",
     intro="Conexión con el AJA HELO. El móvil debe estar en la misma red que el HELO.",
@@ -137,6 +173,15 @@ P["es"] = dict(
     support_text="La app es gratuita y sin anuncios. Si te gusta, un café se agradece mucho: " + BMC,
     donate="☕ Buy me a coffee")
 P["it"] = dict(
+    section_timeline='Timeline',
+    timeline_label='Pin nella timeline (avvio/stop)',
+    timeline_host_label='Server timeline (cambiare solo se necessario)',
+    timeline_note="Ogni registrazione e ogni stream compare come pin nella timeline dell'orologio, con la durata dopo lo stop. Richiede “Enable timeline” nella dashboard sviluppatori; i pin possono impiegare fino a 15 minuti.",
+    pin_rec='HELO registrazione',
+    pin_stream='HELO stream',
+    pin_started='Avviato',
+    pin_stopped='Fermato',
+    pin_min='min',
     msg_check_password="HELO: controlla la password", msg_timeout="HELO: timeout ", msg_unreachable="HELO non raggiungibile: ",
     msg_cmd_sent="Comando inviato", msg_cmd_failed="Comando fallito",
     intro="Connessione all'AJA HELO. Il telefono deve essere sulla stessa rete dell'HELO.",
@@ -149,6 +194,15 @@ P["it"] = dict(
     support_text="L'app è gratuita e senza pubblicità. Se ti piace, un caffè è molto gradito: " + BMC,
     donate="☕ Buy me a coffee")
 P["pt"] = dict(
+    section_timeline='Timeline',
+    timeline_label='Pins na timeline (início/paragem)',
+    timeline_host_label='Servidor da timeline (alterar só se necessário)',
+    timeline_note='Cada gravação e cada stream aparece como pin na timeline do relógio, com a duração depois de parar. Requer “Enable timeline” no painel de programador; os pins podem demorar até 15 minutos.',
+    pin_rec='HELO gravação',
+    pin_stream='HELO stream',
+    pin_started='Iniciado',
+    pin_stopped='Parado',
+    pin_min='min',
     msg_check_password="HELO: verificar senha", msg_timeout="HELO: tempo esgotado ", msg_unreachable="HELO inacessível: ",
     msg_cmd_sent="Comando enviado", msg_cmd_failed="Comando falhou",
     intro="Ligação ao AJA HELO. O telemóvel tem de estar na mesma rede que o HELO.",
@@ -161,6 +215,15 @@ P["pt"] = dict(
     support_text="A app é gratuita e sem anúncios. Se gostares, um café é muito bem-vindo: " + BMC,
     donate="☕ Buy me a coffee")
 P["nl"] = dict(
+    section_timeline='Timeline',
+    timeline_label='Pins in de timeline (start/stop)',
+    timeline_host_label='Timeline-server (alleen wijzigen indien nodig)',
+    timeline_note='Elke opname en elke stream verschijnt als pin in de timeline van het horloge, na het stoppen met duur. Vereist “Enable timeline” in het developer-dashboard; pins kunnen tot 15 minuten op zich laten wachten.',
+    pin_rec='HELO opname',
+    pin_stream='HELO stream',
+    pin_started='Gestart',
+    pin_stopped='Gestopt',
+    pin_min='min',
     msg_check_password="HELO: wachtwoord nakijken", msg_timeout="HELO: time-out ", msg_unreachable="HELO niet bereikbaar: ",
     msg_cmd_sent="Opdracht verzonden", msg_cmd_failed="Opdracht mislukt",
     intro="Verbinding met de AJA HELO. De telefoon moet in hetzelfde netwerk zitten als de HELO.",

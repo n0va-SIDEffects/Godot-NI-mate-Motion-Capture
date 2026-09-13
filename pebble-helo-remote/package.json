@@ -1,7 +1,7 @@
 {
   "name": "helo-remote",
   "author": "Mike Heissen",
-  "version": "1.1",
+  "version": "1.2",
   "keywords": [
     "pebble-app"
   ],
@@ -43,7 +43,9 @@
       "HELO_PORT",
       "HELO_PASSWORD",
       "POLL_INTERVAL",
-      "LANGUAGE"
+      "LANGUAGE",
+      "TIMELINE",
+      "TIMELINE_HOST"
     ],
     "resources": {
       "media": [

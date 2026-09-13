@@ -21,6 +21,7 @@ var Clay = require('pebble-clay');
 var buildConfig = require('./config');
 var customClay = require('./custom-clay');
 var i18n = require('./i18n');
+var timeline = require('./timeline');
 var clay = new Clay(buildConfig('en'), customClay, { autoHandleEvents: false });
 
 /* ---- Protocol constants (must match src/c/main.c) ---------------------- */
@@ -43,6 +44,7 @@ var PARAM = {
 var KNOWN_STATES = { 0: true, 1: true, 2: true, 3: true, 4: true, 5: true };
 
 var SETTINGS_KEY = 'helo_remote_settings';
+var DEFAULT_TIMELINE_HOST = 'https://timeline-api.rebble.io';
 var REQUEST_TIMEOUT_MS = 4000;
 
 /* ---- Settings ----------------------------------------------------------- */
@@ -52,7 +54,9 @@ var settings = {
   password: '',
   poll: 3,
   vibrate: true,
-  lang: 0            // 0 = automatic, 1..n = index into i18n.langs + 1
+  lang: 0,           // 0 = automatic, 1..n = index into i18n.langs + 1
+  timeline: true,    // push a timeline pin per recording / stream
+  timelineHost: DEFAULT_TIMELINE_HOST
 };
 
 /* ---- Language ----------------------------------------------------------- */
@@ -114,6 +118,10 @@ function sanitizeSettings() {
   settings.vibrate = !!settings.vibrate;
   var lang = parseInt(settings.lang, 10);
   settings.lang = (lang >= 0 && lang <= i18n.langs.length) ? lang : 0;
+  settings.timeline = settings.timeline !== false && settings.timeline !== 0 && settings.timeline !== '0';
+  var host = String(settings.timelineHost || '').trim().replace(/\/+$/, '');
+  if (host && !/^https?:\/\//.test(host)) host = 'https://' + host;
+  settings.timelineHost = host || DEFAULT_TIMELINE_HOST;
 }
 
 function clayValue(v) {
@@ -129,6 +137,8 @@ function applyClaySettings(dict) {
   if ('POLL_INTERVAL' in dict) settings.poll = clayValue(dict.POLL_INTERVAL);
   if ('VIBRATE' in dict)       settings.vibrate = clayValue(dict.VIBRATE);
   if ('LANGUAGE' in dict)      settings.lang = clayValue(dict.LANGUAGE);
+  if ('TIMELINE' in dict)      settings.timeline = clayValue(dict.TIMELINE);
+  if ('TIMELINE_HOST' in dict) settings.timelineHost = clayValue(dict.TIMELINE_HOST);
   sanitizeSettings();
   saveSettings();
 }
@@ -377,6 +387,7 @@ function pollOnce(reason) {
     consecutiveErrors = 0;
     status.SYS_NAME = sysNameCache || settings.host;
     sendStatus(CONN.OK, status);
+    timeline.onStatus(status.REC_STATE, status.STREAM_STATE, status.SYS_NAME);
   });
 }
 
@@ -430,6 +441,7 @@ function runCommand(cmd) {
 /* ---- Pebble events ------------------------------------------------------ */
 Pebble.addEventListener('ready', function () {
   loadSettings();
+  timeline.init(settings, T);
   console.log('HELO Remote ready, host=' + (settings.host || '(none)') + ' poll=' + settings.poll + 's lang=' + currentLang());
   schedulePolling();
 });
@@ -450,6 +462,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
   if (!e || !e.response) return;
   var dict = clay.getSettings(e.response, false);
   applyClaySettings(dict);
+  timeline.resetToken();
   sessionCookie = null;
   sysNameCache = null;
   consecutiveErrors = 0;

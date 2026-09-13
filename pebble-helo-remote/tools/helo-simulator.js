@@ -29,6 +29,7 @@ var state = {
   sysName: 'HELO Buehne'
 };
 var sessions = {};
+var pins = {};
 
 function tc(startMs) {
   if (!startMs) return '00:00:00:00';
@@ -107,6 +108,21 @@ http.createServer(function (req, res) {
     });
     return;
   }
+
+  // Timeline web API stand-in: PUT /v1/user/pins/<id> stores the pin, GET /__pins lists them (for tests).
+  var pinMatch = u.pathname.match(/^\/v1\/user\/pins\/([^/]+)$/);
+  if (pinMatch && req.method === 'PUT') {
+    if (!req.headers['x-user-token']) return send(res, 401, { error: 'missing X-User-Token' });
+    var pinData = '';
+    req.on('data', function (c) { pinData += c; });
+    req.on('end', function () {
+      try { pins[decodeURIComponent(pinMatch[1])] = JSON.parse(pinData); } catch (e) { return send(res, 400, { error: 'bad json' }); }
+      console.log('   -> pin ' + pinMatch[1] + ' ' + JSON.stringify(pins[decodeURIComponent(pinMatch[1])].layout));
+      send(res, 200, { status: 'ok' });
+    });
+    return;
+  }
+  if (u.pathname === '/__pins') return send(res, 200, pins);
 
   if (u.pathname === '/config') {
     if (!isAuthed(req)) {

@@ -47,6 +47,18 @@ module.exports = function buildConfig(lang) {
         { type: 'select', messageKey: 'LANGUAGE', label: t.language_label, defaultValue: '0', options: langOptions }
       ]
     },
+    {
+      type: 'section',
+      items: [
+        { type: 'heading', defaultValue: t.section_timeline },
+        { type: 'toggle', messageKey: 'TIMELINE', label: t.timeline_label, defaultValue: true, description: t.timeline_note },
+        {
+          type: 'input', messageKey: 'TIMELINE_HOST', label: t.timeline_host_label,
+          defaultValue: 'https://timeline-api.rebble.io',
+          attributes: { placeholder: 'https://timeline-api.rebble.io', autocapitalize: 'off', autocorrect: 'off' }
+        }
+      ]
+    },
     { type: 'text', defaultValue: t.keys_text },
     { type: 'submit', defaultValue: t.save },
     {

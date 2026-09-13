@@ -1,5 +1,28 @@
 # Release notes
 
+## 1.2
+
+### Short version (paste into the portal's release notes field)
+
+Timeline pins. Every recording and every stream now shows up as a pin in
+the watch timeline, with start time and, once stopped, the duration. Can be
+switched off in the settings. Needs the app installed from the appstore.
+
+### One-line version (if the field is tight)
+
+New: a timeline pin per recording and stream, with duration once stopped (optional).
+
+### Full version
+
+**New: Timeline pins.** When a recording or stream starts, the phone side
+creates a pin in the watch timeline ("HELO recording" / "HELO stream" with
+the device name and start time). When it stops, the same pin is updated with
+the end time and duration in minutes. Open pins survive a restart of the
+phone app. The feature is on by default and can be switched off under
+Timeline in the settings; the timeline server can be changed there too.
+Pins pushed through the timeline web API can take up to 15 minutes to
+appear on the watch.
+
 ## 1.1
 
 ### Short version (paste into the portal's release notes field)
