@@ -22,12 +22,14 @@
       "watchface": false
     },
     "capabilities": [
-      "health"
+      "health",
+      "configurable"
     ],
     "messageKeys": [
       "SOUND_ON",
       "VOLUME",
       "PITCH",
+      "SOUND_MODE",
       "VIBE_ON",
       "VIBE_MS",
       "BACKLIGHT",

@@ -1,10 +1,7 @@
 /*
  * The settings page shown by the Pebble phone app.
- *
- * To offer a donation link, put your own address in DONATION_URL. While it is empty the section
- * is left out entirely, so no placeholder link ever ships.
  */
-var DONATION_URL = '';
+var DONATION_URL = 'https://buymeacoffee.com/SIDEffects';
 
 var config = [
   {
@@ -35,6 +32,17 @@ var config = [
         min: 0,
         max: 100,
         step: 5
+      },
+      {
+        type: 'select',
+        messageKey: 'SOUND_MODE',
+        label: 'Wiedergabe',
+        description: 'Durchgehend hält den Lautsprecher offen, damit sein Verstärker zwischen den Schlägen nicht ab- und wieder anschaltet und dabei knackt. Einzeln ist sparsamer.',
+        defaultValue: '0',
+        options: [
+          { label: 'Durchgehend', value: '0' },
+          { label: 'Einzelne Töne', value: '1' }
+        ]
       },
       {
         type: 'select',
@@ -136,17 +144,19 @@ var config = [
 ];
 
 if (DONATION_URL) {
-  config.splice(config.length - 1, 0, {
+  config.push({
     type: 'section',
     items: [
       { type: 'heading', defaultValue: 'Unterstützen' },
       {
         type: 'text',
-        defaultValue: 'Wenn dir der Pulsmonitor gefällt: <a href="' + DONATION_URL +
-                      '">Buy me a coffee</a>'
-      }
+        defaultValue: 'Die App ist kostenlos und ohne Werbung. Wenn sie dir Freude macht, freue ' +
+                      'ich mich über einen Kaffee.'
+      },
+      { type: 'button', id: 'donate', primary: true, defaultValue: '☕ Buy me a coffee' }
     ]
   });
 }
 
 module.exports = config;
+module.exports.DONATION_URL = DONATION_URL;

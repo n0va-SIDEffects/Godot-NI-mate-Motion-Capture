@@ -19,11 +19,8 @@
 #include <pebble.h>
 
 #include "beat_clock.h"
+#include "beep.h"
 #include "settings.h"
-
-#if defined(PBL_SPEAKER)
-#include "beep_sample.h"
-#endif
 
 // ---------- Tuning ----------
 #define PX_MS              20     // default trace pixel length; the settings page can change it
@@ -64,16 +61,6 @@ static const GPoint s_heart_template[] = {
   {-1000, -409}, {-927, -660}, {-731, -842}, {-478, -904}, {-242, -835}, {-82, -682}, {-11, -533},
 };
 #define HEART_POINTS ((uint32_t)(sizeof(s_heart_template) / sizeof(s_heart_template[0])))
-
-#if defined(PBL_SPEAKER)
-static const SpeakerSample s_beep_sample = {
-  .data = s_beep_pcm,
-  .num_bytes = sizeof(s_beep_pcm),
-  .format = SpeakerPcmFormat_16kHz_16bit,
-  .base_midi_note = BEEP_MIDI_NOTE,
-  .loop = false,
-};
-#endif
 
 typedef enum {
   SensorSearching,     // sensor available, waiting for a valid reading
@@ -127,20 +114,7 @@ static void beat_feedback(void) {
     const uint32_t segments[] = {s_settings.vibe_ms};
     vibes_enqueue_custom_pattern((VibePattern){.durations = segments, .num_segments = 1});
   }
-#if defined(PBL_SPEAKER)
-  if (s_settings.sound_on && s_settings.volume > 0 && !speaker_is_muted()) {
-    // Playing the sample at a note other than its own shifts the pitch by resampling.
-    const SpeakerNote note = {
-      .midi_note = s_settings.pitch_note,
-      .waveform = SpeakerWaveformSine,   // ignored while a sample is attached
-      .duration_ms = BEEP_LEN_MS + 5,    // a little headroom so the release is not cut off
-      .velocity = 0,
-      .reserved = 0,
-    };
-    const SpeakerTrack track = {.notes = &note, .num_notes = 1, .sample = &s_beep_sample};
-    speaker_play_tracks(&track, 1, s_settings.volume);
-  }
-#endif
+  beep_play();
   if (s_settings.backlight == BacklightOnBeat) {
     light_enable_interaction();
   }
@@ -205,6 +179,7 @@ static bool advance_to_now(void) {
 }
 
 static void on_frame(void *context) {
+  beep_pump();   // keep the speaker fed before anything else can delay it
   if (advance_to_now()) {
     layer_mark_dirty(s_trace_layer);
   }
@@ -557,6 +532,7 @@ static void init_sensor(void) {
 //! Put the settings to work. Called once at startup and again whenever the phone sends new ones.
 static void apply_settings(void) {
   s_clock.px_ms = s_settings.px_ms;
+  beep_setup(&s_settings);
   light_enable(s_settings.backlight == BacklightAlwaysOn);
   if (s_settings.demo) {
     s_ppi_ms = 0;
@@ -590,14 +566,16 @@ static void init(void) {
   beat_clock_init(&s_clock, now_ms(), PX_MS, CATCHUP_PX, BEAT_AUDIBLE_MS, BEAT_MIN_GAP_MS);
   apply_settings();
   app_message_register_inbox_received(inbox_received_handler);
-  // The settings page sends every key in one message, so take whatever inbox the watch offers.
-  app_message_open(app_message_inbox_size_maximum(), 64);
+  // The settings page sends every key in one message: ten numbers, so a few hundred bytes. Asking
+  // for the largest possible inbox instead would claim 8 KB of heap for nothing.
+  app_message_open(512, 64);
   init_sensor();
   s_frame_timer = app_timer_register(FRAME_MS, on_frame, NULL);
   s_poll_timer = app_timer_register(HR_POLL_MS, on_poll, NULL);
 }
 
 static void deinit(void) {
+  beep_teardown();
   light_enable(false);   // hand the backlight back to the watch
   if (s_frame_timer) app_timer_cancel(s_frame_timer);
   if (s_poll_timer) app_timer_cancel(s_poll_timer);

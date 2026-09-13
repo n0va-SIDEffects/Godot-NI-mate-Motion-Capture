@@ -8,6 +8,7 @@
  */
 var Clay = require('./vendor/clay');
 var clayConfig = require('./config');
+var customClay = require('./custom-clay');
 
 // eslint-disable-next-line no-unused-vars
-var clay = new Clay(clayConfig);
+var clay = new Clay(clayConfig, customClay);

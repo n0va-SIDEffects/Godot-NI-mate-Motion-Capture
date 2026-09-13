@@ -94,6 +94,7 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 | --- | --- |
 | Piep bei jedem Schlag | an/aus |
 | Lautstärke | 0 bis 100, Schritte von 5 |
+| Wiedergabe | durchgehend oder einzelne Töne |
 | Tonhöhe | tief 660 Hz, Monitor 880 Hz, hoch 1046 Hz |
 | Vibration bei jedem Schlag | an/aus |
 | Länge der Vibration | kurz 15 ms, normal 25 ms, kräftig 40 ms |
@@ -104,13 +105,29 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 
 Alles wird auf der Uhr gespeichert und gilt sofort, ohne die App neu zu starten.
 
+### Warum es zwei Wiedergabearten gibt
+
+Bei **einzelnen Tönen** bekommt der Lautsprecher pro Schlag ein Sample und wird danach wieder
+freigegeben. Auf der Core Time 2 knackt er dabei gelegentlich, hörbar etwa 100 bis 200 ms nach dem
+Piep, also genau dann, wenn der Verstärker abschaltet.
+
+**Durchgehend** hält deshalb einen PCM-Strom über die ganze Sitzung offen und schreibt zwischen den
+Schlägen Stille hinein. Der Verstärker bleibt an und kann nicht zwischendurch knacken. Der Strom
+wird 70 ms im Voraus gefüllt, weit genug, dass ein verspätetes Bild ihn nicht leerlaufen lässt, und
+kurz genug, dass der Piep nicht merklich hinter der Kurve herhinkt. Das kostet etwas mehr Akku.
+
+Das ist die Voreinstellung. Sollte sie sich auf einer Uhr schlechter anhören, stellt die andere
+Wiedergabeart das alte Verhalten wieder her.
+
 Der Vibrationsmotor klickt bei jedem Schlag hörbar mit. Wer einen reinen Monitor-Ton will, schaltet
 die Vibration aus, entweder in den Einstellungen oder mit der Auswahltaste.
 
-Ein Spendenlink lässt sich einbauen: die eigene Adresse in `DONATION_URL` oben in
-`src/pkjs/config.js` eintragen, dann erscheint der Abschnitt „Unterstützen“ in den Einstellungen.
-Solange die Variable leer ist, bleibt der Abschnitt weg, damit kein Platzhalterlink ausgeliefert
-wird.
+Unten auf der Seite sitzt ein Knopf „Buy me a coffee“. Die Adresse steht als `DONATION_URL` oben in
+`src/pkjs/config.js`; ist sie leer, fällt der ganze Abschnitt weg.
+
+Damit die Pebble-App das Zahnrad überhaupt anzeigt, führt `package.json` die Fähigkeit
+`configurable`. Ohne diesen Eintrag bleibt die Einstellungsseite unsichtbar, auch wenn sie fertig
+im Paket liegt.
 
 Die Seite selbst baut [Clay](https://github.com/pebble/clay). Clay liegt als reines JavaScript in
 `src/pkjs/vendor/clay.js` statt als Pebble-Paket, weil das veröffentlichte Paket die neuen
@@ -167,6 +184,7 @@ im Emulator: `pebble emu-button --emulator diorite push down`, kurz warten, `...
 | `src/c/main.c` | Anzeige, Sensor, Bedienung |
 | `src/c/beat_clock.c` | Takt: legt die Schläge auf die Uhrzeit und prüft die Messwerte, ohne Pebble-Abhängigkeiten |
 | `src/c/settings.c` | Einstellungen: Vorgaben, Speichern, Auswerten der Handy-Nachricht |
+| `src/c/beep.c` | Ton: PCM-Strom, Tonhöhe, Rückfall auf einzelne Töne |
 | `src/c/beep_sample.h` | erzeugtes PCM-Sample des Pieps, nicht von Hand bearbeiten |
 | `src/pkjs/config.js` | Aufbau der Einstellungsseite |
 | `tools/make_beep_sample.py` | erzeugt dieses Sample (braucht nur numpy) |
