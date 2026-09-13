@@ -1,0 +1,26 @@
+{
+  "name": "schwebung-e1",
+  "author": "SIDE effect's",
+  "version": "0.1.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Glasgarten E1",
+    "uuid": "b6acc2d3-e5a7-411d-a1ab-2197c6359021",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "dummy"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}
