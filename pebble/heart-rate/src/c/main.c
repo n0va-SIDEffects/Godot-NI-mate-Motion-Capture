@@ -19,22 +19,22 @@
 #include <pebble.h>
 
 #include "beat_clock.h"
+#include "settings.h"
 
 #if defined(PBL_SPEAKER)
 #include "beep_sample.h"
 #endif
 
 // ---------- Tuning ----------
-#define PX_MS              20     // one trace pixel = 20 ms (50 px/s sweep, ~3 s per screen)
+#define PX_MS              20     // default trace pixel length; the settings page can change it
 #define FRAME_MS           33     // redraw period (~30 fps); the trace advances 1-2 px per frame
 #define CATCHUP_PX         PBL_DISPLAY_WIDTH   // never replay more than one screen of timeline
 #define BEAT_AUDIBLE_MS    120    // a beat older than this is only drawn, not sounded
+#define BEAT_MIN_GAP_MS    260    // closest two beats may fall: 230 bpm, and longer than a beep
 #define HR_POLL_MS         200    // fallback polling of the heart rate metric
 #define HR_SAMPLE_SEC      1      // requested sensor sampling period
 #define HR_STALE_SEC       15     // no fresh reading for this long -> show "--"
 #define STATUS_H           20     // height of the status line at the bottom
-#define VIBE_MS            25     // length of the per-beat vibration click
-#define BEEP_VOLUME        65     // the small speaker starts to distort above this
 #define HEART_BEAT_SCALE   132    // heart size in percent right after a beat
 #define HEART_DECAY        3      // percent shrink per trace pixel back to 100
 #define BPM_MIN            30
@@ -46,9 +46,6 @@
 #define PPI_TOLERANCE_PCT  25
 // Measured intervals must keep arriving; otherwise fall back to the averaged rate.
 #define LIVE_TIMEOUT_MS    5000
-
-#define PERSIST_VIBE       1
-#define PERSIST_SOUND      2
 
 // One stylised P-QRS-T complex, one sample per trace pixel, in "trace units" (positive = up,
 // 60 units = trace height).
@@ -75,18 +72,6 @@ static const SpeakerSample s_beep_sample = {
   .format = SpeakerPcmFormat_16kHz_16bit,
   .base_midi_note = BEEP_MIDI_NOTE,
   .loop = false,
-};
-static const SpeakerNote s_beep_note = {
-  .midi_note = BEEP_MIDI_NOTE,       // same as the sample's base note: played unshifted
-  .waveform = SpeakerWaveformSine,   // ignored while a sample is attached
-  .duration_ms = BEEP_LEN_MS + 5,    // a little headroom so the release is not cut off
-  .velocity = 0,
-  .reserved = 0,
-};
-static const SpeakerTrack s_beep_track = {
-  .notes = &s_beep_note,
-  .num_notes = 1,
-  .sample = &s_beep_sample,
 };
 #endif
 
@@ -117,9 +102,7 @@ static int s_bpm;                          // 0 = unknown
 static time_t s_last_reading;
 static SensorState s_sensor = SensorSearching;
 static bool s_live;                        // beats come from measured intervals, not from an average
-static bool s_vibe_on = true;
-static bool s_sound_on = true;
-static bool s_demo;
+static Settings s_settings;
 static int s_demo_dir = 1;
 
 static AppTimer *s_frame_timer;
@@ -140,15 +123,27 @@ static uint32_t now_ms(void) {
 // ---------- Beat playback ----------
 
 static void beat_feedback(void) {
-  if (s_vibe_on) {
-    static const uint32_t segments[] = {VIBE_MS};
+  if (s_settings.vibe_on) {
+    const uint32_t segments[] = {s_settings.vibe_ms};
     vibes_enqueue_custom_pattern((VibePattern){.durations = segments, .num_segments = 1});
   }
 #if defined(PBL_SPEAKER)
-  if (s_sound_on && !speaker_is_muted()) {
-    speaker_play_tracks(&s_beep_track, 1, BEEP_VOLUME);
+  if (s_settings.sound_on && s_settings.volume > 0 && !speaker_is_muted()) {
+    // Playing the sample at a note other than its own shifts the pitch by resampling.
+    const SpeakerNote note = {
+      .midi_note = s_settings.pitch_note,
+      .waveform = SpeakerWaveformSine,   // ignored while a sample is attached
+      .duration_ms = BEEP_LEN_MS + 5,    // a little headroom so the release is not cut off
+      .velocity = 0,
+      .reserved = 0,
+    };
+    const SpeakerTrack track = {.notes = &note, .num_notes = 1, .sample = &s_beep_sample};
+    speaker_play_tracks(&track, 1, s_settings.volume);
   }
 #endif
+  if (s_settings.backlight == BacklightOnBeat) {
+    light_enable_interaction();
+  }
 }
 
 // A beat happens: start its ECG complex and pump the heart. Beats the app is only catching up on
@@ -291,7 +286,7 @@ static void on_measured_interval(uint16_t ppi_ms) {
 }
 
 static void read_heart_rate(void) {
-  if (s_demo) {
+  if (s_settings.demo) {
     return;
   }
 #if defined(PBL_HEALTH)
@@ -335,7 +330,7 @@ static void demo_step(void) {
 }
 
 static void on_poll(void *context) {
-  if (s_demo) {
+  if (s_settings.demo) {
     demo_step();
   } else {
     read_heart_rate();
@@ -407,14 +402,14 @@ static void trace_update_proc(Layer *layer, GContext *ctx) {
   const int baseline = b.origin.y + b.size.h * 62 / 100;
   const int w = b.size.w;
 
-  // Dotted baseline, like a monitor grid line.
-  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGreen, GColorWhite));
+  // Dotted baseline, like a monitor grid line, in a dimmed version of the trace colour.
+  graphics_context_set_stroke_color(ctx, settings_baseline_color(&s_settings));
   for (int x = b.origin.x; x < b.origin.x + w; x += 6) {
     graphics_draw_pixel(ctx, GPoint(x, baseline));
   }
 
   // Two 1 px passes give a 2 px line at a fraction of the cost of a thick stroke.
-  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorGreen, GColorWhite));
+  graphics_context_set_stroke_color(ctx, settings_trace_color(&s_settings));
   graphics_context_set_stroke_width(ctx, 1);
   graphics_context_set_antialiased(ctx, false);
   GPoint prev = GPointZero;
@@ -433,23 +428,23 @@ static void trace_update_proc(Layer *layer, GContext *ctx) {
 static const char *status_text(char *buf, size_t len) {
   switch (s_sensor) {
     case SensorUnsupported:
-      if (!s_demo) return "Kein Pulssensor (DOWN lang: Demo)";
+      if (!s_settings.demo) return "Kein Pulssensor (DOWN lang: Demo)";
       break;
     case SensorNoPermission:
       return "Keine Health-Freigabe";
     default:
       break;
   }
-  const char *mode = s_demo ? "Demo" : (s_live ? "Live" : NULL);
+  const char *mode = s_settings.demo ? "Demo" : (s_live ? "Live" : NULL);
 #if defined(PBL_SPEAKER)
   snprintf(buf, len, "%s%sVib %s  |  Ton %s",
            mode ? mode : "", mode ? "  |  " : "",
-           s_vibe_on ? "an" : "aus",
-           s_sound_on ? "an" : "aus");
+           s_settings.vibe_on ? "an" : "aus",
+           s_settings.sound_on ? "an" : "aus");
 #else
   snprintf(buf, len, "%s%sVibration %s",
            mode ? mode : "", mode ? "  |  " : "",
-           s_vibe_on ? "an" : "aus");
+           s_settings.vibe_on ? "an" : "aus");
 #endif
   return buf;
 }
@@ -467,25 +462,26 @@ static void status_update_proc(Layer *layer, GContext *ctx) {
 // ---------- Buttons ----------
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
-  s_vibe_on = !s_vibe_on;
-  persist_write_bool(PERSIST_VIBE, s_vibe_on);
+  s_settings.vibe_on = !s_settings.vibe_on;
+  settings_save(&s_settings);
   layer_mark_dirty(s_status_layer);
 }
 
 static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 #if defined(PBL_SPEAKER)
-  s_sound_on = !s_sound_on;
-  persist_write_bool(PERSIST_SOUND, s_sound_on);
+  s_settings.sound_on = !s_settings.sound_on;
+  settings_save(&s_settings);
   layer_mark_dirty(s_status_layer);
 #endif
 }
 
 static void down_long_click_handler(ClickRecognizerRef recognizer, void *context) {
-  s_demo = !s_demo;
+  s_settings.demo = !s_settings.demo;
+  settings_save(&s_settings);
   s_ppi_ms = 0;
   s_ppi_have = 0;
   set_bpm(0);
-  if (s_demo) {
+  if (s_settings.demo) {
     demo_step();
   }
   layer_mark_dirty(s_status_layer);
@@ -558,13 +554,29 @@ static void init_sensor(void) {
 #endif
 }
 
+//! Put the settings to work. Called once at startup and again whenever the phone sends new ones.
+static void apply_settings(void) {
+  s_clock.px_ms = s_settings.px_ms;
+  light_enable(s_settings.backlight == BacklightAlwaysOn);
+  if (s_settings.demo) {
+    s_ppi_ms = 0;
+    s_ppi_have = 0;
+  }
+  if (s_head_layer) {
+    layer_mark_dirty(s_head_layer);
+    layer_mark_dirty(s_trace_layer);
+    layer_mark_dirty(s_status_layer);
+  }
+}
+
+static void inbox_received_handler(DictionaryIterator *iter, void *context) {
+  settings_read_dict(&s_settings, iter);
+  settings_save(&s_settings);
+  apply_settings();
+}
+
 static void init(void) {
-  if (persist_exists(PERSIST_VIBE)) {
-    s_vibe_on = persist_read_bool(PERSIST_VIBE);
-  }
-  if (persist_exists(PERSIST_SOUND)) {
-    s_sound_on = persist_read_bool(PERSIST_SOUND);
-  }
+  settings_load(&s_settings);
 
   s_window = window_create();
   window_set_background_color(s_window, GColorBlack);
@@ -575,13 +587,18 @@ static void init(void) {
   });
   window_stack_push(s_window, true);
 
-  beat_clock_init(&s_clock, now_ms(), PX_MS, CATCHUP_PX, BEAT_AUDIBLE_MS);
+  beat_clock_init(&s_clock, now_ms(), PX_MS, CATCHUP_PX, BEAT_AUDIBLE_MS, BEAT_MIN_GAP_MS);
+  apply_settings();
+  app_message_register_inbox_received(inbox_received_handler);
+  // The settings page sends every key in one message, so take whatever inbox the watch offers.
+  app_message_open(app_message_inbox_size_maximum(), 64);
   init_sensor();
   s_frame_timer = app_timer_register(FRAME_MS, on_frame, NULL);
   s_poll_timer = app_timer_register(HR_POLL_MS, on_poll, NULL);
 }
 
 static void deinit(void) {
+  light_enable(false);   // hand the backlight back to the watch
   if (s_frame_timer) app_timer_cancel(s_frame_timer);
   if (s_poll_timer) app_timer_cancel(s_poll_timer);
 #if defined(PBL_HEALTH)

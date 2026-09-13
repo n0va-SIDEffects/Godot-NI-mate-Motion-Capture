@@ -23,6 +23,7 @@ typedef struct {
   uint32_t px_ms;         // milliseconds per pixel, and therefore per step
   uint32_t catchup_px;    // most pixels replayed in one pass; older timeline is skipped
   uint32_t audible_ms;    // a beat older than this is reported as inaudible
+  uint32_t min_gap_ms;    // no two beats may fall closer together than this
   uint32_t interval_ms;   // current beat interval, 0 while no rate is known
   uint32_t last_px_ms;    // wall clock the caller has drawn up to
   uint32_t last_beat_ms;  // wall clock of the last beat
@@ -30,8 +31,13 @@ typedef struct {
 } BeatClock;
 
 //! Start the clock at the given time. px_ms and catchup_px must be non-zero.
+//!
+//! min_gap_ms is a floor on the distance between two beats. A heart cannot beat twice within it,
+//! and neither can a beep be sounded twice, so a beat that would fall sooner waits. Without it a
+//! rate arriving after a pause beat at once however recently the last beat had been, which cut the
+//! previous beep short and was heard as a click.
 void beat_clock_init(BeatClock *clock, uint32_t now_ms, uint32_t px_ms, uint32_t catchup_px,
-                     uint32_t audible_ms);
+                     uint32_t audible_ms, uint32_t min_gap_ms);
 
 //! Adopt a new beat interval (0 stops the beats). The phase stays with the clock: the next beat
 //! falls one new interval after the last one, so a changed rate takes effect immediately without

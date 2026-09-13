@@ -17,6 +17,7 @@
 #define PX_MS       20
 #define CATCHUP_PX  144
 #define AUDIBLE_MS  120
+#define MIN_GAP_MS  260
 #define MAX_BEATS   4096
 
 static int s_failures;
@@ -47,7 +48,7 @@ static void run(Beats *beats, uint32_t interval_ms, uint32_t frame_ms, uint32_t 
                 uint32_t interval_every_ms) {
   BeatClock clock;
   const uint32_t start = 1000000;   // arbitrary, well away from zero
-  beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS);
+  beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS, MIN_GAP_MS);
   beat_clock_set_interval(&clock, interval_ms, start);
   memset(beats, 0, sizeof(*beats));
 
@@ -116,7 +117,7 @@ int main(void) {
   {
     BeatClock clock;
     const uint32_t start = 1000000;
-    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS);
+    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS, MIN_GAP_MS);
     beat_clock_set_interval(&clock, 600, start);
     beat_clock_begin(&clock, start);            // settle
     uint32_t steps = beat_clock_begin(&clock, start + 30000);   // 30 s gone missing
@@ -138,7 +139,7 @@ int main(void) {
   {
     BeatClock clock;
     const uint32_t start = 1000000;
-    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS);
+    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS, MIN_GAP_MS);
     beat_clock_set_interval(&clock, 1000, start);
     long after_change = -1;
     for (uint32_t now = start; now - start <= 4000; now += 20) {
@@ -162,7 +163,7 @@ int main(void) {
   {
     BeatClock clock;
     const uint32_t start = 0xFFFFF000;
-    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS);
+    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS, MIN_GAP_MS);
     beat_clock_set_interval(&clock, 600, start);
     int count = 0;
     for (uint32_t i = 0; i <= 60000 / 33; i++) {
@@ -203,7 +204,7 @@ int main(void) {
 
     BeatClock clock;
     const uint32_t start = 1000000;
-    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS);
+    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS, MIN_GAP_MS);
     uint32_t believed_ms = 0, believed_at = 0, next_reading = start, index = 0;
     uint32_t recent[3] = {0, 0, 0};
     unsigned have = 0;
@@ -254,6 +255,41 @@ int main(void) {
     check_eq(beat_clock_median3(600, 451, 580), 580, "an outlier is outvoted");
     check_eq(beat_clock_median3(451, 600, 580), 580, "the order does not matter");
     check_eq(beat_clock_median3(590, 600, 610), 600, "three similar readings keep the middle");
+  }
+
+  // A rate arriving after a pause must not beat on top of the beat just played. In a recording
+  // from the watch two beeps landed 94 ms apart, the first one cut short and heard as a click.
+  {
+    BeatClock clock;
+    const uint32_t start = 1000000;
+    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS, MIN_GAP_MS);
+    beat_clock_set_interval(&clock, 600, start);
+    long last = -1, shortest = 100000;
+    int beats = 0;
+    for (uint32_t now = start; now - start <= 12000; now += 33) {
+      // The rate keeps dropping out and coming back, as it does when the sensor loses the pulse.
+      const uint32_t t = now - start;
+      if (t % 1000 < 100) {
+        beat_clock_set_interval(&clock, 0, now);
+      } else if (t % 1000 < 200) {
+        beat_clock_set_interval(&clock, 600, now);
+      }
+      uint32_t steps = beat_clock_begin(&clock, now);
+      for (uint32_t i = 0; i < steps; i++) {
+        if (beat_clock_step(&clock, NULL)) {
+          beats++;
+          const long at = (long)(clock.last_px_ms - start);
+          if (last >= 0 && at - last < shortest) {
+            shortest = at - last;
+          }
+          last = at;
+        }
+      }
+    }
+    char detail[128];
+    snprintf(detail, sizeof(detail), "%d beats, closest pair %ld ms", beats, shortest);
+    check(shortest >= MIN_GAP_MS, "a rate returning after a pause cannot clip the last beep",
+          detail);
   }
 
   printf("\n%s\n", s_failures ? "FAILURES" : "all checks passed");

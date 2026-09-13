@@ -1,3 +1,5 @@
 build/
 .lock-waf*
 *.pbw
+node_modules/
+package-lock.json

@@ -1,13 +1,16 @@
 #include "beat_clock.h"
 
 void beat_clock_init(BeatClock *clock, uint32_t now_ms, uint32_t px_ms, uint32_t catchup_px,
-                     uint32_t audible_ms) {
+                     uint32_t audible_ms, uint32_t min_gap_ms) {
   clock->px_ms = px_ms;
   clock->catchup_px = catchup_px;
   clock->audible_ms = audible_ms;
+  clock->min_gap_ms = min_gap_ms;
   clock->interval_ms = 0;
   clock->last_px_ms = now_ms;
-  clock->last_beat_ms = now_ms;
+  // Backdate the last beat by the minimum gap: nothing has been played yet, so the first rate to
+  // arrive must be free to beat straight away.
+  clock->last_beat_ms = now_ms - min_gap_ms;
   clock->now_ms = now_ms;
 }
 
@@ -18,7 +21,10 @@ void beat_clock_set_interval(BeatClock *clock, uint32_t interval_ms, uint32_t no
   const bool was_stopped = (clock->interval_ms == 0);
   clock->interval_ms = interval_ms;
   if (was_stopped && interval_ms > 0) {
-    clock->last_beat_ms = now_ms - interval_ms;   // due immediately, so beating starts at once
+    // Start beating at once, but never so soon after the last beat that its beep is cut off.
+    const uint32_t earliest = clock->last_beat_ms + clock->min_gap_ms;
+    const uint32_t at = ((int32_t)(earliest - now_ms) > 0) ? earliest : now_ms;
+    clock->last_beat_ms = at - interval_ms;
   }
 }
 
@@ -46,6 +52,9 @@ bool beat_clock_step(BeatClock *clock, bool *audible) {
   if (clock->interval_ms == 0 ||
       (int32_t)(clock->last_px_ms - (clock->last_beat_ms + clock->interval_ms)) < 0) {
     return false;
+  }
+  if ((uint32_t)(clock->last_px_ms - clock->last_beat_ms) < clock->min_gap_ms) {
+    return false;   // too soon after the last beat: hold it back rather than clip its beep
   }
   clock->last_beat_ms = clock->last_px_ms;
   if (audible) {

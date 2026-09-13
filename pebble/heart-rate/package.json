@@ -2,7 +2,9 @@
   "name": "pulsmonitor",
   "author": "Mike Heissen",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -19,8 +21,20 @@
     "watchapp": {
       "watchface": false
     },
-    "capabilities": ["health"],
-    "messageKeys": [],
+    "capabilities": [
+      "health"
+    ],
+    "messageKeys": [
+      "SOUND_ON",
+      "VOLUME",
+      "PITCH",
+      "VIBE_ON",
+      "VIBE_MS",
+      "BACKLIGHT",
+      "SWEEP_MS",
+      "TRACE_COLOR",
+      "DEMO"
+    ],
     "resources": {
       "media": []
     }

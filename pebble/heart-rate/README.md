@@ -45,6 +45,11 @@ würde, während die angezeigte Zahl unverändert stehen bleibt. Zwei Stufen fan
 Kommen 5 Sekunden lang keine brauchbaren Intervalle mehr, übernimmt die BPM-Anzeige den Takt und
 die Statuszeile verliert das **Live**.
 
+Zwei Schläge kommen sich nie näher als 260 ms, also 230 pro Minute. Ein Herz schlägt nicht
+schneller, und ein Piep wäre sonst noch nicht zu Ende, wenn der nächste beginnt. Ohne diese Sperre
+setzte ein nach einer Lücke zurückkehrender Takt sofort einen Schlag, egal wie kurz der letzte her
+war, was den vorherigen Piep abschnitt und als Klicken zu hören war.
+
 Kurve und Schläge hängen beide an der Uhrzeit, nicht an Timer-Callbacks: Jeder Schlag klingt in
 demselben Schritt, der seinen Ausschlag zeichnet. Ein verzögertes Bild kann den Puls dadurch weder
 dehnen noch Schläge verschlucken, und der Abstand auf dem Display entspricht exakt dem gemessenen
@@ -80,6 +85,36 @@ python3 tools/make_beep_sample.py --freq 880 --ms 50 > src/c/beep_sample.h
 
 Der Sensor liefert je nach Uhr nur Schläge pro Minute, keine Einzelschläge. Die Kurve ist eine
 Visualisierung, kein medizinisches EKG.
+
+## Einstellungen
+
+In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
+
+| Einstellung | Auswahl |
+| --- | --- |
+| Piep bei jedem Schlag | an/aus |
+| Lautstärke | 0 bis 100, Schritte von 5 |
+| Tonhöhe | tief 660 Hz, Monitor 880 Hz, hoch 1046 Hz |
+| Vibration bei jedem Schlag | an/aus |
+| Länge der Vibration | kurz 15 ms, normal 25 ms, kräftig 40 ms |
+| Beleuchtung | wie sonst auch, bei jedem Schlag kurz, dauerhaft an |
+| Kurvengeschwindigkeit | langsam 25 px/s, normal 50 px/s, schnell 75 px/s |
+| Kurvenfarbe | grün, rot, weiß, gelb, türkis (nur Farbdisplays) |
+| Puls simulieren | an/aus, derselbe Demo-Modus wie der lange Druck auf DOWN |
+
+Alles wird auf der Uhr gespeichert und gilt sofort, ohne die App neu zu starten.
+
+Der Vibrationsmotor klickt bei jedem Schlag hörbar mit. Wer einen reinen Monitor-Ton will, schaltet
+die Vibration aus, entweder in den Einstellungen oder mit der Auswahltaste.
+
+Ein Spendenlink lässt sich einbauen: die eigene Adresse in `DONATION_URL` oben in
+`src/pkjs/config.js` eintragen, dann erscheint der Abschnitt „Unterstützen“ in den Einstellungen.
+Solange die Variable leer ist, bleibt der Abschnitt weg, damit kein Platzhalterlink ausgeliefert
+wird.
+
+Die Seite selbst baut [Clay](https://github.com/pebble/clay). Clay liegt als reines JavaScript in
+`src/pkjs/vendor/clay.js` statt als Pebble-Paket, weil das veröffentlichte Paket die neuen
+Plattformen flint und gabbro nicht kennt und den Build dort abbrechen lässt.
 
 ## Bedienung
 
@@ -131,7 +166,9 @@ im Emulator: `pebble emu-button --emulator diorite push down`, kurz warten, `...
 | --- | --- |
 | `src/c/main.c` | Anzeige, Sensor, Bedienung |
 | `src/c/beat_clock.c` | Takt: legt die Schläge auf die Uhrzeit und prüft die Messwerte, ohne Pebble-Abhängigkeiten |
+| `src/c/settings.c` | Einstellungen: Vorgaben, Speichern, Auswerten der Handy-Nachricht |
 | `src/c/beep_sample.h` | erzeugtes PCM-Sample des Pieps, nicht von Hand bearbeiten |
+| `src/pkjs/config.js` | Aufbau der Einstellungsseite |
 | `tools/make_beep_sample.py` | erzeugt dieses Sample (braucht nur numpy) |
 | `tools/test_beat_clock.c` | Test der Taktlogik, läuft auf dem Rechner |
 
