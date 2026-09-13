@@ -1,0 +1,28 @@
+{
+  "name": "pulsmonitor",
+  "author": "Mike Heissen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Pulsmonitor",
+    "uuid": "72901d59-fab9-449d-b3cd-43926085b2fc",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "diorite",
+      "emery",
+      "flint",
+      "gabbro"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "capabilities": ["health"],
+    "messageKeys": [],
+    "resources": {
+      "media": []
+    }
+  }
+}
