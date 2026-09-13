@@ -58,7 +58,11 @@ function fakeToggl(method, url, body) {
   m = p.match(/^\/workspaces\/(\d+)\/time_entries\/(\d+)$/);
   if (method === 'PUT' && m) {
     assert.strictEqual(body.duration, 900, 'rounded to a quarter hour');
-    return [200, { id: parseInt(m[2], 10), duration: body.duration, stop: body.stop }];
+    assert.ok(body.stop, 'PUT carries the rounded stop time');
+    assert.ok(running && String(running.id) === m[2], 'PUT targets the running entry');
+    var done = running; running = null;
+    done.stop = body.stop; done.duration = body.duration;
+    return [200, done];
   }
   return [404, { error: 'unknown ' + method + ' ' + p }];
 }
@@ -150,6 +154,7 @@ settle(function () {
       assert.strictEqual(post.length, 1, 'one POST to start');
       assert.ok(togglReqs().length <= 2, 'start costs at most 2 Toggl requests, got ' + togglReqs().length);
       assert.strictEqual(post[0].body.project_id, 11);
+      assert.strictEqual(togglReqs().length, 1, 'start while idle costs one request');
       var st2 = ofCmd(10)[0];
       assert.strictEqual(st2.RUNNING, 1);
       assert.ok(timelineCalls.some(function (c) { return c === 'PUT toggl-timer-running Probe|3'; }), 'pin put after start: ' + timelineCalls);
@@ -164,8 +169,9 @@ settle(function () {
       rt.fromWatch({ CMD: 4 });
       settle(function () {
         var methods = rt.requests.map(function (r) { return r.method + ' ' + r.url.split('/v9')[1]; });
-        assert.ok(methods.some(function (x) { return /PATCH .*\/stop$/.test(x); }), 'old entry stopped: ' + methods);
-        assert.ok(methods.some(function (x) { return /^PUT /.test(x); }), 'stopped entry rounded');
+        assert.ok(!methods.some(function (x) { return /PATCH/.test(x); }), 'no separate stop call: ' + methods);
+        assert.ok(methods.some(function (x) { return /^PUT /.test(x); }), 'old entry stopped and rounded in one PUT');
+        assert.strictEqual(togglReqs().length, 2, 'switch costs stop + start');
         var post2 = reqs('POST')[0];
         assert.strictEqual(post2.body.description, 'Video-Setup', 'previous = newest entry that differs');
         assert.strictEqual(post2.body.project_id, 11);
@@ -174,9 +180,9 @@ settle(function () {
         // 5. Stop from the watch, rounding applied.
         rt.fromWatch({ CMD: 3 });
         settle(function () {
-          assert.ok(reqs('PATCH').length === 1, 'PATCH stop sent');
-          assert.ok(reqs('PUT').length === 1, 'PUT rounding sent');
-          assert.strictEqual(togglReqs().length, 2, 'stop from cache costs 2 requests (stop + rounding)');
+          assert.strictEqual(reqs('PATCH').length, 0, 'no PATCH stop when rounding');
+          assert.strictEqual(reqs('PUT').length, 1, 'one PUT stops and rounds');
+          assert.strictEqual(togglReqs().length, 1, 'stop from cache costs 1 request');
           assert.strictEqual(last(10).RUNNING, 0);
           assert.strictEqual(running, null);
           assert.ok(timelineCalls.indexOf('DELETE toggl-timer-running') >= 0, 'pin removed after stop: ' + timelineCalls);
@@ -187,7 +193,8 @@ settle(function () {
           settle(function () {
             assert.strictEqual(ofCmd(10).length, 1);
             assert.strictEqual(ofCmd(11).length, 0, 'unchanged project list not resent');
-            assert.strictEqual(togglReqs().length, 2, 'manual refresh with fresh projects: entries + current only');
+            assert.strictEqual(togglReqs().length, 1, 'manual refresh with fresh projects: entries only');
+            assert.strictEqual(reqs('GET').filter(function (r) { return /current/.test(r.url); }).length, 0, 'no /current when the list was fetched');
             rt.sent = []; rt.requests = [];
 
             // 7. Polling: a timer started on the phone/web shows up without any watch action.

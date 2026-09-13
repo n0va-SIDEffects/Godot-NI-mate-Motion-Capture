@@ -48,8 +48,10 @@ var DIAG_KEY = 'toggl_diag';
 var POLL_MS = 180000;          // running entry re-checked while the app is open (free plan: 30 requests/hour)
 var POLL_RESERVE = 6;          // quota kept back for start/stop instead of polling
 var PIN_RETRY_MS = 15 * 60000; // after a timeline API error
-var PROJECTS_TTL_MS = 6 * 3600000;   // projects/clients rarely change
-var ENTRIES_TTL_MS = 5 * 60000;      // recent entries: local edits are applied without a refetch
+var PROJECTS_TTL_MS = 24 * 3600000;  // projects/clients rarely change (UP button: 1 h)
+var ENTRIES_TTL_MS = 15 * 60000;     // recent entries: local edits are applied without a refetch
+var FRESH_MS = 90000;                // status younger than this is trusted when the app opens
+var IDLE_TRUST_MS = 5 * 60000;       // "nothing running" younger than this skips the check before a start
 var RATE_LIMIT_PAUSE_MS = 5 * 60000; // after a 402/429 without a reset header
 var rateLimitedUntil = 0;
 
@@ -476,6 +478,7 @@ function onError(err) {
 // Send status + lists computed from the cache (no network).
 function publishFromCache(entry) {
   noteQuota();
+  cache.statusAt = Date.now();
   var status = statusFromEntry(entry, cache.entries);
   sendStatus(status);
   var recent = buildRecent(cache.entries || []);
@@ -487,14 +490,20 @@ function publishFromCache(entry) {
   saveCache();
 }
 
+// The running entry inside a list from Toggl (negative duration), newest first.
+function runningIn(entries) {
+  return (entries || []).filter(function (e) { return e && e.id && e.duration < 0; })[0] || null;
+}
+
 function applyEntryLocally(entry) {
   if (!entry || !entry.id) { return; }
   cache.entries = (cache.entries || []).filter(function (e) { return e.id !== entry.id; });
   cache.entries.unshift(entry);
 }
 
-// Refresh: current entry always (1 request); entries when stale (+1);
-// projects and clients when stale (+2). `force` reloads entries too.
+// Refresh: the entry list (when stale, or forced) already contains the running
+// entry, so it replaces the /current call: 1 request either way, +2 when the
+// projects and clients are stale.
 function refreshAll(showProgress, force) {
   if (!requireToken()) { return; }
   if (isBusy()) { return; }
@@ -508,28 +517,30 @@ function refreshAll(showProgress, force) {
   var needProjects = !cache.projects || !cache.projects.length || age(cache.projectsAt) > (force ? 3600000 : PROJECTS_TTL_MS);
   var needEntries = force || !cache.entries || age(cache.entriesAt) > ENTRIES_TTL_MS;
 
-  function step3() {
-    api.current(function (err, entry) {
-      setBusy(false);
-      if (err) { return onError(err); }
-      if (entry && entry.id) { applyEntryLocally(entry); }
-      else if (cache.entries) { cache.entries = cache.entries.filter(function (e) { return e.duration >= 0; }); }
-      var projectsChanged = JSON.stringify(cache.projectsSent || []) !== JSON.stringify(cache.projects);
-      if (projectsChanged) {
-        sendProjects(cache.projects);
-        sendFavorites();
-        cache.projectsSent = cache.projects;
-      }
-      publishFromCache(entry);
-    });
+  function finish(entry) {
+    setBusy(false);
+    if (entry && entry.id) { applyEntryLocally(entry); }
+    else if (cache.entries) { cache.entries = cache.entries.filter(function (e) { return e.duration >= 0; }); }
+    var projectsChanged = JSON.stringify(cache.projectsSent || []) !== JSON.stringify(cache.projects);
+    if (projectsChanged) {
+      sendProjects(cache.projects);
+      sendFavorites();
+      cache.projectsSent = cache.projects;
+    }
+    publishFromCache(entry);
   }
   function step2() {
-    if (!needEntries) { return step3(); }
-    api.recentEntries(RECENT_DAYS, function (err, entries) {
+    if (needEntries) {
+      return api.recentEntries(RECENT_DAYS, function (err, entries) {
+        if (err) { setBusy(false); return onError(err); }
+        cache.entries = entries;
+        cache.entriesAt = Date.now();
+        finish(runningIn(entries));
+      });
+    }
+    api.current(function (err, entry) {
       if (err) { setBusy(false); return onError(err); }
-      cache.entries = entries;
-      cache.entriesAt = Date.now();
-      step3();
+      finish(entry);
     });
   }
   if (!needProjects) { return step2(); }
@@ -553,35 +564,33 @@ function refreshAll(showProgress, force) {
 function stopRunning(api, callback) {
   var st = cache.status;
   if (st && st.running && st.entryId && st.workspaceId) {
-    return api.stop(st.workspaceId, st.entryId, function (err, stopped) {
+    return stopEntry(api, st.workspaceId, st.entryId, st.start * 1000, function (err, stopped) {
       if (err && /nicht gefunden|not found|introuvable|non trovato|no encontrado/i.test(String(err))) {
         return callback(null, null);       // already stopped elsewhere
       }
-      if (err) { return callback(err); }
-      roundStopped(api, stopped, callback);
+      callback(err, stopped);
     });
   }
+  // Recently confirmed idle (refresh or poll): no need to ask again.
+  if (st && !st.running && age(cache.statusAt) < IDLE_TRUST_MS) { return callback(null, null); }
   api.current(function (err, entry) {
     if (err) { return callback(err); }
     if (!entry || !entry.id) { return callback(null, null); }
-    api.stop(entry.workspace_id, entry.id, function (err2, stopped) {
-      if (err2) { return callback(err2); }
-      roundStopped(api, stopped || entry, callback);
-    });
+    stopEntry(api, entry.workspace_id, entry.id, Date.parse(entry.start), callback);
   });
 }
 
-// Optional: round the finished entry to the nearest N minutes (min. one block).
-function roundStopped(api, entry, callback) {
+// One request: with rounding on, the entry is stopped at the rounded time
+// (min. one block) via PUT instead of PATCH stop + PUT round.
+function stopEntry(api, workspaceId, entryId, startMs, callback) {
   var block = (settings.roundMinutes || 0) * 60;
-  if (!block || !entry || !entry.id) { return callback(null, entry); }
-  var startMs = Date.parse(entry.start);
-  var duration = entry.duration > 0 ? entry.duration : Math.round((Date.now() - startMs) / 1000);
+  if (!block || !startMs) { return api.stop(workspaceId, entryId, callback); }
+  var duration = Math.round((Date.now() - startMs) / 1000);
   var rounded = Math.max(block, Math.round(duration / block) * block);
-  if (rounded === duration) { return callback(null, entry); }
   var stop = new Date(startMs + rounded * 1000).toISOString();
-  api.update(entry.workspace_id, entry.id, { stop: stop, duration: rounded }, function (err, updated) {
-    callback(null, err ? entry : (updated || entry));   // rounding is best effort
+  api.update(workspaceId, entryId, { stop: stop, duration: rounded }, function (err, updated) {
+    if (!err) { return callback(null, updated); }
+    api.stop(workspaceId, entryId, callback);   // rounding is best effort, stopping is not
   });
 }
 
@@ -688,7 +697,7 @@ Pebble.addEventListener('ready', function () {
   if (cache.projects && cache.projects.length) { sendProjects(cache.projects); cache.projectsSent = cache.projects; }
   sendFavorites();
   if (cache.recent && cache.recent.length) { sendRecent(cache.recent); }
-  refreshAll(!cache.status, false);
+  if (!cache.status || age(cache.statusAt) > FRESH_MS) { refreshAll(!cache.status, false); }
   startPolling();
 });
 
@@ -725,7 +734,7 @@ function handleCommand(cmd, payload) {
 
 Pebble.addEventListener('showConfiguration', function () {
   strings.detectLanguage();
-  Pebble.openURL(config.buildConfigUrl(settings, cache.projects || [], diag));
+  Pebble.openURL(config.buildConfigUrl(settings, cache.projects || []));
 });
 
 Pebble.addEventListener('webviewclosed', function (e) {

@@ -4,8 +4,9 @@
 
 - Toggl's hourly request quota (30 requests per hour on the free plan) is now handled properly: a "402" reply used to show up as "not in your plan", now the app pauses exactly until the quota resets and tells you how long
 - Polling while the app is open is slower (every 3 minutes) and stops early to keep a few requests for start/stop
-- The settings page's diagnostics show the remaining quota
+- Fewer requests overall: starting a timer costs one request, stopping one (rounding included), a refresh one; reopening the app within 90 seconds uses the cached status, projects are cached for a day and entries for 15 minutes
 - Timeline pin errors back off for 15 minutes instead of retrying on every update
+- The diagnostics block is gone from the settings page
 
 ## 1.2
 

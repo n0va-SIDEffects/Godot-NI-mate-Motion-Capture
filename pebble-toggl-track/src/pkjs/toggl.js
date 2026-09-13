@@ -280,6 +280,10 @@ DemoToggl.prototype.stop = function (workspaceId, entryId, cb) {
 };
 DemoToggl.prototype.update = function (workspaceId, entryId, fields, cb) {
   var e = this.entries_.filter(function (x) { return x.id === entryId; })[0];
+  if (!e && this.running_ && this.running_.id === entryId) {
+    e = this.running_;
+    if (fields.stop) { this.entries_.push(e); this.running_ = null; }
+  }
   if (!e) { return this.later_(cb, t('errNotFound')); }
   Object.keys(fields).forEach(function (k) { e[k] = fields[k]; });
   this.save_();
