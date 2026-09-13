@@ -18,6 +18,8 @@
  */
 #include <pebble.h>
 
+#include "beat_clock.h"
+
 #if defined(PBL_SPEAKER)
 #include "beep_sample.h"
 #endif
@@ -32,16 +34,13 @@
 #define HR_STALE_SEC       15     // no fresh reading for this long -> show "--"
 #define STATUS_H           20     // height of the status line at the bottom
 #define VIBE_MS            25     // length of the per-beat vibration click
-#define BEEP_VOLUME        75
+#define BEEP_VOLUME        65     // the small speaker starts to distort above this
 #define HEART_BEAT_SCALE   132    // heart size in percent right after a beat
 #define HEART_DECAY        3      // percent shrink per trace pixel back to 100
 #define BPM_MIN            30
 #define BPM_MAX            220
 #define PPI_MIN_MS         273    // 220 bpm
 #define PPI_MAX_MS         2000   // 30 bpm
-// A beat event that lands well before the expected one is a genuine early beat; anything closer
-// than this fraction of the current interval is a duplicate delivery and only updates the rate.
-#define BEAT_RESYNC_PCT    55
 // Measured intervals must keep arriving; otherwise fall back to the averaged rate.
 #define LIVE_TIMEOUT_MS    5000
 
@@ -122,10 +121,8 @@ static int s_demo_dir = 1;
 
 static AppTimer *s_frame_timer;
 static AppTimer *s_poll_timer;
-static uint32_t s_last_px_ms;              // wall clock the trace has been drawn up to
-static uint32_t s_last_beat_ms;            // wall clock of the last beat
+static BeatClock s_clock;                  // places the beats on the wall clock
 static uint32_t s_last_ppi_ms;             // wall clock of the last measured interval
-static uint32_t s_beat_interval_ms;        // interval currently driving the beats
 
 static uint32_t now_ms(void) {
   time_t seconds;
@@ -148,11 +145,9 @@ static void beat_feedback(void) {
 #endif
 }
 
-// A beat happens: start its ECG complex and pump the heart, anchored to the wall-clock time the
-// beat belongs to rather than to whenever this code runs. Beats the app is only catching up on
+// A beat happens: start its ECG complex and pump the heart. Beats the app is only catching up on
 // are drawn but stay silent, so a stalled frame can never fire a burst of clicks.
-static void fire_beat(uint32_t at_ms, bool audible) {
-  s_last_beat_ms = at_ms;
+static void fire_beat(bool audible) {
   s_beat_phase = 0;
   s_heart_scale = HEART_BEAT_SCALE;
   if (audible) {
@@ -161,16 +156,7 @@ static void fire_beat(uint32_t at_ms, bool audible) {
 }
 
 static void set_interval(uint32_t interval_ms) {
-  if (interval_ms == s_beat_interval_ms) {
-    return;
-  }
-  const bool was_stopped = (s_beat_interval_ms == 0);
-  s_beat_interval_ms = interval_ms;
-  if (was_stopped && interval_ms > 0) {
-    s_last_beat_ms = now_ms() - interval_ms;   // start beating on the next trace pixel
-  }
-  // Otherwise the beat stays anchored to the last one and the new interval applies from there,
-  // so a changed rate takes effect immediately instead of after the old interval has run out.
+  beat_clock_set_interval(&s_clock, interval_ms, now_ms());
 }
 
 // ---------- Trace / animation ----------
@@ -203,24 +189,14 @@ static void animation_step(void) {
 // Draw the trace forward to the current wall clock, one pixel at a time, firing every beat that
 // falls due on the way. Both the sweep and the beats are driven by the clock rather than by timer
 // callbacks, so a late or slow frame cannot stretch the pulse: each beat sounds in the same step
-// that draws its spike, and the spacing on screen is the measured interval.
+// that draws its spike, and the spacing on screen is the measured interval. The timing itself
+// lives in beat_clock.c and is exercised by tools/test_beat_clock.c.
 static bool advance_to_now(void) {
-  const uint32_t now = now_ms();
-  uint32_t steps = (now - s_last_px_ms) / PX_MS;
-  if (steps > CATCHUP_PX) {
-    // More than a screenful behind (app was suspended, watch was busy): the old timeline is off
-    // screen anyway, so jump forward and re-anchor the beat instead of replaying it.
-    s_last_px_ms = now - (uint32_t)CATCHUP_PX * PX_MS;
-    steps = CATCHUP_PX;
-    if (s_beat_interval_ms > 0) {
-      s_last_beat_ms = s_last_px_ms - s_beat_interval_ms;
-    }
-  }
+  const uint32_t steps = beat_clock_begin(&s_clock, now_ms());
   for (uint32_t i = 0; i < steps; i++) {
-    s_last_px_ms += PX_MS;
-    if (s_beat_interval_ms > 0 &&
-        (int32_t)(s_last_px_ms - (s_last_beat_ms + s_beat_interval_ms)) >= 0) {
-      fire_beat(s_last_px_ms, (now - s_last_px_ms) <= BEAT_AUDIBLE_MS);
+    bool audible = false;
+    if (beat_clock_step(&s_clock, &audible)) {
+      fire_beat(audible);
     }
     animation_step();
   }
@@ -252,9 +228,14 @@ static void set_bpm(int bpm) {
   }
 }
 
-// A measured peak-to-peak interval: one real heartbeat. Sound it now unless it is a duplicate
-// delivery of a beat that was already played.
-static void on_measured_beat(uint16_t ppi_ms) {
+// A freshly measured peak-to-peak interval, delivered roughly once a second.
+//
+// Only the interval is used, never the moment the event arrives: the watch reports the length of
+// a heartbeat that has already passed, so its arrival time says nothing about where the next beat
+// falls. Beating on arrival as well as on the interval produced a second click a few hundred
+// milliseconds after each one. The clock loop keeps the phase and simply adopts the new interval,
+// which gives an even rhythm at the measured rate.
+static void on_measured_interval(uint16_t ppi_ms) {
   if (ppi_ms < PPI_MIN_MS || ppi_ms > PPI_MAX_MS) {
     return;
   }
@@ -264,18 +245,11 @@ static void on_measured_beat(uint16_t ppi_ms) {
   }
   s_last_reading = time(NULL);
   s_last_ppi_ms = now_ms();
-  s_beat_interval_ms = ppi_ms;
+  set_interval(ppi_ms);
   if (s_bpm == 0) {
     s_bpm = 60000 / ppi_ms;
     layer_mark_dirty(s_head_layer);
   }
-  const uint32_t now = now_ms();
-  if ((now - s_last_beat_ms) * 100 >= (uint32_t)ppi_ms * BEAT_RESYNC_PCT) {
-    fire_beat(now, true);
-    layer_mark_dirty(s_trace_layer);
-  }
-  // Otherwise this is a duplicate delivery of a beat that was already played: keep the new
-  // interval, which the trace loop applies from the last beat onwards.
 }
 
 static void read_heart_rate(void) {
@@ -301,7 +275,7 @@ static void read_heart_rate(void) {
 static void health_handler(HealthEventType event, void *context) {
   switch (event) {
     case HealthEventHRVUpdate:
-      on_measured_beat(health_service_peek_hrv_ppi_ms());
+      on_measured_interval(health_service_peek_hrv_ppi_ms());
       break;
     case HealthEventHeartRateUpdate:
     case HealthEventSignificantUpdate:
@@ -569,8 +543,7 @@ static void init(void) {
   });
   window_stack_push(s_window, true);
 
-  s_last_px_ms = now_ms();
-  s_last_beat_ms = s_last_px_ms;
+  beat_clock_init(&s_clock, now_ms(), PX_MS, CATCHUP_PX, BEAT_AUDIBLE_MS);
   init_sensor();
   s_frame_timer = app_timer_register(FRAME_MS, on_frame, NULL);
   s_poll_timer = app_timer_register(HR_POLL_MS, on_poll, NULL);

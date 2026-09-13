@@ -23,17 +23,27 @@ Eine kleine Watchapp, die den Herzschlag der Pebble 2 (und der neuen Core-Device
 
 Die App nimmt die beste Quelle, die die Uhr anbietet:
 
-1. **Gemessene Schlagabstände** (HRV peak-to-peak, `health_service_peek_hrv_ppi_ms`). Jedes
-   Ereignis ist ein real erkannter Herzschlag, Kurve und Ton folgen also dem echten Schlag statt
+1. **Gemessene Schlagabstände** (HRV peak-to-peak, `health_service_peek_hrv_ppi_ms`). Jeder Wert
+   ist der Abstand zweier real erkannter Herzschläge, der Takt folgt also der echten Messung statt
    einem Mittelwert. Die Statuszeile zeigt dann **Live**.
-2. **Schläge pro Minute**, wenn die Uhr keine Einzelintervalle liefert (u. a. Pebble 2). Die
-   Schläge werden im gemessenen Takt erzeugt.
+2. **Schläge pro Minute**, wenn die Uhr keine Einzelintervalle liefert (u. a. Pebble 2).
+
+Genutzt wird dabei nur der Intervallwert, nie der Zeitpunkt, zu dem die Meldung eintrifft: Die Uhr
+meldet die Länge eines bereits vergangenen Schlags, ihr Eintreffen sagt also nichts darüber aus,
+wann der nächste Schlag fällt. Die Phase gehört der Uhrzeit, die Meldung liefert nur das Tempo.
 
 Kurve und Schläge hängen beide an der Uhrzeit, nicht an Timer-Callbacks: Jeder Schlag klingt in
 demselben Schritt, der seinen Ausschlag zeichnet. Ein verzögertes Bild kann den Puls dadurch weder
 dehnen noch Schläge verschlucken, und der Abstand auf dem Display entspricht exakt dem gemessenen
 Intervall. Die Kurve läuft mit 50 px/s, das Bild wird 30-mal pro Sekunde aktualisiert, und der
 Messwert wird 5-mal pro Sekunde nachgeführt.
+
+Diese Taktlogik steckt in `src/c/beat_clock.c` und hängt an keiner Pebble-Funktion, damit sie sich
+direkt auf dem Rechner prüfen lässt:
+
+```sh
+cc -Wall -Wextra -o /tmp/test_beat_clock tools/test_beat_clock.c src/c/beat_clock.c && /tmp/test_beat_clock
+```
 
 Ein Hinweis zur Ehrlichkeit: Die BPM-Anzeige des Sensors ist ein geglätteter Mittelwert und hinkt
 der Realität um einige Sekunden hinterher. Das ist eine Eigenschaft des optischen Sensors, keine
@@ -45,6 +55,9 @@ Der Piep ist ein vorgerechnetes PCM-Sample statt eines roh erzeugten Tons: 880 H
 zweiter und dritter Oberwelle im Verhältnis 1 : 0,55 : 0,22, 50 ms lang, mit weicher An- und
 Abstiegsflanke. Die Mischung stammt aus der Frequenzanalyse einer echten Monitor-Aufnahme, und weil
 das Sample bei null anfängt und aufhört, knackt es an den Rändern nicht mehr.
+
+Die Lautstärke steht auf 65 von 100. Darüber verzerrt der kleine Lautsprecher der Core Time 2
+hörbar, messbar an zusätzlichen Obertönen um 5 kHz. `BEEP_VOLUME` in `src/c/main.c` ändert das.
 
 Neu erzeugen (etwa mit anderer Tonhöhe) lässt es sich so:
 
@@ -103,9 +116,11 @@ im Emulator: `pebble emu-button --emulator diorite push down`, kurz warten, `...
 
 | Datei | Inhalt |
 | --- | --- |
-| `src/c/main.c` | die ganze App |
+| `src/c/main.c` | Anzeige, Sensor, Bedienung |
+| `src/c/beat_clock.c` | legt die Schläge auf die Uhrzeit, ohne Pebble-Abhängigkeiten |
 | `src/c/beep_sample.h` | erzeugtes PCM-Sample des Pieps, nicht von Hand bearbeiten |
 | `tools/make_beep_sample.py` | erzeugt dieses Sample (braucht nur numpy) |
+| `tools/test_beat_clock.c` | Test der Taktlogik, läuft auf dem Rechner |
 
 ## Zielplattformen
 
