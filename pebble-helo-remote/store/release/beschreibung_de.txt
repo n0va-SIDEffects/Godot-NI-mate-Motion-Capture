@@ -9,6 +9,7 @@ Funktionen
 - Stoppen braucht einen zweiten Druck innerhalb von 4 Sekunden, damit nichts versehentlich endet
 - Kurzes Vibrieren bei Start, doppelt bei Stopp, lang bei Fehler (abschaltbar)
 - Einstellungen in der Pebble-App: HELO-Adresse, HTTP-Port, Passwort (nur bei aktivierter Benutzer-Authentifizierung), Abfrage-Intervall 1 bis 15 s
+- Sieben Sprachen (DE, EN, FR, ES, IT, PT, NL), folgt automatisch der Sprache der Uhr
 
 Bedienung
 - OBEN: Aufnahme starten; läuft sie, zweimal drücken zum Stoppen

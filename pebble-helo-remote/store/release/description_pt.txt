@@ -1,0 +1,11 @@
+Controla o teu AJA HELO a partir do pulso: inicia e para a gravação e o stream, com o estado em direto.
+
+HELO Remote transforma o Pebble num comando para o AJA HELO, o codificador H.264 de streaming e gravação. A app Pebble no telemóvel fala com a API REST do HELO por Wi-Fi; o relógio mostra o estado em direto e envia comandos com um toque.
+
+Funções: iniciar e parar gravação e stream; estado em direto (gravação, stream, duração, média livre em %, temperatura); nome do equipamento e ponto de ligação no cabeçalho; parar exige um segundo toque em 4 segundos; vibração ao iniciar, ao parar e em caso de erro (desativável); definições na app Pebble (endereço, porta HTTP, senha, intervalo de 1 a 15 s); sete idiomas, seguindo automaticamente o idioma do relógio.
+
+Comandos: CIMA gravação (dois toques para parar), SELECT atualizar, BAIXO stream, VOLTAR sair.
+
+Requisitos: o telemóvel tem de alcançar o HELO por HTTP (mesma rede, sem HTTPS). Compatível com HELO e HELO Plus. Pebble Time 2, Pebble Time e Pebble 2.
+
+A app é gratuita e sem anúncios. Se gostares, um café é muito bem-vindo: https://buymeacoffee.com/SIDEffects

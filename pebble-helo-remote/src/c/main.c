@@ -13,6 +13,7 @@
  *   BACK    -> Quit
  */
 #include <pebble.h>
+#include "strings_i18n.h"
 
 /* ---- Protocol (must match src/pkjs/index.js) ---------------------------- */
 enum HeloCmd {
@@ -78,6 +79,27 @@ static GFont s_font_digits;        /* emery */
 static GFont s_font_digits_small;  /* basalt/diorite: 144 px wide, LECO 26 does not fit */
 
 static GPath *s_path_play;
+
+/* ---- Language ----------------------------------------------------------- */
+#define PERSIST_KEY_LANG 1
+static int s_lang;                     /* 0 = watch locale, 1..LANG_COUNT_REAL = fixed (from phone) */
+static const Strings *T;               /* active string table */
+
+static void apply_language(void) {
+  int idx = -1;
+  if (s_lang >= 1 && s_lang <= LANG_COUNT_REAL) {
+    idx = s_lang - 1;
+  } else {
+    const char *loc = i18n_get_system_locale();   /* e.g. "de_DE" */
+    if (loc) {
+      for (int i = 0; i < LANG_COUNT_REAL; i++) {
+        if (loc[0] == LANG_CODES[i][0] && loc[1] == LANG_CODES[i][1]) { idx = i; break; }
+      }
+    }
+  }
+  if (idx < 0) idx = 1;                            /* English fallback */
+  T = &STRINGS[idx];
+}
 static GPath *s_path_arrow;
 
 static const GPathInfo PLAY_PATH_INFO = {
@@ -134,7 +156,7 @@ static void stale_timeout_cb(void *data) {
   s_stale_timer = NULL;
   if (s_status.conn == CONN_OK) {
     s_status.conn = CONN_UNKNOWN;
-    set_hint("Keine Daten vom Telefon", true);
+    set_hint(T->no_data, true);
   }
 }
 
@@ -149,7 +171,7 @@ static void send_cmd(int cmd) {
   AppMessageResult res = app_message_outbox_begin(&iter);
   if (res != APP_MSG_OK || !iter) {
     APP_LOG(APP_LOG_LEVEL_WARNING, "outbox_begin failed: %d", (int) res);
-    set_hint("Telefon beschaeftigt...", false);
+    set_hint(T->phone_busy, false);
     return;
   }
   dict_write_int32(iter, MESSAGE_KEY_CMD, cmd);
@@ -157,7 +179,7 @@ static void send_cmd(int cmd) {
   res = app_message_outbox_send();
   if (res != APP_MSG_OK) {
     APP_LOG(APP_LOG_LEVEL_WARNING, "outbox_send failed: %d", (int) res);
-    set_hint("Senden fehlgeschlagen", false);
+    set_hint(T->send_failed, false);
     return;
   }
   s_busy = (cmd != CMD_REFRESH);
@@ -169,10 +191,10 @@ static void notify_transition(int old_state, int new_state, bool is_rec) {
   if (old_state == HELO_STATE_UNKNOWN) return;      /* first status, stay quiet */
   if (!state_is_active(old_state) && state_is_active(new_state)) {
     vibes_short_pulse();
-    set_hint(is_rec ? "Aufnahme laeuft" : "Stream laeuft", false);
+    set_hint(is_rec ? T->rec_running : T->stream_running, false);
   } else if (state_is_active(old_state) && !state_is_active(new_state)) {
     vibes_double_pulse();
-    set_hint(is_rec ? "Aufnahme gestoppt" : "Stream gestoppt", false);
+    set_hint(is_rec ? T->rec_stopped : T->stream_stopped, false);
   } else if (state_is_failed(new_state)) {
     vibes_long_pulse();
   }
@@ -212,6 +234,15 @@ static void inbox_received_cb(DictionaryIterator *iter, void *context) {
     s_status.temp_c = (int) t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_VIBRATE)))
     s_status.vibrate = t->value->int32 != 0;
+  if ((t = dict_find(iter, MESSAGE_KEY_LANGUAGE))) {
+    int lang = (int) t->value->int32;
+    if (lang < 0 || lang > LANG_COUNT_REAL) lang = 0;
+    if (lang != s_lang) {
+      s_lang = lang;
+      persist_write_int(PERSIST_KEY_LANG, s_lang);
+      apply_language();
+    }
+  }
   if ((t = dict_find(iter, MESSAGE_KEY_MESSAGE))) {
     /* go through a pointer: indexing the SDK's zero-length cstring[] member
      * directly trips -Wzero-length-bounds on GCC 14 */
@@ -243,7 +274,7 @@ static void inbox_dropped_cb(AppMessageResult reason, void *context) {
 static void outbox_failed_cb(DictionaryIterator *iter, AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_WARNING, "outbox failed: %d", (int) reason);
   s_busy = false;
-  set_hint("Telefon nicht erreichbar", false);
+  set_hint(T->phone_unreachable, false);
 }
 
 /* ---- Button handling ---------------------------------------------------- */
@@ -253,12 +284,12 @@ static void handle_toggle(bool is_rec) {
   const int start_cmd = is_rec ? CMD_REC_START : CMD_STREAM_START;
 
   if (s_status.conn == CONN_NOCONFIG) {
-    set_hint("IP in App-Einstellungen setzen", false);
+    set_hint(T->set_ip_app, false);
     vibes_short_pulse();
     return;
   }
   if (s_status.conn != CONN_OK) {
-    set_hint("HELO nicht verbunden", false);
+    set_hint(T->helo_not_connected, false);
     vibes_short_pulse();
     return;
   }
@@ -267,17 +298,17 @@ static void handle_toggle(bool is_rec) {
     /* Stopping is destructive-ish: ask for a second press within 4 s */
     if (s_confirm_cmd == stop_cmd) {
       clear_confirm();
-      set_hint(is_rec ? "Stoppe Aufnahme..." : "Stoppe Stream...", true);
+      set_hint(is_rec ? T->stopping_rec : T->stopping_stream, true);
       send_cmd(stop_cmd);
     } else {
       clear_confirm();
       s_confirm_cmd = stop_cmd;
       s_confirm_timer = app_timer_register(CONFIRM_TIMEOUT_MS, confirm_timeout_cb, NULL);
-      set_hint(is_rec ? "Stopp? Nochmal OBEN" : "Stopp? Nochmal UNTEN", true);
+      set_hint(is_rec ? T->confirm_rec : T->confirm_stream, true);
     }
   } else {
     clear_confirm();
-    set_hint(is_rec ? "Starte Aufnahme..." : "Starte Stream...", true);
+    set_hint(is_rec ? T->starting_rec : T->starting_stream, true);
     send_cmd(start_cmd);
   }
 }
@@ -293,10 +324,10 @@ static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   if (s_confirm_cmd) {
     clear_confirm();
-    set_hint("Abgebrochen", false);
+    set_hint(T->cancelled, false);
     return;
   }
-  set_hint("Aktualisiere...", false);
+  set_hint(T->refreshing, false);
   send_cmd(CMD_REFRESH);
 }
 
@@ -313,20 +344,20 @@ static GColor color_for_state(int st, GColor active) {
   return PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite);
 }
 
-static const char *fallback_state_name(int st) {
+static const char *state_name(int st, bool is_rec) {
   switch (st) {
-    case HELO_STATE_UNINIT:        return "Init";
-    case HELO_STATE_IDLE:          return "Bereit";
-    case HELO_STATE_ACTIVE:        return "Aktiv";
+    case HELO_STATE_UNINIT:        return T->st_init;
+    case HELO_STATE_IDLE:          return T->st_idle;
+    case HELO_STATE_ACTIVE:        return is_rec ? T->st_rec : T->st_live;
     case HELO_STATE_FAILED_IDLE:
-    case HELO_STATE_FAILED_ACTIVE: return "Fehler";
-    case HELO_STATE_SHUTDOWN:      return "Aus";
+    case HELO_STATE_FAILED_ACTIVE: return T->st_failed;
+    case HELO_STATE_SHUTDOWN:      return T->st_off;
     default:                       return "--";
   }
 }
 
 static void draw_card(GContext *ctx, GRect r, const char *label, int state,
-                      const char *name, const char *dur, GColor active_color, bool big) {
+                      const char *name, const char *dur, GColor active_color, bool big, bool is_rec) {
   const bool have_data = s_status.conn == CONN_OK;
   GColor bg = have_data ? color_for_state(state, active_color)
                         : PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite);
@@ -347,9 +378,10 @@ static void draw_card(GContext *ctx, GRect r, const char *label, int state,
   graphics_draw_text(ctx, label, s_font_small_bold, label_box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
-  /* state name top-right */
+  /* state name top-right: known states are translated here, the phone only
+   * sends a name for enum values it does not know */
   const char *shown = (have_data && name && name[0]) ? name
-                    : (have_data ? fallback_state_name(state) : "--");
+                    : (have_data ? state_name(state, is_rec) : "--");
   graphics_draw_text(ctx, shown, s_font_label, label_box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
 
@@ -435,9 +467,9 @@ static void draw_footer(GContext *ctx, GRect f, bool big) {
                                     GColorBlack);
     graphics_context_set_fill_color(ctx, fill);
     if (w > 0) graphics_fill_rect(ctx, GRect(bar.origin.x + 1, bar.origin.y + 1, w, bar_h - 2), 1, GCornersAll);
-    snprintf(buf, sizeof(buf), big ? "Medien %d%% frei" : "Medien %d%%", pct);
+    snprintf(buf, sizeof(buf), big ? T->media_free : T->media_short, pct);
   } else {
-    snprintf(buf, sizeof(buf), "Medien --");
+    snprintf(buf, sizeof(buf), "%s", T->media_none);
   }
 
   GRect line1 = GRect(f.origin.x + pad, bar.origin.y + bar_h, f.size.w - 2 * pad, 18);
@@ -453,11 +485,11 @@ static void draw_footer(GContext *ctx, GRect f, bool big) {
   const char *msg = s_hint;
   if (!msg[0]) {
     switch (s_status.conn) {
-      case CONN_UNKNOWN:  msg = "Warte auf Telefon..."; break;
-      case CONN_OFFLINE:  msg = "HELO nicht erreichbar"; break;
-      case CONN_AUTH:     msg = "HELO: Passwort pruefen"; break;
-      case CONN_NOCONFIG: msg = "IP in Einstellungen setzen"; break;
-      default:            msg = s_busy ? "Sende Befehl..." : ""; break;
+      case CONN_UNKNOWN:  msg = T->waiting_phone; break;
+      case CONN_OFFLINE:  msg = T->helo_unreachable; break;
+      case CONN_AUTH:     msg = T->check_password; break;
+      case CONN_NOCONFIG: msg = T->set_ip; break;
+      default:            msg = s_busy ? T->sending : ""; break;
     }
   }
   GRect line2 = GRect(f.origin.x + pad, line1.origin.y + (big ? 18 : 15), f.size.w - 2 * pad, 20);
@@ -515,11 +547,11 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int y = header_h + gap;
   GRect rec_card = GRect(gap, y, content_w - 2 * gap, card_h);
   draw_card(ctx, rec_card, "REC", s_status.rec_state, s_status.rec_name, s_status.rec_dur,
-            PBL_IF_COLOR_ELSE(GColorRed, GColorBlack), big);
+            PBL_IF_COLOR_ELSE(GColorRed, GColorBlack), big, true);
   y += card_h + gap;
   GRect stream_card = GRect(gap, y, content_w - 2 * gap, card_h);
   draw_card(ctx, stream_card, "STREAM", s_status.stream_state, s_status.stream_name,
-            s_status.stream_dur, PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack), big);
+            s_status.stream_dur, PBL_IF_COLOR_ELSE(GColorCobaltBlue, GColorBlack), big, false);
   y += card_h + gap;
 
   /* footer */
@@ -548,6 +580,10 @@ static void window_unload(Window *window) {
 }
 
 static void init(void) {
+  s_lang = persist_exists(PERSIST_KEY_LANG) ? persist_read_int(PERSIST_KEY_LANG) : 0;
+  if (s_lang < 0 || s_lang > LANG_COUNT_REAL) s_lang = 0;
+  apply_language();
+
   s_status.conn         = CONN_UNKNOWN;
   s_status.rec_state    = HELO_STATE_UNKNOWN;
   s_status.stream_state = HELO_STATE_UNKNOWN;

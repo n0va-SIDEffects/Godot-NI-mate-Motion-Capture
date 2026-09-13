@@ -1,0 +1,11 @@
+Bedien je AJA HELO vanaf je pols: start en stop opname en stream, met de status live in beeld.
+
+HELO Remote maakt van je Pebble een afstandsbediening voor de AJA HELO, de H.264-encoder voor streaming en opname. De Pebble-app op je telefoon praat via wifi met de REST-API van de HELO; het horloge toont de live status en stuurt opdrachten met één druk.
+
+Functies: opname en stream starten en stoppen; live status (opname, stream, looptijd, vrije media in %, temperatuur); apparaatnaam en verbindingspunt in de kop; stoppen vraagt een tweede druk binnen 4 seconden; trillen bij start, stop en fout (uitschakelbaar); instellingen in de Pebble-app (adres, HTTP-poort, wachtwoord, interval 1 tot 15 s); zeven talen, volgt automatisch de taal van het horloge.
+
+Bediening: OMHOOG opname (twee keer drukken om te stoppen), SELECT vernieuwen, OMLAAG stream, TERUG afsluiten.
+
+Vereisten: de telefoon moet de HELO via HTTP bereiken (zelfde netwerk, geen HTTPS). Werkt met HELO en HELO Plus. Pebble Time 2, Pebble Time en Pebble 2.
+
+De app is gratis en zonder reclame. Vind je hem leuk, dan is een koffie zeer welkom: https://buymeacoffee.com/SIDEffects

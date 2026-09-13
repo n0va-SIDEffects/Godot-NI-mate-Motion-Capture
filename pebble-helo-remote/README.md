@@ -7,7 +7,7 @@ Gerätetemperatur auf einen Blick.
 Zielplattform ist die **Pebble Time 2** (`emery`, 200×228 Farbdisplay). Die App baut
 zusätzlich für Pebble Time (`basalt`) und Pebble 2 / Core 2 Duo (`diorite`).
 
-> **Status:** Version 1.0, baut warnungsfrei mit dem Pebble-SDK 4.33.1 für emery, basalt und
+> **Status:** Version 1.1 (sieben Sprachen), baut warnungsfrei mit dem Pebble-SDK 4.33.1 für emery, basalt und
 > diorite und läuft im Pebble-Emulator gegen den mitgelieferten HELO-Simulator
 > (`tools/helo-simulator.js`), siehe [Screenshots](#screenshots-emulator). Das Store-Paket liegt
 > fertig in `store/` ([Veröffentlichen](store/VEROEFFENTLICHEN.md)). Auf **echter Hardware**
@@ -77,8 +77,27 @@ Die Konfigurationsseite wird mit [Clay](https://github.com/pebble/clay) erzeugt:
 - **Passwort** – nur wenn am HELO *User Authentication* eingeschaltet ist
 - **Abfrage-Intervall** 1–15 s (Standard 3 s)
 - **Vibrieren bei Start/Stopp**
+- **Sprache**: Automatisch (wie die Uhr) oder fest Deutsch, English, Français, Español,
+  Italiano, Português, Nederlands
 - Unter „Speichern“: Abschnitt **Unterstützen** mit Buy-me-a-coffee-Button
   (`src/pkjs/custom-clay.js` öffnet den Link im Browser des Telefons)
+
+### Sprachen
+
+Alle Texte auf der Uhr und die komplette Einstellungsseite gibt es in sieben Sprachen. Die
+Telefon-Seite ermittelt die Sprache aus der Uhr (`Pebble.getActiveWatchInfo().language`), sonst
+aus der Telefonsprache, sonst Englisch, und schickt den Index mit jedem Status als `LANGUAGE`
+an die Uhr, damit beide Seiten dieselbe Tabelle verwenden. Zustandsnamen (Bereit, AUFNAHME,
+LIVE, Fehler …) übersetzt die Uhr selbst; das Telefon liefert nur unbekannte Enum-Namen.
+
+Einzige Quelle ist `tools/i18n.py`; `python3 tools/i18n.py` erzeugt `src/c/strings_i18n.h`
+und `src/pkjs/i18n.js`. Neue Sprache: in `LANGS`, `NATIVE`, `W` und `P` ergänzen, generieren,
+bauen.
+
+| | | | |
+|---|---|---|---|
+| ![](docs/languages/emery_lang1.png) Deutsch | ![](docs/languages/emery_lang2.png) English | ![](docs/languages/emery_lang3.png) Français | ![](docs/languages/emery_lang4.png) Español |
+| ![](docs/languages/emery_lang5.png) Italiano | ![](docs/languages/emery_lang6.png) Português | ![](docs/languages/emery_lang7.png) Nederlands | |
 
 ---
 
@@ -144,16 +163,17 @@ Requests.
 
 ## Screenshots (Emulator)
 
-Aufgenommen mit `pebble screenshot` gegen den HELO-Simulator; dieselben fünf Motive liegen für
-alle drei Plattformen in `store/screenshots_<plattform>/`. Emery = Pebble Time 2:
+Aufgenommen mit `pebble screenshot` gegen den HELO-Simulator, auf Englisch für die
+Store-Listung; dieselben fünf Motive liegen für alle drei Plattformen in
+`store/screenshots_<plattform>/`. Emery = Pebble Time 2:
 
 | Keine IP konfiguriert | Bereit | Aufnahme läuft | Aufnahme + Stream | Stopp-Bestätigung |
 |---|---|---|---|---|
-| ![](store/screenshots_emery/01_keine_ip.png) | ![](store/screenshots_emery/02_bereit.png) | ![](store/screenshots_emery/03_aufnahme.png) | ![](store/screenshots_emery/04_aufnahme_stream.png) | ![](store/screenshots_emery/05_stopp_bestaetigen.png) |
+| ![](store/screenshots_emery/01_no_ip.png) | ![](store/screenshots_emery/02_ready.png) | ![](store/screenshots_emery/03_recording.png) | ![](store/screenshots_emery/04_recording_streaming.png) | ![](store/screenshots_emery/05_confirm_stop.png) |
 
 | Basalt (Pebble Time) | Diorite (Pebble 2) |
 |---|---|
-| ![](store/screenshots_basalt/04_aufnahme_stream.png) | ![](store/screenshots_diorite/04_aufnahme_stream.png) |
+| ![](store/screenshots_basalt/04_recording_streaming.png) | ![](store/screenshots_diorite/04_recording_streaming.png) |
 
 Einstellungsseite (Clay) in der Pebble-App: [docs/einstellungen_clay.png](docs/einstellungen_clay.png)
 
@@ -170,8 +190,11 @@ pebble-helo-remote/
 ├── store/                    Store-Paket: Icons, Banner, Screenshots, Texte, Anleitung (siehe store/README.md)
 ├── src/c/main.c              Watch-App: UI, Tasten, AppMessage
 ├── src/pkjs/index.js         Phone-Seite: HELO-REST-Polling, Befehle, Auth, Clay
-├── src/pkjs/config.js        Clay-Konfigurationsseite
+├── src/c/strings_i18n.h      Uhr-Texte in 7 Sprachen (generiert)
+├── src/pkjs/config.js        Clay-Konfigurationsseite, je Sprache gebaut
 ├── src/pkjs/custom-clay.js   Buy-me-a-coffee-Button auf der Konfigurationsseite
+├── src/pkjs/i18n.js          Telefon-Texte in 7 Sprachen (generiert)
+├── tools/i18n.py             einzige Quelle aller Übersetzungen, erzeugt die beiden Dateien oben
 ├── resources/images/menu_icon.png
 ├── tools/helo-simulator.js   HELO-REST-Simulator für Tests
 └── tools/test-pkjs.js        Integrationstest Phone-Seite gegen den Simulator
@@ -183,7 +206,8 @@ Uhr → Telefon: `CMD` = 0 Refresh, 1 Rec Start, 2 Rec Stop, 3 Stream Start, 4 S
 
 Telefon → Uhr: `CONN` (0 unbekannt, 1 OK, 2 offline, 3 Auth-Fehler, 4 keine IP konfiguriert),
 `REC_STATE`, `REC_NAME`, `REC_DUR`, `STREAM_STATE`, `STREAM_NAME`, `STREAM_DUR`, `MEDIA_PCT`,
-`TEMP_C`, `SYS_NAME`, `MESSAGE`, `VIBRATE`.
+`TEMP_C`, `SYS_NAME`, `MESSAGE`, `VIBRATE`, `LANGUAGE` (0 auto, 1–7 = de en fr es it pt nl).
+`REC_NAME`/`STREAM_NAME` sind für die bekannten Zustände 0–5 leer, die Uhr übersetzt sie selbst.
 
 ---
 
@@ -196,8 +220,8 @@ Telefon → Uhr: `CONN` (0 unbekannt, 1 OK, 2 offline, 3 Auth-Fehler, 4 keine IP
 - **Kleine Displays (basalt/diorite, 144×168):** Laufzeit in LECO 20 statt 26 und „Medien xx %“
   ohne „frei“, damit alles in die Breite passt. Die Stopp-Bestätigung „Stopp? Nochmal OBEN/UNTEN“
   wird dort noch mit „…“ gekürzt, auf emery ist sie vollständig lesbar.
-- **Oberfläche nur auf Deutsch.** Für den internationalen Store steht das im englischen
-  Beschreibungstext; eine englische Oberfläche wäre der nächste sinnvolle Schritt.
+- **Übersetzungen** sind maschinell geprüft, aber nicht von Muttersprachlern gegengelesen.
+  Korrekturen gehören in `tools/i18n.py`.
 - `eParamID_SysName` ist aus der Ki-Pro-API übernommen; liefert der HELO ihn nicht, zeigt die
   Kopfzeile einfach die IP.
 - `value_name` der Zustände wird am HELO als Enum-Name geliefert (z. B. `eRRSRecording`). Die

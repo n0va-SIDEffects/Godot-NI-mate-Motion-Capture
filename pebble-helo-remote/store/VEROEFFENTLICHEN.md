@@ -7,7 +7,7 @@ Der Ordner `release/` (Inhalt von `HELORemote_Store_Paket.zip`) enthält alles, 
 
 | Datei | Verwendung im Portal |
 |-------|----------------------|
-| `HELORemote-1.0.pbw` | Release-Datei (die App, alle drei Plattformen in einer Datei) |
+| `HELORemote-1.1.pbw` | Release-Datei (die App, alle drei Plattformen in einer Datei) |
 | `icon_80.png` | Icon (80 × 80, RGB ohne Alphakanal, so verlangt es das Portal) |
 | `icon_144.png`, `icon_48.png` | Large und Small Icon, falls das Portal zusätzlich danach fragt |
 | `banner_720x320_en.png` | Marketing Banner (Kopfbild der Listung), englischer Slogan |
@@ -15,13 +15,21 @@ Der Ordner `release/` (Inhalt von `HELORemote_Store_Paket.zip`) enthält alles, 
 | `screenshots_emery/` | 5 Screenshots Pebble Time 2, 200 × 228 |
 | `screenshots_basalt/` | 5 Screenshots Pebble Time / Time Steel, 144 × 168 Farbe |
 | `screenshots_diorite/` | 5 Screenshots Pebble 2 / Core 2 Duo, 144 × 168 schwarz-weiß |
-| `description_en.txt` | Kurzbeschreibung (erste Zeile) und Beschreibung, Englisch, 1324 Zeichen |
-| `beschreibung_de.txt` | dieselben Texte auf Deutsch, 1402 Zeichen |
-| `RELEASE_NOTES.md` | Release Notes 1.0 in kurzer und einzeiliger Fassung |
+| `description_en.txt` | Kurzbeschreibung (erste Zeile) und Beschreibung, Englisch |
+| `beschreibung_de.txt`, `description_fr/es/it/pt/nl.txt` | dieselben Texte in den sechs weiteren App-Sprachen (gekürzt) |
+| `RELEASE_NOTES.md` | Release Notes je Version in kurzer und einzeiliger Fassung |
 
 Der Store zeigt pro Plattform eine Beschreibung (Limit 1600 Zeichen). Englisch ist die sichere
-Wahl, weil der Store international ist; die Oberfläche der App selbst ist deutsch, das steht im
-englischen Text. Beide Texte zusammen sprengen das Limit, also eine Sprache wählen.
+Wahl, weil der Store international ist; die App selbst folgt der Sprache der Uhr. Mehrere Texte
+zusammen sprengen das Limit, also eine Sprache wählen.
+
+## Update auf 1.1 (sieben Sprachen, Layout-Korrekturen)
+
+Die Listung existiert seit 1.0 (am PC im Browser eingereicht; vom Handy aus antwortete das
+Portal mit „Server error (400)“). Für das Update im Dashboard die App öffnen, „Add a release“
+mit `HELORemote-1.1.pbw`, Release Notes aus `RELEASE_NOTES.md` (kurze Fassung), Release
+publizieren. Danach in den drei Asset Collections die Screenshots durch die englischen aus
+`screenshots_<plattform>/` ersetzen und die Beschreibung durch `description_en.txt`.
 
 ## Weg 1: Über das Entwicklerportal (empfohlen fürs erste Mal)
 
@@ -37,7 +45,7 @@ englischen Text. Beide Texte zusammen sprengen das Limit, also eine Sprache wäh
    - Support email: deine Adresse
    - Icon: `icon_80.png`
 4. „Create“.
-5. „Add a release“: `HELORemote-1.0.pbw` hochladen, Release Notes aus `RELEASE_NOTES.md`
+5. „Add a release“: `HELORemote-1.1.pbw` hochladen, Release Notes aus `RELEASE_NOTES.md`
    (kurze Fassung). Seite neu laden, neben dem Release auf „Publish“.
 6. „Manage Asset Collections“ → „Create“ für **jede** der drei Plattformen `emery`, `basalt`,
    `diorite` (alle stehen in `targetPlatforms`, ohne Asset Collection wird die Plattform nicht
@@ -45,7 +53,7 @@ englischen Text. Beide Texte zusammen sprengen das Limit, also eine Sprache wäh
    - Description: Inhalt von `description_en.txt` ohne die erste Zeile (die Kurzbeschreibung
      wird separat abgefragt, falls das Feld existiert)
    - Screenshots aus dem passenden `screenshots_<plattform>/`-Ordner in dieser Reihenfolge:
-     `03_aufnahme`, `04_aufnahme_stream`, `02_bereit`, `05_stopp_bestaetigen`, `01_keine_ip`
+     `03_recording`, `04_recording_streaming`, `02_ready`, `05_confirm_stop`, `01_no_ip`
    - Marketing Banner: `banner_720x320_en.png`
    - „Create Asset Collection“
 7. Oben „Publish“ (öffentlich) oder „Publish Privately“ (nur per Link, zum Prüfen der Listung).
@@ -73,7 +81,8 @@ Für Updates: `version` in `package.json` erhöhen (Format `Major.Minor`, z. B. 
 
 | Symptom | Ursache | Abhilfe |
 |---------|---------|---------|
-| „Server error (400)“ beim Release | `version` nicht `Major.Minor` | steht auf `1.0`, nach Änderung neu bauen |
+| „Server error (400)“ beim Release | `version` nicht `Major.Minor` | steht auf `1.1`, nach Änderung neu bauen |
+| „Server error (400)“ im ersten Schritt vom Handy aus | mobiler Browser | am PC im Browser einreichen (so ging 1.0 durch) |
 | Icon abgelehnt | Alphakanal | `icon_80.png` ist RGB; `_transparent` nur als Reserve |
 | 400 beim Anlegen der Listung | Source code URL leer oder ohne `https://` | Pflichtfeld, vollständige URL eintragen |
 | 400 beim Release-Upload nach einem Fehlversuch | UUID gilt schon als belegt (halb angelegte Listung) | im Dashboard die vorhandene Listung öffnen und dort weitermachen, nicht neu anlegen |
@@ -84,7 +93,7 @@ Für Updates: `version` in `package.json` erhöhen (Format `Major.Minor`, z. B. 
 
 - UUID in `package.json` unverändert.
 - Gebaut mit dem regulären SDK 4.33.1, `pebble build` ohne Warnungen.
-- Beschreibung ≤ 1600 Zeichen (geprüft: EN 1324, DE 1402).
+- Beschreibung ≤ 1600 Zeichen (alle sieben Texte geprüft, EN 1387).
 - Der Spendenlink darf in der Beschreibung stehen; Werbung von Drittanbietern ist nicht enthalten.
 - **Auf der echten Uhr mit echtem HELO testen:** `pebble install --phone <IP>`, einmal Aufnahme
   und Stream starten und stoppen, Einstellungen inkl. Kaffee-Button durchgehen. Das ist der

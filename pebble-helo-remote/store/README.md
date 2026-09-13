@@ -29,7 +29,7 @@ python3 store/make_release.py --zip   # -> store/release/ und store/HELORemote_S
 | Ort | Inhalt |
 |---|---|
 | `screenshots_emery/`, `screenshots_basalt/`, `screenshots_diorite/` | je 5 Store-Screenshots in nativer Auflösung |
-| `release/description_en.txt`, `release/beschreibung_de.txt` | Kurzbeschreibung (Zeile 1) + Beschreibung, ≤ 1600 Zeichen |
+| `release/description_*.txt`, `release/beschreibung_de.txt` | Kurzbeschreibung (Zeile 1) + Beschreibung in 7 Sprachen, ≤ 1600 Zeichen |
 | `RELEASE_NOTES.md` | Release Notes je Version |
 | `VEROEFFENTLICHEN.md` | Schritt-für-Schritt-Anleitung fürs Portal und die CLI |
 | `release/` | zusammengestellter Ordner, Inhalt des ZIP (ZIP selbst ist in .gitignore) |

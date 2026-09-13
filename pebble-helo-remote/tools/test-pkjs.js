@@ -99,7 +99,8 @@ function lastStatus() { for (var i = sent.length - 1; i >= 0; i--) if ('CONN' in
   assert.ok(st, 'no status sent');
   assert.strictEqual(st.CONN, 1, 'expected CONN OK, got ' + JSON.stringify(st));
   assert.strictEqual(st.REC_STATE, 1);
-  assert.strictEqual(st.REC_NAME, 'Bereit');
+  assert.strictEqual(st.REC_NAME, '', 'known states are translated on the watch');
+  assert.strictEqual(st.LANGUAGE, 2, 'no watch info in test -> English (index 2)');
   assert.strictEqual(st.STREAM_STATE, 1);
   assert.strictEqual(st.REC_DUR, '00:00:00');
   assert.strictEqual(st.MEDIA_PCT, 73);
@@ -114,10 +115,10 @@ function lastStatus() { for (var i = sent.length - 1; i >= 0; i--) if ('CONN' in
   sent.length = 0;
   listeners.appmessage({ payload: { CMD: 1 } });
   await wait(3200);
-  assert.ok(sent.some(function (d) { return d.MESSAGE === 'Befehl gesendet'; }), 'no command ack');
+  assert.ok(sent.some(function (d) { return d.MESSAGE === 'Command sent'; }), 'no command ack');
   st = lastStatus();
   assert.strictEqual(st.REC_STATE, 2, 'expected recording');
-  assert.strictEqual(st.REC_NAME, 'AUFNAHME');
+  assert.strictEqual(st.REC_NAME, '');
   assert.ok(/^00:00:0\d$/.test(st.REC_DUR), 'duration ' + st.REC_DUR);
   console.log('OK  CMD 1 -> recording: ' + JSON.stringify(st));
 
@@ -129,7 +130,7 @@ function lastStatus() { for (var i = sent.length - 1; i >= 0; i--) if ('CONN' in
   st = lastStatus();
   assert.strictEqual(st.REC_STATE, 1);
   assert.strictEqual(st.STREAM_STATE, 2);
-  assert.strictEqual(st.STREAM_NAME, 'LIVE');
+  assert.strictEqual(st.STREAM_NAME, '');
   console.log('OK  CMD 3 + CMD 2 -> stream live, rec idle');
 
   // 5. refresh
@@ -146,7 +147,7 @@ function lastStatus() { for (var i = sent.length - 1; i >= 0; i--) if ('CONN' in
   await wait(600);
   st = lastStatus();
   assert.strictEqual(st.CONN, 2, 'expected OFFLINE got ' + JSON.stringify(st));
-  assert.ok(/nicht erreichbar/.test(st.MESSAGE));
+  assert.ok(/not reachable/.test(st.MESSAGE), st.MESSAGE);
   console.log('OK  unreachable -> OFFLINE: ' + st.MESSAGE);
 
   // 7. wrong password -> AUTH (only meaningful when simulator started with --password)

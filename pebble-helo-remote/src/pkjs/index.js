@@ -18,9 +18,10 @@
  *        3 Failed (idle), 4 Failed (while active), 5 Shutdown
  */
 var Clay = require('pebble-clay');
-var clayConfig = require('./config');
+var buildConfig = require('./config');
 var customClay = require('./custom-clay');
-var clay = new Clay(clayConfig, customClay, { autoHandleEvents: false });
+var i18n = require('./i18n');
+var clay = new Clay(buildConfig('en'), customClay, { autoHandleEvents: false });
 
 /* ---- Protocol constants (must match src/c/main.c) ---------------------- */
 var CMD = { REFRESH: 0, REC_START: 1, REC_STOP: 2, STREAM_START: 3, STREAM_STOP: 4 };
@@ -37,8 +38,9 @@ var PARAM = {
   SYS_NAME:      'eParamID_SysName'
 };
 
-var REC_STATE_NAMES    = { 0: 'Init', 1: 'Bereit', 2: 'AUFNAHME', 3: 'Fehler', 4: 'Fehler', 5: 'Aus' };
-var STREAM_STATE_NAMES = { 0: 'Init', 1: 'Bereit', 2: 'LIVE',     3: 'Fehler', 4: 'Fehler', 5: 'Aus' };
+/* States 0..5 are translated on the watch; the phone only forwards names of
+ * enum values it does not know (see stateName). */
+var KNOWN_STATES = { 0: true, 1: true, 2: true, 3: true, 4: true, 5: true };
 
 var SETTINGS_KEY = 'helo_remote_settings';
 var REQUEST_TIMEOUT_MS = 4000;
@@ -49,8 +51,35 @@ var settings = {
   port: 80,
   password: '',
   poll: 3,
-  vibrate: true
+  vibrate: true,
+  lang: 0            // 0 = automatic, 1..n = index into i18n.langs + 1
 };
+
+/* ---- Language ----------------------------------------------------------- */
+function langFromTag(tag) {
+  var code = null;
+  if (tag) {
+    i18n.langs.forEach(function (c) { if (!code && new RegExp('^' + c, 'i').test(String(tag))) code = c; });
+  }
+  return code;
+}
+
+/* Resolved language code: fixed setting, else the watch's language, else the phone's, else English. */
+function currentLang() {
+  if (settings.lang >= 1 && settings.lang <= i18n.langs.length) return i18n.langs[settings.lang - 1];
+  var code = null;
+  try {
+    var info = Pebble.getActiveWatchInfo && Pebble.getActiveWatchInfo();
+    code = langFromTag(info && info.language);
+  } catch (e) { /* older runtimes */ }
+  if (!code && typeof navigator !== 'undefined') code = langFromTag(navigator.language);
+  return code || 'en';
+}
+
+function T() { return i18n.phone[currentLang()]; }
+
+/* Language index sent to the watch so both sides show the same language. */
+function langIndex() { return i18n.langs.indexOf(currentLang()) + 1; }
 
 function loadSettings() {
   try {
@@ -83,6 +112,8 @@ function sanitizeSettings() {
   settings.poll = (poll >= 1 && poll <= 60) ? poll : 3;
   settings.password = String(settings.password || '');
   settings.vibrate = !!settings.vibrate;
+  var lang = parseInt(settings.lang, 10);
+  settings.lang = (lang >= 0 && lang <= i18n.langs.length) ? lang : 0;
 }
 
 function clayValue(v) {
@@ -97,6 +128,7 @@ function applyClaySettings(dict) {
   if ('HELO_PASSWORD' in dict) settings.password = clayValue(dict.HELO_PASSWORD);
   if ('POLL_INTERVAL' in dict) settings.poll = clayValue(dict.POLL_INTERVAL);
   if ('VIBRATE' in dict)       settings.vibrate = clayValue(dict.VIBRATE);
+  if ('LANGUAGE' in dict)      settings.lang = clayValue(dict.LANGUAGE);
   sanitizeSettings();
   saveSettings();
 }
@@ -126,7 +158,7 @@ function pumpQueue() {
 }
 
 function sendStatus(conn, extra) {
-  var dict = { CONN: conn, VIBRATE: settings.vibrate ? 1 : 0 };
+  var dict = { CONN: conn, VIBRATE: settings.vibrate ? 1 : 0, LANGUAGE: langIndex() };
   if (extra) {
     for (var k in extra) {
       if (extra.hasOwnProperty(k)) dict[k] = extra[k];
@@ -235,9 +267,9 @@ function toInt(v, fallback) {
   return isNaN(n) ? fallback : n;
 }
 
-function stateName(json, names) {
+function stateName(json) {
   var n = toInt(json.value, -1);
-  if (names[n]) return names[n];
+  if (KNOWN_STATES[n]) return '';                       // watch translates these itself
   var vn = String(json.value_name || '');
   return vn.replace(/^e(RRS|RSS|RS)/, '') || ('?' + n);
 }
@@ -312,11 +344,11 @@ function pollOnce(reason) {
   var tasks = [
     essential(PARAM.REC_STATE, function (j) {
       status.REC_STATE = toInt(j.value, -1);
-      status.REC_NAME = stateName(j, REC_STATE_NAMES);
+      status.REC_NAME = stateName(j);
     }),
     essential(PARAM.STREAM_STATE, function (j) {
       status.STREAM_STATE = toInt(j.value, -1);
-      status.STREAM_NAME = stateName(j, STREAM_STATE_NAMES);
+      status.STREAM_NAME = stateName(j);
     }),
     optional(PARAM.REC_DURATION, function (j) { status.REC_DUR = formatDuration(j.value); }),
     optional(PARAM.STREAM_DURATION, function (j) { status.STREAM_DUR = formatDuration(j.value); }),
@@ -334,9 +366,10 @@ function pollOnce(reason) {
     if (essentialError) {
       consecutiveErrors++;
       var conn = authError ? CONN.AUTH : CONN.OFFLINE;
-      var msg = authError ? 'HELO: Passwort pruefen'
-              : (essentialError.message === 'timeout' ? 'HELO: Timeout ' + settings.host
-              : 'HELO nicht erreichbar: ' + settings.host);
+      var t = T();
+      var msg = authError ? t.msg_check_password
+              : (essentialError.message === 'timeout' ? t.msg_timeout + settings.host
+              : t.msg_unreachable + settings.host);
       console.log('poll failed (' + reason + '): ' + essentialError.message);
       sendStatus(conn, { MESSAGE: msg.substr(0, 40) });
       return;
@@ -384,10 +417,10 @@ function runCommand(cmd) {
     if (err) {
       var auth = err.message === 'auth';
       sendStatus(auth ? CONN.AUTH : CONN.OFFLINE,
-        { MESSAGE: auth ? 'HELO: Passwort pruefen' : 'Befehl fehlgeschlagen' });
+        { MESSAGE: auth ? T().msg_check_password : T().msg_cmd_failed });
       return;
     }
-    sendMessage('Befehl gesendet');
+    sendMessage(T().msg_cmd_sent);
     // The HELO needs a moment to change state; poll twice to catch it.
     setTimeout(function () { pollOnce('after-cmd-1'); }, 700);
     setTimeout(function () { pollOnce('after-cmd-2'); }, 2500);
@@ -397,7 +430,7 @@ function runCommand(cmd) {
 /* ---- Pebble events ------------------------------------------------------ */
 Pebble.addEventListener('ready', function () {
   loadSettings();
-  console.log('HELO Remote ready, host=' + (settings.host || '(none)') + ' poll=' + settings.poll + 's');
+  console.log('HELO Remote ready, host=' + (settings.host || '(none)') + ' poll=' + settings.poll + 's lang=' + currentLang());
   schedulePolling();
 });
 
@@ -409,6 +442,7 @@ Pebble.addEventListener('appmessage', function (e) {
 });
 
 Pebble.addEventListener('showConfiguration', function () {
+  clay.config = buildConfig(currentLang());   // page in the current language
   Pebble.openURL(clay.generateUrl());
 });
 

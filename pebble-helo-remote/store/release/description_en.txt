@@ -9,6 +9,7 @@ Features
 - Stopping needs a second press within 4 seconds, so nothing stops by accident
 - Short vibration on start, double on stop, long on an error state (can be switched off)
 - Settings in the Pebble phone app: HELO address, HTTP port, password (only if user authentication is enabled on the HELO), polling interval 1 to 15 s
+- Seven languages (EN, DE, FR, ES, IT, PT, NL), following the watch language automatically
 
 Controls
 - UP: start recording; while recording, press twice to stop
@@ -16,6 +17,6 @@ Controls
 - DOWN: start or stop streaming (same confirmation)
 - BACK: exit
 
-Requirements: the phone must reach the HELO over HTTP, i.e. same network, no HTTPS. Works with HELO and HELO Plus. Runs on Pebble Time 2, Pebble Time and Pebble 2; the interface is in German.
+Requirements: the phone must reach the HELO over HTTP, i.e. same network, no HTTPS. Works with HELO and HELO Plus. Runs on Pebble Time 2, Pebble Time and Pebble 2.
 
 The app is free and has no ads. If you enjoy it, a coffee is much appreciated: https://buymeacoffee.com/SIDEffects
