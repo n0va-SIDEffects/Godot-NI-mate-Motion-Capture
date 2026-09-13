@@ -177,6 +177,85 @@ int main(void) {
     check_eq(count, 100, "the clock survives a timestamp wrap");
   }
 
+  // A measured interval is only believed when it agrees with the averaged rate. The numbers are
+  // taken from a recording of the watch: at a displayed 105 bpm, one interval per heartbeat is
+  // about 571 ms, and the sensor started reporting half of that, which doubled the pulse.
+  {
+    const uint32_t rate = 571;   // 105 bpm
+    check(beat_clock_interval_plausible(600, rate, 25), "a normal interval is believed", NULL);
+    check(beat_clock_interval_plausible(540, rate, 25), "beat-to-beat variation is believed", NULL);
+    check(!beat_clock_interval_plausible(296, rate, 25), "a halved interval is rejected", NULL);
+    check(!beat_clock_interval_plausible(1142, rate, 25), "a doubled interval is rejected", NULL);
+    check(!beat_clock_interval_plausible(406, rate, 25), "the 406 ms outlier is rejected", NULL);
+    check(beat_clock_interval_plausible(296, 0, 25), "without a rate every interval is believed",
+          NULL);
+  }
+
+  // End to end, replaying what the watch did on the wrist: the rate held at 105 bpm while the
+  // sensor first reported one interval per heartbeat and then, from four seconds in, half of it.
+  // Following those readings doubled the pulse; the beat must stay with the displayed rate.
+  {
+    const uint32_t rate_ms = 60000 / 105;
+    const uint32_t measured[] = {600, 623, 603, 601, 603, 576,   // one per heartbeat
+                                 406, 295, 304, 268, 358, 451,   // the sensor misreading
+                                 290, 300, 285, 295, 310, 288};
+    const uint32_t measured_count = sizeof(measured) / sizeof(measured[0]);
+
+    BeatClock clock;
+    const uint32_t start = 1000000;
+    beat_clock_init(&clock, start, PX_MS, CATCHUP_PX, AUDIBLE_MS);
+    uint32_t believed_ms = 0, believed_at = 0, next_reading = start, index = 0;
+    uint32_t recent[3] = {0, 0, 0};
+    unsigned have = 0;
+    int beats = 0;
+    long shortest = 100000, previous_beat = -1;
+
+    for (uint32_t now = start; now - start <= 18000; now += 33) {
+      // The watch delivers a measured interval about once a second.
+      if (index < measured_count && (int32_t)(now - next_reading) >= 0) {
+        const uint32_t reading = measured[index++];
+        if (beat_clock_interval_plausible(reading, rate_ms, 25)) {
+          recent[2] = recent[1];
+          recent[1] = recent[0];
+          recent[0] = reading;
+          if (have < 3) {
+            have++;
+          }
+          believed_ms = (have == 3) ? beat_clock_median3(recent[0], recent[1], recent[2]) : reading;
+          believed_at = now;
+        }
+        next_reading += 1000;
+      }
+      uint32_t interval = 0;
+      beat_clock_select(believed_ms, now - believed_at, 5000, rate_ms, &interval);
+      beat_clock_set_interval(&clock, interval, now);
+
+      uint32_t steps = beat_clock_begin(&clock, now);
+      for (uint32_t i = 0; i < steps; i++) {
+        if (beat_clock_step(&clock, NULL)) {
+          beats++;
+          const long at = (long)(clock.last_px_ms - start);
+          if (previous_beat >= 0 && at - previous_beat < shortest) {
+            shortest = at - previous_beat;
+          }
+          previous_beat = at;
+        }
+      }
+    }
+    char detail[128];
+    snprintf(detail, sizeof(detail), "%d beats in 18 s, %.0f bpm, closest pair %ld ms",
+             beats, beats * 60000.0 / 18000.0, shortest);
+    check(beats >= 29 && beats <= 32 && shortest >= 540, "misread intervals cannot rush the pulse",
+          detail);
+  }
+
+  // The middle of three readings, so a single odd one cannot set the tempo.
+  {
+    check_eq(beat_clock_median3(600, 451, 580), 580, "an outlier is outvoted");
+    check_eq(beat_clock_median3(451, 600, 580), 580, "the order does not matter");
+    check_eq(beat_clock_median3(590, 600, 610), 600, "three similar readings keep the middle");
+  }
+
   printf("\n%s\n", s_failures ? "FAILURES" : "all checks passed");
   return s_failures ? 1 : 0;
 }

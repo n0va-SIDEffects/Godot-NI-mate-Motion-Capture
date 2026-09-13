@@ -53,3 +53,37 @@ bool beat_clock_step(BeatClock *clock, bool *audible) {
   }
   return true;
 }
+
+bool beat_clock_interval_plausible(uint32_t interval_ms, uint32_t reference_ms,
+                                   uint32_t tolerance_pct) {
+  if (reference_ms == 0 || tolerance_pct >= 100) {
+    return true;
+  }
+  const uint32_t low = reference_ms * (100 - tolerance_pct) / 100;
+  const uint32_t high = reference_ms * (100 + tolerance_pct) / 100;
+  return interval_ms >= low && interval_ms <= high;
+}
+
+uint32_t beat_clock_median3(uint32_t a, uint32_t b, uint32_t c) {
+  if (a > b) { const uint32_t t = a; a = b; b = t; }
+  if (b > c) { b = c; }
+  return a > b ? a : b;
+}
+
+BeatSource beat_clock_select(uint32_t measured_ms, uint32_t measured_age_ms,
+                             uint32_t measured_timeout_ms, uint32_t rate_ms,
+                             uint32_t *interval_ms) {
+  BeatSource source = BeatSourceNone;
+  uint32_t interval = 0;
+  if (measured_ms > 0 && measured_age_ms <= measured_timeout_ms) {
+    source = BeatSourceMeasured;
+    interval = measured_ms;
+  } else if (rate_ms > 0) {
+    source = BeatSourceRate;
+    interval = rate_ms;
+  }
+  if (interval_ms) {
+    *interval_ms = interval;
+  }
+  return source;
+}

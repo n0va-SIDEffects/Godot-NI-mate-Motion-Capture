@@ -41,6 +41,9 @@
 #define BPM_MAX            220
 #define PPI_MIN_MS         273    // 220 bpm
 #define PPI_MAX_MS         2000   // 30 bpm
+// How far a measured interval may sit from the averaged rate before it is treated as a misread.
+// Beat-to-beat variation stays well inside this; a halved or doubled interval does not.
+#define PPI_TOLERANCE_PCT  25
 // Measured intervals must keep arriving; otherwise fall back to the averaged rate.
 #define LIVE_TIMEOUT_MS    5000
 
@@ -122,7 +125,10 @@ static int s_demo_dir = 1;
 static AppTimer *s_frame_timer;
 static AppTimer *s_poll_timer;
 static BeatClock s_clock;                  // places the beats on the wall clock
-static uint32_t s_last_ppi_ms;             // wall clock of the last measured interval
+static uint32_t s_ppi_ms;                  // measured interval now driving the beats, 0 if none
+static uint32_t s_last_ppi_ms;             // wall clock of the last believed reading
+static uint32_t s_ppi_recent[3];           // the last believed readings, newest first
+static uint8_t s_ppi_have;                 // how many of them are filled
 
 static uint32_t now_ms(void) {
   time_t seconds;
@@ -212,6 +218,26 @@ static void on_frame(void *context) {
 
 // ---------- Heart rate source ----------
 
+//! The interval the averaged rate implies, 0 while no rate is known.
+static uint32_t rate_interval_ms(void) {
+  return s_bpm > 0 ? 60000u / (uint32_t)s_bpm : 0;
+}
+
+//! Pick what drives the beats: a measured interval while a believed one keeps arriving, the
+//! averaged rate otherwise. Called whenever either source changes, and on every poll so the
+//! fallback takes over on its own once the measured intervals stop or stop being believed.
+static void update_beat_rate(void) {
+  uint32_t interval = 0;
+  const BeatSource source = beat_clock_select(s_ppi_ms, now_ms() - s_last_ppi_ms, LIVE_TIMEOUT_MS,
+                                              rate_interval_ms(), &interval);
+  const bool live = (source == BeatSourceMeasured);
+  if (live != s_live) {
+    s_live = live;
+    layer_mark_dirty(s_status_layer);
+  }
+  set_interval(interval);
+}
+
 static void set_bpm(int bpm) {
   if (bpm < BPM_MIN || bpm > BPM_MAX) {
     bpm = 0;
@@ -223,9 +249,7 @@ static void set_bpm(int bpm) {
     s_bpm = bpm;
     layer_mark_dirty(s_head_layer);
   }
-  if (!s_live || bpm == 0) {
-    set_interval(bpm > 0 ? 60000u / (uint32_t)bpm : 0);
-  }
+  update_beat_rate();
 }
 
 // A freshly measured peak-to-peak interval, delivered roughly once a second.
@@ -233,23 +257,37 @@ static void set_bpm(int bpm) {
 // Only the interval is used, never the moment the event arrives: the watch reports the length of
 // a heartbeat that has already passed, so its arrival time says nothing about where the next beat
 // falls. Beating on arrival as well as on the interval produced a second click a few hundred
-// milliseconds after each one. The clock loop keeps the phase and simply adopts the new interval,
+// milliseconds after each one. The clock loop keeps the phase and simply adopts the interval,
 // which gives an even rhythm at the measured rate.
+//
+// The interval is also checked against the averaged rate first. The sensor can lock onto the
+// second bump of the pulse wave and report half the true interval, which would double the pulse
+// while the displayed rate stays put.
 static void on_measured_interval(uint16_t ppi_ms) {
   if (ppi_ms < PPI_MIN_MS || ppi_ms > PPI_MAX_MS) {
     return;
   }
-  if (!s_live) {
-    s_live = true;
-    layer_mark_dirty(s_status_layer);
+  if (!beat_clock_interval_plausible(ppi_ms, rate_interval_ms(), PPI_TOLERANCE_PCT)) {
+    return;   // a misread: leave the beat to the averaged rate
   }
-  s_last_reading = time(NULL);
+  s_ppi_recent[2] = s_ppi_recent[1];
+  s_ppi_recent[1] = s_ppi_recent[0];
+  s_ppi_recent[0] = ppi_ms;
+  if (s_ppi_have < 3) {
+    s_ppi_have++;
+  }
+  // Take the middle of the last three readings once there are three. A lone reading that passed
+  // the check but still sits off the others is then outvoted instead of setting the tempo.
+  s_ppi_ms = (s_ppi_have == 3)
+      ? beat_clock_median3(s_ppi_recent[0], s_ppi_recent[1], s_ppi_recent[2])
+      : ppi_ms;
   s_last_ppi_ms = now_ms();
-  set_interval(ppi_ms);
+  s_last_reading = time(NULL);
   if (s_bpm == 0) {
     s_bpm = 60000 / ppi_ms;
     layer_mark_dirty(s_head_layer);
   }
+  update_beat_rate();
 }
 
 static void read_heart_rate(void) {
@@ -300,24 +338,17 @@ static void on_poll(void *context) {
   if (s_demo) {
     demo_step();
   } else {
-    // Measured intervals dried up (sensor lost contact, watch stopped reporting them): go back
-    // to driving the beats from the averaged rate rather than repeating the last interval.
-    if (s_live && now_ms() - s_last_ppi_ms > LIVE_TIMEOUT_MS) {
-      s_live = false;
-      layer_mark_dirty(s_status_layer);
-      set_interval(s_bpm > 0 ? 60000u / (uint32_t)s_bpm : 0);
-    }
     read_heart_rate();
     if (s_bpm > 0 && time(NULL) - s_last_reading > HR_STALE_SEC) {
-      if (s_live) {
-        s_live = false;
-        layer_mark_dirty(s_status_layer);
-      }
+      s_ppi_ms = 0;
+      s_ppi_have = 0;
       set_bpm(0);
       if (s_sensor == SensorReading) {
         s_sensor = SensorSearching;
         layer_mark_dirty(s_status_layer);
       }
+    } else {
+      update_beat_rate();   // lets the measured interval time out on its own
     }
   }
   s_poll_timer = app_timer_register(HR_POLL_MS, on_poll, NULL);
@@ -451,7 +482,8 @@ static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 
 static void down_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   s_demo = !s_demo;
-  s_live = false;
+  s_ppi_ms = 0;
+  s_ppi_have = 0;
   set_bpm(0);
   if (s_demo) {
     demo_step();

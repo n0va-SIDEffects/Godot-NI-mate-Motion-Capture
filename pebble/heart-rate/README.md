@@ -32,6 +32,19 @@ Genutzt wird dabei nur der Intervallwert, nie der Zeitpunkt, zu dem die Meldung 
 meldet die Länge eines bereits vergangenen Schlags, ihr Eintreffen sagt also nichts darüber aus,
 wann der nächste Schlag fällt. Die Phase gehört der Uhrzeit, die Meldung liefert nur das Tempo.
 
+Gemessene Intervalle sind nicht blind zu glauben. Der optische Sensor rastet zeitweise auf den
+zweiten Gipfel der Pulswelle ein und meldet dann die halbe Schlagdauer, was den Puls verdoppeln
+würde, während die angezeigte Zahl unverändert stehen bleibt. Zwei Stufen fangen das ab:
+
+1. Ein Intervall wird nur übernommen, wenn es höchstens 25 % vom Takt der gemittelten BPM-Anzeige
+   abweicht. Natürliche Schwankung von Schlag zu Schlag liegt deutlich darunter, ein halbiertes
+   oder verdoppeltes Intervall deutlich darüber.
+2. Von den letzten drei übernommenen Werten gilt der mittlere. Ein einzelner Ausreißer, der die
+   erste Stufe knapp passiert, wird so überstimmt statt das Tempo zu setzen.
+
+Kommen 5 Sekunden lang keine brauchbaren Intervalle mehr, übernimmt die BPM-Anzeige den Takt und
+die Statuszeile verliert das **Live**.
+
 Kurve und Schläge hängen beide an der Uhrzeit, nicht an Timer-Callbacks: Jeder Schlag klingt in
 demselben Schritt, der seinen Ausschlag zeichnet. Ein verzögertes Bild kann den Puls dadurch weder
 dehnen noch Schläge verschlucken, und der Abstand auf dem Display entspricht exakt dem gemessenen
@@ -117,7 +130,7 @@ im Emulator: `pebble emu-button --emulator diorite push down`, kurz warten, `...
 | Datei | Inhalt |
 | --- | --- |
 | `src/c/main.c` | Anzeige, Sensor, Bedienung |
-| `src/c/beat_clock.c` | legt die Schläge auf die Uhrzeit, ohne Pebble-Abhängigkeiten |
+| `src/c/beat_clock.c` | Takt: legt die Schläge auf die Uhrzeit und prüft die Messwerte, ohne Pebble-Abhängigkeiten |
 | `src/c/beep_sample.h` | erzeugtes PCM-Sample des Pieps, nicht von Hand bearbeiten |
 | `tools/make_beep_sample.py` | erzeugt dieses Sample (braucht nur numpy) |
 | `tools/test_beat_clock.c` | Test der Taktlogik, läuft auf dem Rechner |

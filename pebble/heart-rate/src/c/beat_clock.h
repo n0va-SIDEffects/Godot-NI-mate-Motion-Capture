@@ -44,3 +44,31 @@ uint32_t beat_clock_begin(BeatClock *clock, uint32_t now_ms);
 //! Take one step. Returns true if a beat starts on this pixel, and then sets *audible to false
 //! for a beat the caller is only catching up on, which should be drawn but not sounded.
 bool beat_clock_step(BeatClock *clock, bool *audible);
+
+//! Does a freshly measured interval agree with a reference interval, give or take a percentage?
+//!
+//! An optical sensor can lock onto the wrong peak of the pulse wave and report half the true
+//! interval, which would double the pulse. Measuring it against the averaged rate, which is
+//! smoothed and does not make that mistake, rejects such a reading. A reference of 0 means there
+//! is nothing to compare against yet, and the interval is accepted.
+bool beat_clock_interval_plausible(uint32_t interval_ms, uint32_t reference_ms,
+                                   uint32_t tolerance_pct);
+
+//! Middle of three values. Used on consecutive measured intervals so that a single reading which
+//! passed the plausibility check but still sits well off the others cannot pull the rhythm along.
+uint32_t beat_clock_median3(uint32_t a, uint32_t b, uint32_t c);
+
+typedef enum {
+  BeatSourceNone,      //! no usable rate at all
+  BeatSourceMeasured,  //! a measured interval, fresh enough to be trusted
+  BeatSourceRate,      //! the averaged rate, because no fresh measured interval is left
+} BeatSource;
+
+//! Choose what drives the beats and write the interval to *interval_ms.
+//!
+//! Measured intervals win while they keep arriving. They stop arriving whenever the sensor loses
+//! the pulse, and they are dropped by the caller whenever they disagree with the rate, so the
+//! averaged rate has to take over on its own after measured_timeout_ms.
+BeatSource beat_clock_select(uint32_t measured_ms, uint32_t measured_age_ms,
+                             uint32_t measured_timeout_ms, uint32_t rate_ms,
+                             uint32_t *interval_ms);
