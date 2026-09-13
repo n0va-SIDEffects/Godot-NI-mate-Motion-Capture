@@ -105,6 +105,7 @@ function install(opts) {
         if (r === 'error') { return self.onerror && self.onerror(); }
         if (r === 'timeout') { return self.ontimeout && self.ontimeout(); }
         self.status = r[0];
+        self.getResponseHeader = function (k) { var h = r[2] || {}; return h[k] !== undefined ? String(h[k]) : null; };
         self.responseText = r[1] === undefined ? '' : (typeof r[1] === 'string' ? r[1] : JSON.stringify(r[1]));
         if (self.onload) { self.onload(); }
       }, 0);

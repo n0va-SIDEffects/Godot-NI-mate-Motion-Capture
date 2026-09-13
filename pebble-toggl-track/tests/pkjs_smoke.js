@@ -28,8 +28,10 @@ var ENTRIES = [
   { id: 5, description: 'Video-Setup', project_id: 11, start: today.toISOString(), stop: new Date(today.getTime() + 1500000).toISOString(), duration: 1500, workspace_id: 77 }
 ];
 
+var quotaGone = false;
 function fakeToggl(method, url, body) {
   var p = url.replace('https://api.track.toggl.com/api/v9', '');
+  if (quotaGone) { return [402, {}, { 'X-Toggl-Quota-Remaining': '0', 'X-Toggl-Quota-Resets-In': '1500' }]; }
   if (method === 'GET' && p === '/me') { return [200, { default_workspace_id: 77 }]; }
   if (method === 'GET' && p === '/me/projects') { return [200, PROJECTS]; }
   if (method === 'GET' && p === '/me/clients') { return [200, CLIENTS]; }
@@ -205,9 +207,25 @@ settle(function () {
                   assert.strictEqual(last(10).RUNNING, 0, 'poll picked up the external stop');
                   var diag = JSON.parse(rt.storage.toggl_diag);
                   assert.ok(/project_id=11/.test(diag.lastStartReply), 'diagnostics recorded: ' + diag.lastStartReply);
-                  app.stopPolling();
-                  rt.cleanup();
-                  console.log('pkjs smoke test: OK');
+
+                  // 8. Hourly quota used up: Toggl answers 402 -> pause until the window resets.
+                  quotaGone = true; rt.sent = []; rt.requests = [];
+                  rt.fromWatch({ CMD: 1 });
+                  settle(function () {
+                    assert.strictEqual(togglReqs().length, 1, 'the request that hit the 402');
+                    assert.ok(/Toggl-Limit erreicht, 2[56] Min Pause/.test(last(13).MESSAGE), 'pause message with minutes: ' + last(13).MESSAGE);
+                    assert.ok(/paused until/.test(JSON.parse(rt.storage.toggl_diag).rateLimit), 'pause recorded in diagnostics');
+                    rt.sent = []; rt.requests = [];
+                    rt.fromWatch({ CMD: 2, PROJECT_ID: 11, DESCRIPTION: 'Probe' });
+                    app.pollStatus();
+                    settle(function () {
+                      assert.strictEqual(togglReqs().length, 0, 'no requests while paused');
+                      assert.ok(last(14) && /2[56] Min/.test(last(14).MESSAGE), 'start while paused explains the pause: ' + JSON.stringify(last(14)));
+                      app.stopPolling();
+                      rt.cleanup();
+                      console.log('pkjs smoke test: OK');
+                    });
+                  });
                 });
               });
             });

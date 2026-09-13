@@ -10,6 +10,20 @@ var BASE_URL = 'https://api.track.toggl.com/api/v9';
 var CREATED_WITH = 'Pebble Toggl Track';
 var TIMEOUT_MS = 15000;
 
+// Toggl's hourly quota (30 requests/hour per user on the free plan). The
+// headers come with every reply; a 402 (not 429!) means the quota is used up.
+var quota = { remaining: null, resetAt: 0, blockedUntil: 0 };
+function quotaInfo() { return quota; }
+
+function readQuotaHeaders(xhr) {
+  try {
+    var rem = xhr.getResponseHeader('X-Toggl-Quota-Remaining');
+    var rst = xhr.getResponseHeader('X-Toggl-Quota-Resets-In');
+    if (rem !== null && rem !== undefined && rem !== '') { quota.remaining = parseInt(rem, 10); }
+    if (rst !== null && rst !== undefined && rst !== '') { quota.resetAt = Date.now() + parseInt(rst, 10) * 1000; }
+  } catch (e) { /* header access not supported */ }
+}
+
 var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 // btoa() is not guaranteed in every PebbleKit JS runtime.
@@ -44,7 +58,7 @@ function errorForStatus(status) {
   switch (status) {
     case 401:
     case 403: return t('errToken');
-    case 402: return t('errPlan');
+    case 402: return t('errQuota');
     case 404: return t('errNotFound');
     case 429: return t('errRate');
     default: return t('errHttp', status);
@@ -83,6 +97,7 @@ Toggl.prototype.request = function (method, path, body, callback) {
   try { xhr.timeout = TIMEOUT_MS; } catch (e) { /* not supported everywhere */ }
 
   xhr.onload = function () {
+    readQuotaHeaders(xhr);
     if (xhr.status >= 200 && xhr.status < 300) {
       var data = null;
       if (xhr.responseText && xhr.responseText.length) {
@@ -95,6 +110,11 @@ Toggl.prototype.request = function (method, path, body, callback) {
       finish(null, data);
     } else {
       console.log('Toggl ' + method + ' ' + path + ' -> HTTP ' + xhr.status + ' ' + xhr.responseText);
+      if (xhr.status === 402 || xhr.status === 429) {
+        var wait = quota.resetAt > Date.now() ? quota.resetAt - Date.now() : 5 * 60000;
+        quota.blockedUntil = Date.now() + Math.min(wait + 5000, 3600000);
+        quota.remaining = 0;
+      }
       finish(errorForStatus(xhr.status));
     }
   };
@@ -281,3 +301,4 @@ module.exports = Toggl;
 module.exports.base64 = base64;
 module.exports.createClient = createClient;
 module.exports.normaliseEntry = normaliseEntry;
+module.exports.quota = quotaInfo;

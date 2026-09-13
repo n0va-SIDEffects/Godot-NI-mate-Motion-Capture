@@ -1,5 +1,12 @@
 # Release notes (English, for the store's "Release Notes" field)
 
+## 1.3
+
+- Toggl's hourly request quota (30 requests per hour on the free plan) is now handled properly: a "402" reply used to show up as "not in your plan", now the app pauses exactly until the quota resets and tells you how long
+- Polling while the app is open is slower (every 3 minutes) and stops early to keep a few requests for start/stop
+- The settings page's diagnostics show the remaining quota
+- Timeline pin errors back off for 15 minutes instead of retrying on every update
+
 ## 1.2
 
 - Timeline pin for the running timer, with a "Stop timer" action right on the pin (can be turned off in the settings)

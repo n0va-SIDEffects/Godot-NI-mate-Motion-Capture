@@ -45,10 +45,12 @@ var REMIND_RUNNING = 1;     // "still running?" after N hours / late in the even
 var REMIND_NO_TIMER = 2;    // "nothing running" on weekday mornings
 
 var DIAG_KEY = 'toggl_diag';
-var POLL_MS = 60000;           // how often the running entry is re-checked while the app is open
+var POLL_MS = 180000;          // running entry re-checked while the app is open (free plan: 30 requests/hour)
+var POLL_RESERVE = 6;          // quota kept back for start/stop instead of polling
+var PIN_RETRY_MS = 15 * 60000; // after a timeline API error
 var PROJECTS_TTL_MS = 6 * 3600000;   // projects/clients rarely change
 var ENTRIES_TTL_MS = 5 * 60000;      // recent entries: local edits are applied without a refetch
-var RATE_LIMIT_PAUSE_MS = 5 * 60000; // after a 429 from Toggl
+var RATE_LIMIT_PAUSE_MS = 5 * 60000; // after a 402/429 without a reset header
 var rateLimitedUntil = 0;
 
 var settings = config.normalise(loadJson(SETTINGS_KEY));
@@ -232,25 +234,32 @@ function statusFromEntry(entry, entries) {
 }
 
 // Keep the timeline pin in step with the running entry (best effort).
-var pinState = loadJson('toggl_pin') || { present: false, key: '' };
+var pinState = loadJson('toggl_pin') || { present: false, key: '', retryAt: 0 };
+
+function pinFailed(err) {
+  note('timeline', err + ' (' + new Date().toISOString() + ')');
+  pinState.retryAt = Date.now() + PIN_RETRY_MS;
+  saveJson('toggl_pin', pinState);
+}
 
 function syncPin(status) {
   if (!settings.timelinePins) {
-    if (pinState.present) { timeline.remove(function () {}); pinState = { present: false, key: '' }; saveJson('toggl_pin', pinState); }
+    if (pinState.present) { timeline.remove(function () {}); pinState = { present: false, key: '', retryAt: 0 }; saveJson('toggl_pin', pinState); }
     return;
   }
+  if (pinState.retryAt && Date.now() < pinState.retryAt) { return; }   // timeline service unhappy, try again later
   if (status.running) {
     var key = status.entryId + '|' + status.start + '|' + status.description + '|' + status.projectName;
     if (pinState.present && pinState.key === key) { return; }
     timeline.put(status, t, function (err) {
-      if (err) { note('timeline', err); return; }
-      pinState = { present: true, key: key };
+      if (err) { return pinFailed(err); }
+      pinState = { present: true, key: key, retryAt: 0 };
       saveJson('toggl_pin', pinState);
     });
   } else if (pinState.present) {
     timeline.remove(function (err) {
-      if (err) { note('timeline', err); }
-      pinState = { present: false, key: '' };
+      if (err) { pinFailed(err); }
+      pinState = { present: false, key: '', retryAt: pinState.retryAt };
       saveJson('toggl_pin', pinState);
     });
   }
@@ -432,8 +441,32 @@ function age(ts) { return ts ? Date.now() - ts : Infinity; }
 
 function rateLimited() { return Date.now() < rateLimitedUntil; }
 
+function pauseMinutes() {
+  return Math.max(1, Math.ceil((rateLimitedUntil - Date.now()) / 60000));
+}
+
+// Toggl answers 402 (or 429) once the hourly quota is used up; the reply says
+// when the window resets, so pause exactly that long and tell the watch.
+function quotaExhausted() {
+  var q = toggl.quota();
+  if (q.blockedUntil > Date.now()) {
+    rateLimitedUntil = q.blockedUntil;
+    note('rateLimit', 'paused until ' + new Date(rateLimitedUntil).toISOString());
+    return true;
+  }
+  return false;
+}
+
+function noteQuota() {
+  var q = toggl.quota();
+  if (q.remaining !== null) {
+    note('quota', q.remaining + ' requests left, window resets ' + new Date(q.resetAt).toISOString());
+  }
+}
+
 function onError(err) {
-  if (/429|zu viele|too many|trop de|troppe|demasiadas/i.test(String(err))) {
+  if (quotaExhausted()) { return sendError(t('rateLimited', pauseMinutes())); }
+  if (/zu viele|too many|trop de|troppe|demasiadas/i.test(String(err))) {
     rateLimitedUntil = Date.now() + RATE_LIMIT_PAUSE_MS;
     note('rateLimit', 'paused until ' + new Date(rateLimitedUntil).toISOString());
   }
@@ -442,6 +475,7 @@ function onError(err) {
 
 // Send status + lists computed from the cache (no network).
 function publishFromCache(entry) {
+  noteQuota();
   var status = statusFromEntry(entry, cache.entries);
   sendStatus(status);
   var recent = buildRecent(cache.entries || []);
@@ -466,7 +500,7 @@ function refreshAll(showProgress, force) {
   if (isBusy()) { return; }
   if (rateLimited()) {
     if (cache.status) { sendStatus(cache.status); }
-    return sendInfo(t('rateLimited'));
+    return sendInfo(t('rateLimited', pauseMinutes()));
   }
   setBusy(true);
   if (showProgress) { sendInfo(t('refreshing')); }
@@ -554,7 +588,7 @@ function roundStopped(api, entry, callback) {
 function startTimer(projectId, description) {
   if (!requireToken()) { return; }
   if (isBusy()) { return defer(function () { startTimer(projectId, description); }); }
-  if (rateLimited()) { return sendInfo(t('rateLimited')); }
+  if (rateLimited()) { return sendInfo(t('rateLimited', pauseMinutes())); }
   setBusy(true);
   var api = client();
   workspaceFor(projectId, function (err, workspaceId) {
@@ -578,7 +612,7 @@ function startTimer(projectId, description) {
 function stopTimer() {
   if (!requireToken()) { return; }
   if (isBusy()) { return defer(stopTimer); }
-  if (rateLimited()) { return sendInfo(t('rateLimited')); }
+  if (rateLimited()) { return sendInfo(t('rateLimited', pauseMinutes())); }
   setBusy(true);
   stopRunning(client(), function (err, stopped) {
     setBusy(false);
@@ -609,9 +643,12 @@ function previousTimer() {
 // started on the phone or the web shows up on the watch within POLL_MS.
 function pollStatus() {
   if (!settings.token || isBusy() || rateLimited()) { return; }
+  var q = toggl.quota();
+  // Leave the last few requests of the hour for start/stop from the watch.
+  if (q.remaining !== null && q.remaining <= POLL_RESERVE && q.resetAt > Date.now()) { return; }
   var api = client();
   api.current(function (err, entry) {
-    if (err) { if (/429|too many|zu viele/i.test(String(err))) { rateLimitedUntil = Date.now() + RATE_LIMIT_PAUSE_MS; } return; }
+    if (err) { quotaExhausted(); return; }
     var status = statusFromEntry(entry, cache.entries);
     var old = cache.status || {};
     var changed = status.running !== old.running || status.entryId !== old.entryId ||

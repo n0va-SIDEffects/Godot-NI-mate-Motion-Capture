@@ -9,7 +9,7 @@ var TABLES = {
     savedSettings: 'Settings saved',
     refreshing: 'Refreshing…', pleaseWait: 'Please wait…', noPrevious: 'No previous entry',
     noWorkspace: 'No workspace found',
-    errToken: 'API token invalid', errPlan: 'Toggl: not in your plan', errNotFound: 'Toggl: not found',
+    errToken: 'API token invalid', errQuota: 'Toggl: hourly quota used up', errNotFound: 'Toggl: not found',
     errRate: 'Toggl: too many requests', errHttp: 'Toggl error (HTTP %s)', errJson: 'Toggl: invalid reply',
     errOffline: 'No internet connection', errTimeout: 'Toggl not responding',
     // settings page
@@ -29,7 +29,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Show the running timer as a pin on the timeline',
     timelineHint: 'The pin offers "Stop timer" right from the timeline.',
     pinRunning: 'Running', pinBody: 'Toggl timer running', pinStop: 'Stop timer', pinOpen: 'Open Toggl Timer',
-    rateLimited: 'Toggl limit reached, pausing 5 min',
+    rateLimited: 'Toggl quota used, pause %s min',
     coffee: '☕ Buy me a coffee'
   },
   de: {
@@ -37,7 +37,7 @@ var TABLES = {
     savedSettings: 'Einstellungen gespeichert',
     refreshing: 'Aktualisiere…', pleaseWait: 'Bitte warten…', noPrevious: 'Kein vorheriger Eintrag',
     noWorkspace: 'Kein Workspace gefunden',
-    errToken: 'API-Token ungültig', errPlan: 'Toggl: Funktion nicht im Plan', errNotFound: 'Toggl: nicht gefunden',
+    errToken: 'API-Token ungültig', errQuota: 'Toggl: Stundenlimit erreicht', errNotFound: 'Toggl: nicht gefunden',
     errRate: 'Toggl: zu viele Anfragen', errHttp: 'Toggl-Fehler (HTTP %s)', errJson: 'Toggl: ungültige Antwort',
     errOffline: 'Keine Internetverbindung', errTimeout: 'Toggl antwortet nicht',
     title: 'Toggl Track', tagline: 'Timer direkt von der Pebble starten und stoppen.',
@@ -56,7 +56,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Laufenden Timer als Pin auf der Timeline zeigen',
     timelineHint: 'Der Pin bietet "Timer stoppen" direkt aus der Timeline.',
     pinRunning: 'Läuft', pinBody: 'Toggl-Timer läuft', pinStop: 'Timer stoppen', pinOpen: 'Toggl Timer öffnen',
-    rateLimited: 'Toggl-Limit erreicht, 5 Min Pause',
+    rateLimited: 'Toggl-Limit erreicht, %s Min Pause',
     coffee: '☕ Buy me a coffee'
   },
   fr: {
@@ -64,7 +64,7 @@ var TABLES = {
     savedSettings: 'Réglages enregistrés',
     refreshing: 'Actualisation…', pleaseWait: 'Patientez…', noPrevious: 'Pas d’entrée précédente',
     noWorkspace: 'Aucun espace de travail',
-    errToken: 'Jeton API invalide', errPlan: 'Toggl : pas dans votre offre', errNotFound: 'Toggl : introuvable',
+    errToken: 'Jeton API invalide', errQuota: 'Toggl : quota horaire épuisé', errNotFound: 'Toggl : introuvable',
     errRate: 'Toggl : trop de requêtes', errHttp: 'Erreur Toggl (HTTP %s)', errJson: 'Toggl : réponse invalide',
     errOffline: 'Pas de connexion Internet', errTimeout: 'Toggl ne répond pas',
     title: 'Toggl Track', tagline: 'Démarrez et arrêtez vos minuteurs depuis la Pebble.',
@@ -83,7 +83,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Afficher le minuteur en cours comme pin sur la timeline',
     timelineHint: 'Le pin propose « Arrêter » directement depuis la timeline.',
     pinRunning: 'En cours', pinBody: 'Minuteur Toggl en cours', pinStop: 'Arrêter le minuteur', pinOpen: 'Ouvrir Toggl Timer',
-    rateLimited: 'Limite Toggl atteinte, pause 5 min',
+    rateLimited: 'Quota Toggl atteint, pause %s min',
     coffee: '☕ Buy me a coffee'
   },
   it: {
@@ -91,7 +91,7 @@ var TABLES = {
     savedSettings: 'Impostazioni salvate',
     refreshing: 'Aggiornamento…', pleaseWait: 'Attendere…', noPrevious: 'Nessuna voce precedente',
     noWorkspace: 'Nessun workspace trovato',
-    errToken: 'Token API non valido', errPlan: 'Toggl: non incluso nel piano', errNotFound: 'Toggl: non trovato',
+    errToken: 'Token API non valido', errQuota: 'Toggl: quota oraria esaurita', errNotFound: 'Toggl: non trovato',
     errRate: 'Toggl: troppe richieste', errHttp: 'Errore Toggl (HTTP %s)', errJson: 'Toggl: risposta non valida',
     errOffline: 'Nessuna connessione Internet', errTimeout: 'Toggl non risponde',
     title: 'Toggl Track', tagline: 'Avvia e ferma i timer direttamente dal Pebble.',
@@ -110,7 +110,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Mostra il timer attivo come pin sulla timeline',
     timelineHint: 'Il pin offre "Ferma timer" direttamente dalla timeline.',
     pinRunning: 'In corso', pinBody: 'Timer Toggl attivo', pinStop: 'Ferma timer', pinOpen: 'Apri Toggl Timer',
-    rateLimited: 'Limite Toggl raggiunto, pausa 5 min',
+    rateLimited: 'Limite Toggl, pausa %s min',
     coffee: '☕ Buy me a coffee'
   },
   es: {
@@ -118,7 +118,7 @@ var TABLES = {
     savedSettings: 'Ajustes guardados',
     refreshing: 'Actualizando…', pleaseWait: 'Espera…', noPrevious: 'No hay entrada anterior',
     noWorkspace: 'No se encontró workspace',
-    errToken: 'Token de API no válido', errPlan: 'Toggl: no incluido en tu plan', errNotFound: 'Toggl: no encontrado',
+    errToken: 'Token de API no válido', errQuota: 'Toggl: cuota por hora agotada', errNotFound: 'Toggl: no encontrado',
     errRate: 'Toggl: demasiadas solicitudes', errHttp: 'Error de Toggl (HTTP %s)', errJson: 'Toggl: respuesta no válida',
     errOffline: 'Sin conexión a Internet', errTimeout: 'Toggl no responde',
     title: 'Toggl Track', tagline: 'Inicia y detén temporizadores desde tu Pebble.',
@@ -137,7 +137,7 @@ var TABLES = {
     timeline: 'Timeline', timelinePin: 'Mostrar el temporizador activo como pin en la timeline',
     timelineHint: 'El pin ofrece "Parar" directamente desde la timeline.',
     pinRunning: 'Activo', pinBody: 'Temporizador Toggl activo', pinStop: 'Parar temporizador', pinOpen: 'Abrir Toggl Timer',
-    rateLimited: 'Límite de Toggl, pausa de 5 min',
+    rateLimited: 'Límite de Toggl, pausa %s min',
     coffee: '☕ Buy me a coffee'
   }
 };
