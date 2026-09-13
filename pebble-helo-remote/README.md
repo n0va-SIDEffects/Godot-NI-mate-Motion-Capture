@@ -221,7 +221,7 @@ Telefon → Uhr: `CONN` (0 unbekannt, 1 OK, 2 offline, 3 Auth-Fehler, 4 keine IP
   ohne „frei“, damit alles in die Breite passt. Die Stopp-Bestätigung „Stopp? Nochmal OBEN/UNTEN“
   wird dort noch mit „…“ gekürzt, auf emery ist sie vollständig lesbar.
 - **Übersetzungen** sind maschinell geprüft, aber nicht von Muttersprachlern gegengelesen.
-  Korrekturen gehören in `tools/i18n.py`.
+  Korrekturen gehören in `tools/i18n.py`. Der Store selbst ist einsprachig (Englisch).
 - `eParamID_SysName` ist aus der Ki-Pro-API übernommen; liefert der HELO ihn nicht, zeigt die
   Kopfzeile einfach die IP.
 - `value_name` der Zustände wird am HELO als Enum-Name geliefert (z. B. `eRRSRecording`). Die

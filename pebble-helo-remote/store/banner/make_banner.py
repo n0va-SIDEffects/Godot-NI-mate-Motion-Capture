@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Store-Banner 720x320 für HELO Remote (Deutsch und Englisch).
+"""Store-Banner 720x320 für HELO Remote (Englisch, der Store ist einsprachig).
 
 Aufruf: python3 make_banner.py
-Liest store/icon/icon_master_1024.png und screenshots_emery/04_aufnahme_stream.png.
+Liest store/icon/icon_master_1024.png und screenshots_emery/04_recording_streaming.png.
 Das SIDE effect's Logo (store/banner/logo.png) kommt 185 px breit unten links hinein:
 weißer Hintergrund wird transparent, Pulslinie/Schriftzug werden auf dem dunklen Grund
 aufgehellt, der Pac-Man samt schwarzem X bleibt unverändert.
@@ -20,9 +20,6 @@ FONT_B = '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'
 FONT_R = '/usr/share/fonts/truetype/freefont/FreeSans.ttf'
 
 TEXTS = {
-    'de': dict(sub='AJA HELO vom Handgelenk steuern',
-               l1='Aufnahme und Stream starten und stoppen, Laufzeit,',
-               l2='freier Speicher und Temperatur auf einen Blick.'),
     'en': dict(sub='Control your AJA HELO from your wrist',
                l1='Start and stop recording and streaming, see run time,',
                l2='free media and temperature at a glance.'),
@@ -75,7 +72,7 @@ def make(lang):
     d.ellipse([34, 210, 48, 224], fill=RED); d.text((56, 208), 'REC', font=f_line, fill=(230, 230, 230))
     d.rounded_rectangle([104, 210, 118, 224], radius=3, fill=BLUE); d.text((126, 208), 'STREAM', font=f_line, fill=(230, 230, 230))
     # Screenshot rechts, 5-px-Rahmen, vertikal zentriert
-    shot = Image.open(os.path.join(ROOT, 'store', 'screenshots_emery', '04_aufnahme_stream.png')).convert('RGB')
+    shot = Image.open(os.path.join(ROOT, 'store', 'screenshots_emery', '04_recording_streaming.png')).convert('RGB')
     shot = shot.resize((180, 205), Image.LANCZOS)
     fw, fh = shot.width + 10, shot.height + 10
     x, y = W - fw - 30, (H - fh) // 2

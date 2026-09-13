@@ -10,18 +10,16 @@ Der Ordner `release/` (Inhalt von `HELORemote_Store_Paket.zip`) enthält alles, 
 | `HELORemote-1.1.pbw` | Release-Datei (die App, alle drei Plattformen in einer Datei) |
 | `icon_80.png` | Icon (80 × 80, RGB ohne Alphakanal, so verlangt es das Portal) |
 | `icon_144.png`, `icon_48.png` | Large und Small Icon, falls das Portal zusätzlich danach fragt |
-| `banner_720x320_en.png` | Marketing Banner (Kopfbild der Listung), englischer Slogan |
-| `banner_720x320_de.png` | dieselbe Grafik mit deutschem Slogan (Reserve) |
+| `banner_720x320_en.png` | Marketing Banner (Kopfbild der Listung) |
 | `screenshots_emery/` | 5 Screenshots Pebble Time 2, 200 × 228 |
 | `screenshots_basalt/` | 5 Screenshots Pebble Time / Time Steel, 144 × 168 Farbe |
 | `screenshots_diorite/` | 5 Screenshots Pebble 2 / Core 2 Duo, 144 × 168 schwarz-weiß |
 | `description_en.txt` | Kurzbeschreibung (erste Zeile) und Beschreibung, Englisch |
-| `beschreibung_de.txt`, `description_fr/es/it/pt/nl.txt` | dieselben Texte in den sechs weiteren App-Sprachen (gekürzt) |
 | `RELEASE_NOTES.md` | Release Notes je Version in kurzer und einzeiliger Fassung |
 
-Der Store zeigt pro Plattform eine Beschreibung (Limit 1600 Zeichen). Englisch ist die sichere
-Wahl, weil der Store international ist; die App selbst folgt der Sprache der Uhr. Mehrere Texte
-zusammen sprengen das Limit, also eine Sprache wählen.
+Der Store zeigt pro Plattform genau eine Beschreibung (Limit 1600 Zeichen) und einen
+Screenshot-Satz, ohne Sprachvarianten. Die Listung ist deshalb nur englisch; die App selbst
+folgt der Sprache der Uhr.
 
 ## Update auf 1.1 (sieben Sprachen, Layout-Korrekturen)
 
@@ -93,7 +91,7 @@ Für Updates: `version` in `package.json` erhöhen (Format `Major.Minor`, z. B. 
 
 - UUID in `package.json` unverändert.
 - Gebaut mit dem regulären SDK 4.33.1, `pebble build` ohne Warnungen.
-- Beschreibung ≤ 1600 Zeichen (alle sieben Texte geprüft, EN 1387).
+- Beschreibung ≤ 1600 Zeichen (geprüft: 1387).
 - Der Spendenlink darf in der Beschreibung stehen; Werbung von Drittanbietern ist nicht enthalten.
 - **Auf der echten Uhr mit echtem HELO testen:** `pebble install --phone <IP>`, einmal Aufnahme
   und Stream starten und stoppen, Einstellungen inkl. Kaffee-Button durchgehen. Das ist der

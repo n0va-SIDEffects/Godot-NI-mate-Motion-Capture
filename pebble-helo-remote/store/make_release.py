@@ -3,7 +3,7 @@
 
 Aufruf aus dem Projektordner:  python3 store/make_release.py [--zip]
 Erwartet: build/*.pbw (pebble build), store/icon/icon_{80,144,48}.png,
-store/banner/banner_720x320_{en,de}.png, store/screenshots_<plattform>/,
+store/banner/banner_720x320_en.png, store/screenshots_<plattform>/,
 store/release/description_en.txt + beschreibung_de.txt, store/RELEASE_NOTES.md,
 store/VEROEFFENTLICHEN.md.
 """
@@ -23,7 +23,7 @@ for old in glob.glob(f'{rel}/*.pbw'):
     os.remove(old)
 shutil.copy(pbw[0], f'{rel}/{name}-{ver}.pbw')
 for src in ('store/icon/icon_80.png', 'store/icon/icon_144.png', 'store/icon/icon_48.png',
-            'store/banner/banner_720x320_en.png', 'store/banner/banner_720x320_de.png',
+            'store/banner/banner_720x320_en.png',
             'store/RELEASE_NOTES.md'):
     shutil.copy(src, rel) if os.path.exists(src) else print('fehlt:', src)
 for d in sorted(glob.glob('store/screenshots_*')):
