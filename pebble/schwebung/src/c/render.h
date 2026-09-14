@@ -41,5 +41,6 @@ void render_set_flower(const FlowerVis *vis);
 void render_set_hud(const char *line1, const char *line2, const char *line3);
 void render_panel_test_start(uint8_t variant);
 void render_panel_test_stop(void);
+void render_deinit(void);            // vor layer_destroy: Panel-Timer canceln, Layer-Zeiger loeschen
 const RenderStats *render_stats(void);
 const PanelStats *render_panel_stats(void);

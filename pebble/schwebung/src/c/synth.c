@@ -25,6 +25,7 @@ static Osc s_flower;
 static int32_t s_fork_chz = FORK_START_CHZ;
 static uint8_t s_flower_w;
 static bool s_octave;
+static bool s_force_gate;
 static Partial s_ping[3];
 static uint32_t s_lfsr = 0xACE1u;
 static int32_t s_crack_amp;   // 16.16
@@ -45,9 +46,11 @@ static inline int32_t prv_sin(uint32_t phase) {
 static inline void prv_env_step(Osc *o) {
   int32_t d = o->target - o->env;
   if (d > 0) {
-    o->env += d >> 6;        // Attack ~ 4 ms
+    o->env += (d >> 6) + 1;        // Attack ~ 4 ms, erreicht das Ziel garantiert
+    if (o->env > o->target) o->env = o->target;
   } else if (d < 0) {
-    o->env -= (-d) >> 9;     // Release ~ 32 ms
+    o->env -= ((-d) >> 9) + 1;     // Release ~ 32 ms, erreicht 0 garantiert
+    if (o->env < o->target) o->env = o->target;
   }
 }
 
@@ -69,12 +72,19 @@ void synth_init(void) {
 void synth_set_fork(int32_t chz, bool gate) {
   s_fork_chz = chz;
   s_fork.inc = prv_inc(s_octave ? chz * 2 : chz);
-  s_fork.target = gate ? ENV_ONE : 0;
+  s_fork.target = (gate || s_force_gate) ? ENV_ONE : 0;
 }
 
 void synth_set_flower(int32_t chz, uint8_t weight_pct) {
   s_flower.inc = prv_inc(chz);
   s_flower_w = weight_pct > 100 ? 100 : weight_pct;
+}
+
+void synth_set_force_gate(bool on) {
+  s_force_gate = on;
+  if (on) {
+    s_fork.target = ENV_ONE;
+  }
 }
 
 void synth_set_octave_jump(bool on) {
@@ -106,9 +116,9 @@ void synth_render(int16_t *out, uint32_t num_samples) {
     int32_t fl = prv_sin(s_flower.phase);
     s_flower.phase += s_flower.inc;
 
-    // Gabel und Blume je ~0,4 Vollaussteuerung
-    int32_t acc = (((fs * (s_fork.env >> 4)) >> 12) * 26) >> 6;
-    acc += (((fl * (s_flower.env >> 4)) >> 12) * 26) >> 6;
+    // Gabel und Blume je ~0,28 Vollaussteuerung; Summe plus Glasklang bleibt unter 32767
+    int32_t acc = (((fs * (s_fork.env >> 4)) >> 12) * 18) >> 6;
+    acc += (((fl * (s_flower.env >> 4)) >> 12) * 18) >> 6;
 
     // Glasklang
     for (int p = 0; p < 3; p++) {
@@ -116,8 +126,8 @@ void synth_render(int16_t *out, uint32_t num_samples) {
       if (pp->amp > 0) {
         int32_t v = prv_sin(pp->phase);
         pp->phase += pp->inc;
-        acc += (((v * (pp->amp >> 4)) >> 12) * 12) >> 6;
-        pp->amp -= pp->amp >> pp->decay_shift;
+        acc += (((v * (pp->amp >> 4)) >> 12) * 8) >> 6;
+        pp->amp -= (pp->amp >> pp->decay_shift) + 1;
         if (pp->amp < 64) {
           pp->amp = 0;
         }
@@ -133,9 +143,9 @@ void synth_render(int16_t *out, uint32_t num_samples) {
       }
       int32_t noise = bit ? 32767 : -32767;
       s_crack_lp += ((noise - s_crack_lp) * (s_crack_cut >> 8)) >> 8;
-      acc += (((s_crack_lp * (s_crack_amp >> 4)) >> 12) * 20) >> 6;
-      s_crack_amp -= s_crack_amp >> 12;
-      s_crack_cut -= s_crack_cut >> 13;
+      acc += (((s_crack_lp * (s_crack_amp >> 4)) >> 12) * 14) >> 6;
+      s_crack_amp -= (s_crack_amp >> 12) + 1;
+      s_crack_cut -= (s_crack_cut >> 13) + 1;
       if (s_crack_cut < 1300) {
         s_crack_cut = 1300;
       }

@@ -29,6 +29,7 @@ typedef struct {
 void game_init(void);
 void game_tick(uint32_t now_ms, uint32_t dt_ms);
 void game_respawn_flower(void);
+void game_set_active(bool active);   // false: nur Synth folgt Finger/Blume, keine Zustaende, keine Haptik
 const GameView *game_view(void);
 const char *game_state_name(void);
 int32_t game_midi_to_chz(int midi);

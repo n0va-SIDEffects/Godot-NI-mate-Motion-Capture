@@ -186,7 +186,7 @@ static void prv_draw_petal(uint8_t *fb, uint16_t stride, const Petal *pt, int cx
     if (xl > xr) continue;
     int32_t dx16 = 0;
     if (vib_amp16) {
-      uint32_t ang = (uint32_t)((int32_t)vib_phase + yy * 3000) & (TRIG_MAX_ANGLE - 1);
+      uint32_t ang = (vib_phase + (uint32_t)(yy * 3000)) & (TRIG_MAX_ANGLE - 1);
       dx16 = (vib_amp16 * sin_lookup((int32_t)ang)) / TRIG_MAX_RATIO;
     }
     int shift = dx16 >= 0 ? (dx16 >> 4) : -((-dx16) >> 4);
@@ -353,7 +353,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
       s_ps.active = false;
       s_ps.done = true;
       APP_LOG(APP_LOG_LEVEL_INFO,
-              "[E1][PANEL] %s: %lu Frames in %lu ms = %lu.%lu ms/Frame (%lu.%lu fps), Render %lu.%lu ms",
+              "[E1][PANEL] %s: %lu Frames, %lu ms, %lu.%lu ms/Frame, %lu.%lu fps, rend %lu.%lu ms",
               s_ps.variant == 0 ? "Vollbild" : "10 Zeilen", (unsigned long)s_ps.frames,
               (unsigned long)total, (unsigned long)(s_ps.ms_per_frame_x10 / 10),
               (unsigned long)(s_ps.ms_per_frame_x10 % 10), (unsigned long)(s_ps.fps_x10 / 10),
@@ -431,6 +431,11 @@ void render_panel_test_stop(void) {
     app_timer_cancel(s_panel_timer);
     s_panel_timer = NULL;
   }
+}
+
+void render_deinit(void) {
+  render_panel_test_stop();
+  s_layer = NULL;
 }
 
 const RenderStats *render_stats(void) {

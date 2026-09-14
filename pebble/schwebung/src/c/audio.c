@@ -10,6 +10,12 @@ static uint32_t s_pend_off;
 static uint32_t s_pend_len;
 static uint32_t s_t0;              // Zeitpunkt des ersten Writes (Startpunkt der Abspieluhr)
 static uint32_t s_next_open_ms;    // fruehester Zeitpunkt fuer (Wieder-)Oeffnen
+static uint32_t s_open_ms;         // Zeitpunkt der letzten Oeffnung
+static bool s_zero_active;         // seit s_zero_since_ms wird nichts angenommen
+static uint32_t s_zero_since_ms;
+static uint32_t s_stall_streak;    // Staus kurz nach der Oeffnung hintereinander
+
+static const char *s_reason_names[] = { "Done", "Stopped", "Preempted", "Error" };
 
 static void prv_reset_stream_state(void) {
   s_st.open = false;
@@ -20,16 +26,27 @@ static void prv_reset_stream_state(void) {
   s_st.played_bytes_est = 0;
   s_st.queue_bytes_est = 0;
   s_st.queue_ms_est = 0;
+  s_zero_active = false;
 }
 
 static void prv_finish(SpeakerFinishReason reason, void *ctx) {
   uint32_t now = e1clock_now_ms();
+  const char *name = (unsigned)reason < 4 ? s_reason_names[reason] : "?";
+  int status = (int)speaker_get_status();
+  if (reason == SpeakerFinishReasonDone) {
+    s_st.finish_done++;
+  } else if (reason == SpeakerFinishReasonStopped) {
+    s_st.finish_stopped++;
+  }
   if ((reason == SpeakerFinishReasonDone || reason == SpeakerFinishReasonStopped) &&
-      s_st.open && speaker_get_status() != SpeakerStatusIdle) {
-    // Verspaeteter Callback eines frueheren Streams (z. B. nach der Probe):
+      s_st.open && status != (int)SpeakerStatusIdle) {
+    // Verspaeteter Callback eines frueheren Streams (z. B. nach Probe oder Stau-Neustart):
     // der aktuelle Stream spielt noch, nichts zuruecksetzen.
+    APP_LOG(APP_LOG_LEVEL_INFO, "[E1][AUDIO] Ende %s (Status %d), veraltet, ignoriert", name, status);
     return;
   }
+  APP_LOG(APP_LOG_LEVEL_INFO, "[E1][AUDIO] Ende %s (Status %d) bei t=%lu ms", name, status,
+          (unsigned long)now);
   prv_reset_stream_state();
   switch (reason) {
     case SpeakerFinishReasonPreempted:
@@ -61,9 +78,79 @@ static bool prv_open(void) {
   prv_reset_stream_state();
   s_st.open = true;
   s_st.open_count++;
+  s_open_ms = e1clock_now_ms();
   APP_LOG(APP_LOG_LEVEL_INFO, "[E1][AUDIO] Stream offen (16 kHz, 16 Bit), Oeffnung Nr. %lu",
           (unsigned long)s_st.open_count);
   return true;
+}
+
+// Fuellstand nachfuehren und bis target_bytes Vorlauf schreiben.
+static void prv_fill(uint32_t now, uint32_t target_bytes, uint32_t max_blocks) {
+  if (s_t0 != 0) {
+    uint32_t played = (now - s_t0) * AUDIO_BYTES_PER_MS;
+    if (played > s_st.written_bytes) {
+      if (s_st.queue_bytes_est > 0) {
+        s_st.underruns++;
+      }
+      played = s_st.written_bytes;
+    }
+    s_st.played_bytes_est = played;
+  }
+  uint32_t queue = s_st.written_bytes - s_st.played_bytes_est;
+  bool wanted_write = queue < target_bytes;
+  uint32_t accepted = 0;
+  uint32_t blocks = 0;
+  while (queue < target_bytes && blocks < max_blocks) {
+    if (s_pend_len == 0) {
+      synth_render(s_block, AUDIO_BLOCK_SAMPLES);
+      s_pend_off = 0;
+      s_pend_len = AUDIO_BLOCK_BYTES;
+    }
+    uint32_t want = s_pend_len - s_pend_off;
+    uint32_t w = speaker_stream_write((const uint8_t *)s_block + s_pend_off, want);
+    s_pend_off += w;
+    s_st.written_bytes += w;
+    queue += w;
+    accepted += w;
+    if (s_t0 == 0 && w > 0) {
+      s_t0 = now;
+    }
+    if (w < want) {
+      s_st.short_writes++;   // Backpressure: Rest im naechsten Tick
+      break;
+    }
+    s_pend_len = 0;
+    blocks++;
+  }
+  if (blocks > s_st.max_blocks_per_tick) {
+    s_st.max_blocks_per_tick = blocks;
+  }
+  s_st.queue_bytes_est = queue;
+  s_st.queue_ms_est = queue / AUDIO_BYTES_PER_MS;
+
+  // Stau-Erkennung: der Systemring (8 KB = 256 ms) leert sich normalerweise
+  // mit 32 B/ms, auch bei Unterlauf (die Firmware schiebt dann Stille nach).
+  // Nimmt er trotz leerem Vorlauf laenger als AUDIO_STALL_MS nichts an, steht
+  // der Abfluss. Im QEMU-Emulator passiert das reproduzierbar; auf der Uhr
+  // sollte es nie vorkommen. Neustart mit wachsender Pause.
+  if (accepted > 0 || !wanted_write) {
+    s_zero_active = false;
+  } else if (!s_zero_active) {
+    s_zero_active = true;
+    s_zero_since_ms = now;
+  } else if ((now - s_zero_since_ms) >= AUDIO_STALL_MS) {
+    s_st.stalls++;
+    s_stall_streak = (now - s_open_ms) < 5000 ? s_stall_streak + 1 : 1;
+    uint32_t backoff = 200 * s_stall_streak;
+    if (backoff > 5000) {
+      backoff = 5000;
+    }
+    APP_LOG(APP_LOG_LEVEL_WARNING, "[E1][AUDIO] Stau Nr. %lu: %lu ms nichts angenommen, Neustart in %lu ms",
+            (unsigned long)s_st.stalls, (unsigned long)(now - s_zero_since_ms), (unsigned long)backoff);
+    speaker_stop();
+    prv_reset_stream_state();
+    s_next_open_ms = now + backoff;
+  }
 }
 
 static void prv_tick(void *data) {
@@ -83,47 +170,14 @@ static void prv_tick(void *data) {
       return;
     }
   }
+  prv_fill(now, AUDIO_TARGET_QUEUE_MS * AUDIO_BYTES_PER_MS, AUDIO_MAX_BLOCKS_PER_TICK);
+}
 
-  // Abspieluhr: seit dem ersten Write laufen 32 Byte pro Millisekunde ab.
-  if (s_t0 != 0) {
-    uint32_t played = (now - s_t0) * AUDIO_BYTES_PER_MS;
-    if (played > s_st.written_bytes) {
-      if (s_st.queue_bytes_est > 0) {
-        s_st.underruns++;
-      }
-      played = s_st.written_bytes;
-    }
-    s_st.played_bytes_est = played;
+void audio_top_up(uint32_t ms) {
+  if (!s_st.open) {
+    return;
   }
-  uint32_t queue = s_st.written_bytes - s_st.played_bytes_est;
-  const uint32_t target = AUDIO_TARGET_QUEUE_MS * AUDIO_BYTES_PER_MS;
-  uint32_t blocks = 0;
-  while (queue < target && blocks < AUDIO_MAX_BLOCKS_PER_TICK) {
-    if (s_pend_len == 0) {
-      synth_render(s_block, AUDIO_BLOCK_SAMPLES);
-      s_pend_off = 0;
-      s_pend_len = AUDIO_BLOCK_BYTES;
-    }
-    uint32_t want = s_pend_len - s_pend_off;
-    uint32_t w = speaker_stream_write((const uint8_t *)s_block + s_pend_off, want);
-    s_pend_off += w;
-    s_st.written_bytes += w;
-    queue += w;
-    if (s_t0 == 0 && w > 0) {
-      s_t0 = now;
-    }
-    if (w < want) {
-      s_st.short_writes++;   // Backpressure: Rest im naechsten Tick
-      break;
-    }
-    s_pend_len = 0;
-    blocks++;
-  }
-  if (blocks > s_st.max_blocks_per_tick) {
-    s_st.max_blocks_per_tick = blocks;
-  }
-  s_st.queue_bytes_est = queue;
-  s_st.queue_ms_est = queue / AUDIO_BYTES_PER_MS;
+  prv_fill(e1clock_now_ms(), ms * AUDIO_BYTES_PER_MS, 16);
 }
 
 void audio_init(void) {
@@ -186,13 +240,18 @@ void audio_probe_capacity(void) {
     }
   }
   uint32_t t_end = e1clock_now_ms();
-  s_st.capacity_bytes = total;
-  s_st.capacity_ms = total / AUDIO_BYTES_PER_MS;
+  // Waehrend der Schleife spielt der Stream schon: Abfluss (Obergrenze) abziehen
+  uint32_t drain = (t_end - t_start + 1) * AUDIO_BYTES_PER_MS;
+  uint32_t cap = total > drain ? total - drain : total;
+  s_st.capacity_raw_bytes = total;
+  s_st.probe_drain_bytes = drain;
+  s_st.capacity_bytes = cap;
+  s_st.capacity_ms = cap / AUDIO_BYTES_PER_MS;
   s_st.probe_writes = writes;
   APP_LOG(APP_LOG_LEVEL_INFO,
-          "[E1][PROBE] Systempuffer nimmt %lu Byte = %lu ms an (%lu Schreibvorgaenge in %lu ms)",
-          (unsigned long)total, (unsigned long)s_st.capacity_ms, (unsigned long)writes,
-          (unsigned long)(t_end - t_start));
+          "[E1][PROBE] roh %lu B, Abfluss %lu B, Puffer %lu B = %lu ms, %lu Writes in %lu ms",
+          (unsigned long)total, (unsigned long)drain, (unsigned long)cap,
+          (unsigned long)s_st.capacity_ms, (unsigned long)writes, (unsigned long)(t_end - t_start));
   speaker_stop();               // Stille verwerfen statt ausspielen
   prv_reset_stream_state();
   s_next_open_ms = t_end + 300;

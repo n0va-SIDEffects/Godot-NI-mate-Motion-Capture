@@ -127,9 +127,6 @@ void backlight_tick(uint32_t now) {
   if (!s_enabled || s_test_step != 5) {
     return;
   }
-  if ((now - s_last_apply_ms) < BL_UPDATE_MS) {
-    return;
-  }
   s_hue_deg = prv_hue_from_chz(s_locked ? s_flower_chz : s_fork_chz);
   uint8_t v;
   if (s_locked) {
@@ -172,13 +169,10 @@ void backlight_test_tick(uint32_t now) {
   if (s_test_start_ms == 0) {
     s_test_start_ms = now;
   }
-  if ((now - s_last_apply_ms) < BL_UPDATE_MS) {
-    return;
-  }
   uint32_t el = now - s_test_start_ms;
   if (s_test_step <= 3) {
     uint32_t hz = (uint32_t)s_test_step + 1;
-    uint32_t angle = (hz * el * (TRIG_MAX_ANGLE / 2)) / 1000;   // pi*f*t
+    uint32_t angle = (uint32_t)(((uint64_t)hz * el * (TRIG_MAX_ANGLE / 2)) / 1000u);   // pi*f*t
     int32_t c = cos_lookup((int32_t)(angle & (TRIG_MAX_ANGLE - 1)));
     if (c < 0) {
       c = -c;

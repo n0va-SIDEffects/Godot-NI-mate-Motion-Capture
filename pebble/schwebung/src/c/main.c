@@ -11,10 +11,11 @@
 
 // Glasgarten, Etappe 1. Fuenf Bildschirme, Wechsel mit langem Druck auf Select:
 //   STIMMEN  Finger aufs Glas, ziehen = Tonhoehe, Up/Down = Feinstimmung, Select = neue Blume
-//   LATENZ   Select = Oktavsprung (mit LRA-Marker), Doppelklick = Puffer-Probe
-//   LRA      Select = naechste Rate (2, 4, 6, 8 Hz), jeder Vibrationsaufruf wird geloggt
+//   LATENZ   Gabel singt dauerhaft; Select = Oktavsprung mit LRA-Marker, Doppelklick = Puffer-Probe
+//   LRA      Select = naechste Rate (2, 4, 6, 8 Hz), jeder Impuls wird geloggt
 //   LICHT    Select = naechster Schritt (Atmen 1..4 Hz, Dimmrampe, aus)
 //   PANEL    Select = Test starten bzw. Variante wechseln (Vollbild / 10 Zeilen)
+// Ausserhalb von STIMMEN steht die Spiellogik still: nur der Synth folgt Finger und Blume.
 
 typedef enum {
   ModeStimmen = 0,
@@ -33,6 +34,7 @@ static Layer *s_layer;
 static Mode s_mode = ModeStimmen;
 static AppTimer *s_game_timer;
 static AppTimer *s_render_timer;
+static AppTimer *s_light_timer;
 static AppTimer *s_log_timer;
 static AppTimer *s_jump_timer;
 static uint32_t s_last_tick_ms;
@@ -40,20 +42,34 @@ static uint8_t s_lra_idx;
 static uint8_t s_licht_step;
 static uint8_t s_panel_variant;
 static uint32_t s_jump_count;
+static bool s_paused;
 
 static void prv_update_hud(void);
+
+static void prv_mark_dirty(void) {
+  if (s_layer) {
+    layer_mark_dirty(s_layer);
+  }
+}
 
 static void prv_jump_off(void *data) {
   s_jump_timer = NULL;
   synth_set_octave_jump(false);
 }
 
-static void prv_enter_mode(Mode m) {
-  // altes verlassen
-  switch (s_mode) {
+static void prv_leave_mode(Mode m) {
+  switch (m) {
     case ModeStimmen:
       haptics_stop();
       backlight_enable(false);
+      break;
+    case ModeLatenz:
+      synth_set_force_gate(false);
+      synth_set_octave_jump(false);
+      if (s_jump_timer) {
+        app_timer_cancel(s_jump_timer);
+        s_jump_timer = NULL;
+      }
       break;
     case ModeLra:
       haptics_stop();
@@ -67,28 +83,40 @@ static void prv_enter_mode(Mode m) {
     default:
       break;
   }
-  s_mode = m;
-  APP_LOG(APP_LOG_LEVEL_INFO, "[E1] Modus %s", s_mode_names[m]);
+}
+
+static void prv_start_mode(Mode m) {
   switch (m) {
     case ModeStimmen:
       backlight_enable(true);
       break;
+    case ModeLatenz:
+      synth_set_force_gate(true);
+      break;
     case ModeLra:
-      s_lra_idx = 0;
       haptics_test_rate(s_lra_rates[s_lra_idx]);
       break;
     case ModeLicht:
-      s_licht_step = 0;
-      backlight_test_set_step(0);
+      backlight_test_set_step(s_licht_step);
       break;
     case ModePanel:
-      s_panel_variant = 0;
       break;
     default:
       break;
   }
+}
+
+static void prv_enter_mode(Mode m) {
+  prv_leave_mode(s_mode);
+  s_mode = m;
+  game_set_active(m == ModeStimmen);
+  if (m == ModeLra) s_lra_idx = 0;
+  if (m == ModeLicht) s_licht_step = 0;
+  if (m == ModePanel) s_panel_variant = 0;
+  APP_LOG(APP_LOG_LEVEL_INFO, "[E1] Modus %s", s_mode_names[m]);
+  prv_start_mode(m);
   prv_update_hud();
-  layer_mark_dirty(s_layer);
+  prv_mark_dirty();
 }
 
 static void prv_select_click(ClickRecognizerRef rec, void *ctx) {
@@ -100,12 +128,12 @@ static void prv_select_click(ClickRecognizerRef rec, void *ctx) {
     case ModeLatenz: {
       const AudioStats *a = audio_stats();
       s_jump_count++;
+      bool marker = haptics_marker();
       synth_set_octave_jump(true);
-      vibes_short_pulse();
       APP_LOG(APP_LOG_LEVEL_INFO,
-              "[E1][LATENZ] Sprung %lu bei t=%lu ms, Queue %lu ms (+%d ms Pipeline-Annahme), Vorlauf-Ziel %d ms",
+              "[E1][LATENZ] Sprung %lu t=%lums Queue %lums +%dms Pipeline, Marker %s",
               (unsigned long)s_jump_count, (unsigned long)e1clock_now_ms(),
-              (unsigned long)a->queue_ms_est, AUDIO_PIPELINE_ASSUMED_MS, AUDIO_TARGET_QUEUE_MS);
+              (unsigned long)a->queue_ms_est, AUDIO_PIPELINE_ASSUMED_MS, marker ? "ja" : "NEIN");
       if (s_jump_timer) {
         app_timer_cancel(s_jump_timer);
       }
@@ -150,6 +178,11 @@ static void prv_select_long(ClickRecognizerRef rec, void *ctx) {
   prv_enter_mode((Mode)((s_mode + 1) % ModeCount));
 }
 
+static void prv_select_raw(ClickRecognizerRef rec, void *ctx) {
+  // Druck und Loslassen stoeren den liegenden Finger: Pan-Maske sofort, nicht erst im Click-Handler
+  input_button_pressed();
+}
+
 static void prv_up_click(ClickRecognizerRef rec, void *ctx) {
   input_button_pressed();
   input_nudge_chz(FINE_STEP_CHZ);
@@ -164,6 +197,7 @@ static void prv_click_config(void *ctx) {
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_select_click);
   window_multi_click_subscribe(BUTTON_ID_SELECT, 2, 2, 300, true, prv_select_double);
   window_long_click_subscribe(BUTTON_ID_SELECT, 700, prv_select_long, NULL);
+  window_raw_click_subscribe(BUTTON_ID_SELECT, prv_select_raw, prv_select_raw, NULL);
   window_single_repeating_click_subscribe(BUTTON_ID_UP, 120, prv_up_click);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 120, prv_down_click);
 }
@@ -188,22 +222,22 @@ static void prv_update_hud(void) {
       snprintf(l2, sizeof(l2), "%s beat %sHz q%lums %lu.%lufps", game_state_name(), f2,
                (unsigned long)a->queue_ms_est, (unsigned long)(r->fps_x10 / 10),
                (unsigned long)(r->fps_x10 % 10));
-      snprintf(l3, sizeof(l3), "touch %lu/s jit %lu.%lupx %s%s", (unsigned long)(t->ev_rate_x10 / 10),
-               (unsigned long)(t->jitter_x10_px / 10), (unsigned long)(t->jitter_x10_px % 10),
-               input_clutch_engaged() ? "KUPPLUNG " : "", a->muted ? "STUMM" : "");
+      snprintf(l3, sizeof(l3), "touch %lu/s %lums still%upx dz%lu %s%s",
+               (unsigned long)(t->ev_rate_x10 / 10), (unsigned long)t->min_interval_ms,
+               (unsigned)t->still_max_px, (unsigned long)t->dz_exceed,
+               input_clutch_engaged() ? "K " : "", a->muted ? "STUMM" : "");
       break;
     case ModeLatenz:
-      snprintf(l1, sizeof(l1), "LATENZ  Sel=Sprung 2x=Probe");
+      snprintf(l1, sizeof(l1), "LATENZ  Sel=Sprung");
       snprintf(l2, sizeof(l2), "q%lums cap %luB=%lums ur%lu sw%lu", (unsigned long)a->queue_ms_est,
                (unsigned long)a->capacity_bytes, (unsigned long)a->capacity_ms,
                (unsigned long)a->underruns, (unsigned long)a->short_writes);
-      snprintf(l3, sizeof(l3), "opens %lu pre %lu err %lu blk %lu", (unsigned long)a->open_count,
-               (unsigned long)a->preempted, (unsigned long)a->errors,
-               (unsigned long)a->max_blocks_per_tick);
+      snprintf(l3, sizeof(l3), "2x=Probe  pre %lu err %lu stau %lu", (unsigned long)a->preempted,
+               (unsigned long)a->errors, (unsigned long)a->stalls);
       break;
     case ModeLra:
       snprintf(l1, sizeof(l1), "LRA  %u Hz  Sel=weiter", (unsigned)s_lra_rates[s_lra_idx]);
-      snprintf(l2, sizeof(l2), "Aufrufe %lu  Modus %s", (unsigned long)haptics_call_count(),
+      snprintf(l2, sizeof(l2), "Impulse %lu  Modus %s", (unsigned long)haptics_call_count(),
                haptics_mode_name());
       snprintf(l3, sizeof(l3), "Zaehlbar? Log: pebble logs");
       break;
@@ -238,49 +272,90 @@ static void prv_game_tick(void *data) {
   uint32_t dt = s_last_tick_ms ? now - s_last_tick_ms : GAME_TICK_MS;
   if (dt > 200) dt = 200;
   s_last_tick_ms = now;
+  if (s_paused || !s_layer) {
+    return;
+  }
   input_tick(now);
   game_tick(now, dt);
-  if (s_mode == ModeStimmen) {
-    backlight_tick(now);
-  } else if (s_mode == ModeLicht) {
+}
+
+static void prv_light_tick(void *data) {
+  s_light_timer = app_timer_register(BL_UPDATE_MS, prv_light_tick, NULL);
+  if (s_paused || !s_layer) {
+    return;
+  }
+  uint32_t now = e1clock_now_ms();
+  if (s_mode == ModeLicht) {
     backlight_test_tick(now);
+  } else {
+    backlight_tick(now);
   }
 }
 
 static void prv_render_tick(void *data) {
   s_render_timer = app_timer_register(RENDER_TICK_MS, prv_render_tick, NULL);
+  if (s_paused || !s_layer) {
+    return;
+  }
   prv_update_hud();
   if (s_mode != ModePanel || !render_panel_stats()->active) {
-    layer_mark_dirty(s_layer);
+    prv_mark_dirty();
   }
 }
 
 static void prv_log_tick(void *data) {
   s_log_timer = app_timer_register(LOG_TICK_MS, prv_log_tick, NULL);
+  if (s_paused) {
+    return;
+  }
   const GameView *g = game_view();
   const AudioStats *a = audio_stats();
   const RenderStats *r = render_stats();
   const TouchStats *t = input_stats();
+  // APP_LOG schneidet Nachrichten bei rund 87 Zeichen ab, deshalb drei Zeilen.
   APP_LOG(APP_LOG_LEVEL_INFO,
-          "[E1] %s fps=%lu.%lu rend=%lu.%lums q=%lums ur=%lu sw=%lu touch=%lu/s jit=%lu.%lupx",
+          "[E1] %s fps=%lu.%lu rend=%lu.%lums q=%lums ur=%lu sw=%lu heap=%lu glitch=%lu",
           s_mode_names[s_mode], (unsigned long)(r->fps_x10 / 10), (unsigned long)(r->fps_x10 % 10),
           (unsigned long)(r->render_ms_x10 / 10), (unsigned long)(r->render_ms_x10 % 10),
           (unsigned long)a->queue_ms_est, (unsigned long)a->underruns, (unsigned long)a->short_writes,
-          (unsigned long)(t->ev_rate_x10 / 10), (unsigned long)(t->jitter_x10_px / 10),
-          (unsigned long)(t->jitter_x10_px % 10));
+          (unsigned long)heap_bytes_free(), (unsigned long)e1clock_glitches());
   APP_LOG(APP_LOG_LEVEL_INFO,
-          "[E1+] fork=%ld.%02ld fl=%ld.%02ld beat=%ld.%02ld st=%s heap=%lu glitch=%lu",
+          "[E1t] touch=%lu/s jit=%lu.%lupx still=%upx dz=%lu ivl=%lums lra=%lu bl=%lu stau=%lu",
+          (unsigned long)(t->ev_rate_x10 / 10), (unsigned long)(t->jitter_x10_px / 10),
+          (unsigned long)(t->jitter_x10_px % 10), (unsigned)t->still_max_px,
+          (unsigned long)t->dz_exceed, (unsigned long)t->min_interval_ms,
+          (unsigned long)haptics_call_count(), (unsigned long)backlight_call_count(),
+          (unsigned long)a->stalls);
+  APP_LOG(APP_LOG_LEVEL_INFO,
+          "[E1+] fork=%ld.%02ld fl=%ld.%02ld beat=%ld.%02ld st=%s rs=%lu",
           (long)(g->fork_chz / 100), (long)(g->fork_chz % 100), (long)(g->flower_chz / 100),
           (long)(g->flower_chz % 100), (long)(g->beat_chz / 100), (long)(g->beat_chz % 100),
-          game_state_name(), (unsigned long)heap_bytes_free(), (unsigned long)e1clock_glitches());
+          game_state_name(), (unsigned long)e1clock_resyncs());
 }
 
-static void prv_focus(bool in_focus) {
+static void prv_will_focus(bool in_focus) {
+  if (!in_focus && !s_paused) {
+    // Benachrichtigung legt sich ueber die App: alles ruhigstellen
+    s_paused = true;
+    haptics_stop();
+    backlight_enable(false);
+    audio_stop();
+    synth_set_octave_jump(false);
+    APP_LOG(APP_LOG_LEVEL_INFO, "[E1] Fokus verloren, pausiert");
+  }
+}
+
+static void prv_did_focus(bool in_focus) {
+  if (in_focus && s_paused) {
+    s_paused = false;
+    s_last_tick_ms = 0;
+    audio_start();
+    prv_start_mode(s_mode);
+    backlight_refresh();
+    APP_LOG(APP_LOG_LEVEL_INFO, "[E1] Fokus zurueck, weiter");
+  }
   if (in_focus) {
-    if (s_mode == ModeStimmen) {
-      backlight_refresh();
-    }
-    layer_mark_dirty(s_layer);
+    prv_mark_dirty();
   }
 }
 
@@ -295,9 +370,19 @@ static void prv_window_load(Window *window) {
 }
 
 static void prv_window_unload(Window *window) {
+  // Timer-Kaskaden stoppen, bevor der Layer verschwindet
+  if (s_game_timer) { app_timer_cancel(s_game_timer); s_game_timer = NULL; }
+  if (s_render_timer) { app_timer_cancel(s_render_timer); s_render_timer = NULL; }
+  if (s_light_timer) { app_timer_cancel(s_light_timer); s_light_timer = NULL; }
+  if (s_log_timer) { app_timer_cancel(s_log_timer); s_log_timer = NULL; }
+  if (s_jump_timer) { app_timer_cancel(s_jump_timer); s_jump_timer = NULL; }
+  haptics_stop();
+  backlight_enable(false);
+  render_deinit();
   input_deinit();
-  layer_destroy(s_layer);
+  Layer *l = s_layer;
   s_layer = NULL;
+  layer_destroy(l);
 }
 
 static void prv_init(void) {
@@ -318,9 +403,13 @@ static void prv_init(void) {
   window_stack_push(s_window, true);
 
   audio_start();
-  app_focus_service_subscribe_handlers((AppFocusHandlers) { .did_focus = prv_focus });
+  app_focus_service_subscribe_handlers((AppFocusHandlers) {
+    .will_focus = prv_will_focus,
+    .did_focus = prv_did_focus,
+  });
   s_game_timer = app_timer_register(GAME_TICK_MS, prv_game_tick, NULL);
   s_render_timer = app_timer_register(RENDER_TICK_MS, prv_render_tick, NULL);
+  s_light_timer = app_timer_register(BL_UPDATE_MS, prv_light_tick, NULL);
   s_log_timer = app_timer_register(LOG_TICK_MS, prv_log_tick, NULL);
 
   APP_LOG(APP_LOG_LEVEL_INFO, "[E1] Glasgarten E1 v%s: heap frei %lu, touch %d, stumm %d",
@@ -332,6 +421,7 @@ static void prv_deinit(void) {
   app_focus_service_unsubscribe();
   if (s_game_timer) app_timer_cancel(s_game_timer);
   if (s_render_timer) app_timer_cancel(s_render_timer);
+  if (s_light_timer) app_timer_cancel(s_light_timer);
   if (s_log_timer) app_timer_cancel(s_log_timer);
   if (s_jump_timer) app_timer_cancel(s_jump_timer);
   audio_deinit();

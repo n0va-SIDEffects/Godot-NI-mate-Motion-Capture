@@ -27,8 +27,11 @@
 #define AUDIO_TICK_MS 8
 #define AUDIO_TARGET_QUEUE_MS 56     // Ziel-Vorlauf im Systempuffer
 #define AUDIO_MAX_BLOCKS_PER_TICK 6
-#define AUDIO_VOLUME 70
-#define AUDIO_PIPELINE_ASSUMED_MS 64 // Annahme fuer DMA/I2S, nur Anzeige, wird gemessen
+#define AUDIO_VOLUME 85
+#define AUDIO_TOPUP_MS 130           // Auffuellen vor blockierenden Aufrufen (vibes_cancel)
+#define AUDIO_PIPELINE_ASSUMED_MS 80 // Annahme fuer Treiberpuffer, nur Anzeige; die Firmware
+                                     // rechnet selbst mit 80 ms (SPEAKER_PIPELINE_DRAIN_SAMPLES)
+#define AUDIO_STALL_MS 300           // so lange nichts angenommen trotz leerem Vorlauf = Stau
 
 // Stimmen
 #define FORK_MIN_CHZ    30000
@@ -57,6 +60,7 @@
 
 // Haptik
 #define LRA_PULSE_MS           30
+#define LRA_BUZZ_ON_MS        230     // Rauheit: 230 ms an, alle 250 ms
 #define LRA_COUNTABLE_MAX_CHZ 500     // bis 5 Hz zaehlbar
 #define LRA_BUZZ_MAX_CHZ      600     // bis 6 Hz Rauheit, darueber stumm
 #define LRA_RATE_HYST_PCT      15

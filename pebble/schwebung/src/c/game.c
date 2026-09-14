@@ -16,6 +16,7 @@ static uint32_t s_ring_head;
 static uint32_t s_t_lock;
 static uint32_t s_t_event;
 static uint32_t s_vib_phase;
+static bool s_active = true;
 static const char *s_state_names[] = { "SUCHEN", "EINGERASTET", "LOSGELASSEN", "ZERSPRUNGEN" };
 static const char *s_note_names[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "H" };
 // Centi-Hertz der Oktave 4 (MIDI 60..71)
@@ -108,6 +109,15 @@ void game_tick(uint32_t now, uint32_t dt) {
 
   synth_set_fork(fork, finger);
   synth_set_flower(s_v.flower_chz, weight);
+
+  if (!s_active) {
+    // Messmodi: Blume steht still, keine Zustandswechsel, keine Haptik
+    FlowerVis quiet = { .visible = true, .vib_amp16 = 0, .vib_phase = 0, .glow16 = 0 };
+    render_set_flower(&quiet);
+    backlight_set_pitch(fork, s_v.flower_chz);
+    backlight_set_state(df, in_window, near, false);
+    return;
+  }
 
   switch (s_v.state) {
     case GameSearching: {
@@ -206,6 +216,18 @@ void game_tick(uint32_t now, uint32_t dt) {
     vis.glow16 = 8;
   }
   render_set_flower(&vis);
+}
+
+void game_set_active(bool active) {
+  if (s_active == active) {
+    return;
+  }
+  s_active = active;
+  s_v.state = GameSearching;
+  s_v.hold_ms = 0;
+  s_v.hold_pct = 0;
+  s_ring_n = 0;
+  s_ring_head = 0;
 }
 
 const GameView *game_view(void) {
