@@ -19,6 +19,12 @@ static bool s_drill;
 static int16_t s_target_x, s_target_y;
 static bool s_target_hit;
 static uint32_t s_seed = 0x5C1BE12;
+// Tempostufen in Prozent des Grundtempos. Sie skalieren Schwerkraft,
+// Tischneigung und Magnetkraft zusammen: Die Traggrenze des Magneten ist ein
+// Verhaeltnis der beiden, und nur wenn beide mitgehen, bleibt sie dort, wo sie
+// hingehoert, naemlich knapp ausserhalb der Fingerkuppe.
+static const uint16_t s_speed_pct[SPEED_STEPS] = { 70, 85, 100, 120 };
+static uint8_t s_speed_idx = SPEED_DEFAULT_IDX;
 
 static uint32_t prv_rand(void) {
   // Deterministisch und billig; der Tagestisch des Konzepts wuerde spaeter den
@@ -182,6 +188,7 @@ static void prv_magnet(uint32_t now, uint32_t dt_ms) {
       pct = 100;
     }
     s_w->mag_accel = (fix)(((int64_t)FX_FROM_INT(MAG_ACCEL_MAX_PX_S2) * (40 + (pct * 60) / 100)) / 100);
+    s_w->mag_accel = (fix)(((int64_t)s_w->mag_accel * game_speed_pct()) / 100);
   }
 
   if (near) {
@@ -371,7 +378,10 @@ void game_tick(uint32_t now, uint32_t dt_ms) {
   // Neigung in die Schwerkraft, Stoesse auf die Kugeln
   fix gx, gy;
   nudge_gravity_offset(&gx, &gy);
-  s_w->gravity = vec_make(gx, FX_FROM_INT(GRAVITY_PX_S2) + gy);
+  uint16_t sp = game_speed_pct();
+  gx = (fix)(((int64_t)gx * sp) / 100);
+  gy = (fix)(((int64_t)gy * sp) / 100);
+  s_w->gravity = vec_make(gx, (fix)(((int64_t)FX_FROM_INT(GRAVITY_PX_S2) * sp) / 100) + gy);
   fix dvx, dvy;
   if (nudge_take_impulse(&dvx, &dvy) && !nudge_is_tilted()) {
     phys_nudge(s_w, dvx, dvy);
@@ -446,6 +456,21 @@ const GameStats *game_stats(void) {
 // Stresstest: eine Kugel mit hohem Tempo quer durch den Tisch, viele Substeps
 // am Stueck. Das misst die reine Physikzeit ohne Rendern und ohne Timer, in
 // einer Aufloesung, die eine Millisekundenuhr sonst nicht hergibt.
+void game_speed_next(void) {
+  s_speed_idx = (uint8_t)((s_speed_idx + 1) % SPEED_STEPS);
+  APP_LOG(APP_LOG_LEVEL_INFO, "[P1][TEMPO] Stufe %u: %u Prozent, Schwerkraft %u px/s^2",
+          (unsigned)s_speed_idx, (unsigned)s_speed_pct[s_speed_idx],
+          (unsigned)((GRAVITY_PX_S2 * s_speed_pct[s_speed_idx]) / 100));
+}
+
+uint8_t game_speed_idx(void) {
+  return s_speed_idx;
+}
+
+uint16_t game_speed_pct(void) {
+  return s_speed_pct[s_speed_idx];
+}
+
 void game_bench_physics(void) {
   World bench;
   phys_init(&bench);

@@ -35,8 +35,15 @@
 #define FLIPPER_R_PX 4            // Kapselradius des Flippers
 #define MAX_BALLS 3
 
-#define GRAVITY_PX_S2 700         // freier Fall ueber den Tisch endet bei rund 530 px/s
-#define VEL_MAX_PX_S 1500         // Sicherheitsklemme, verhindert Ausreisser
+// Grundtempo des Tisches. Ein echter Flipper steht schraeg, die Kugel sieht
+// also nur einen Bruchteil der Erdbeschleunigung; auf einem 228 px hohen
+// Tisch entscheidet dieser Wert allein, wie hektisch das Spiel wirkt. Nach
+// dem ersten Spieltest von 700 auf 500 gesenkt: Bei 700 legte die Kugel im
+// freien Fall ueber den Tisch rund 530 px/s zurueck, also 21 Pixel je Bild,
+// bei 500 sind es 450 px/s und 18 Pixel. Feinjustage im MESS-Bildschirm mit
+// kurzem Druck auf Up, die Stufe steht im HUD und im Log.
+#define GRAVITY_PX_S2 500
+#define VEL_MAX_PX_S 1200         // Sicherheitsklemme, verhindert Ausreisser
 #define VEL_SLEEP_PX_S 6          // darunter gilt die Kugel als ruhend (Rollreibung)
 
 // Restitution in Prozent
@@ -64,7 +71,11 @@
 // ------------------------------------------------------------------- Flipper
 #define FLIPPER_LEN_PX 46
 #define FLIPPER_SWING_DEG 30      // Ruhe +30 Grad, aktiv -30 Grad
-#define FLIPPER_UP_MS 65          // Zeit von Ruhe bis Anschlag oben (Konzept: rund 60 ms)
+// Hubzeit des Flippers. Sie allein bestimmt, wie hart er schlaegt: Der
+// Uebertrag kommt aus der Winkelgeschwindigkeit. Zusammen mit dem gesenkten
+// Grundtempo etwas verlangsamt, damit ein Schlag die Kugel nicht quer ueber
+// den ganzen Tisch schiesst.
+#define FLIPPER_UP_MS 78          // Zeit von Ruhe bis Anschlag oben (Konzept: rund 60 ms)
 #define FLIPPER_DOWN_MS 85        // zurueck faellt er langsamer (Feder statt Spule)
 #define FLIPPER_L_PIVOT_X 44
 #define FLIPPER_L_PIVOT_Y 196
@@ -84,10 +95,11 @@
 #define PLUNGER_TICKS_MAX 6
 #define PLUNGER_SKILL_TICKS 4     // Skill-Shot aus dem Konzept
 // Untergrenze: Die Abschussbahn ist rund 160 px hoch, dafuer braucht es
-// mindestens sqrt(2*g*h) = 475 px/s. Darunter rollt die Kugel zurueck und der
-// Spieler sitzt fest. Gemessen mit tools/hosttest.
-#define PLUNGER_MIN_PX_S 520
-#define PLUNGER_MAX_PX_S 980
+// mindestens sqrt(2*g*h), bei 500 px/s^2 also 400 px/s. Darunter rollt die
+// Kugel zurueck und der Spieler sitzt fest. Gemessen mit tools/hosttest,
+// das jeden Wert des Bereichs einzeln durchprobiert.
+#define PLUNGER_MIN_PX_S 440
+#define PLUNGER_MAX_PX_S 820
 #define PLUNGER_LANE_X0 168       // Zone, in der eine Zieh-Geste als Plunger gilt
 #define PLUNGER_LANE_Y0 120
 
@@ -100,7 +112,7 @@
 // auf rund 45 px, also an den sichtbaren Rand der Kuppe. Nachgerechnet und
 // gemessen in tools/hosttest (Test "Magnet traegt bis ausserhalb der Kuppe").
 #define MAG_SOFT_PX 40            // r0 in 1/(r^2 + r0^2)
-#define MAG_ACCEL_MAX_PX_S2 1600  // Spitze, rund das 2,3-Fache der Schwerkraft
+#define MAG_ACCEL_MAX_PX_S2 1150  // Spitze, rund das 2,3-Fache der Schwerkraft
 #define MAG_DEAD_Y 172            // unterste 56 px: kein Magnet, kein Endlos-Save
 #define MAG_CHARGE_MAX 100
 #define MAG_DRAIN_PER_S 25
@@ -168,3 +180,11 @@
 
 // ------------------------------------------------------------------- Touch
 #define TOUCH_STALE_MS 400        // ohne Ereignis gilt der Finger als abgehoben
+
+// ------------------------------------------------------------------- Tempo
+// Vier Stufen fuer den Spieltest am Handgelenk, umschaltbar im MESS-Bildschirm.
+// Die Stufe skaliert Schwerkraft, Tischneigung und Magnetkraft gemeinsam:
+// Nur so bleibt die Traggrenze des Magneten dort, wo sie hingehoert, naemlich
+// knapp ausserhalb der Fingerkuppe.
+#define SPEED_STEPS 4
+#define SPEED_DEFAULT_IDX 2       // 100 Prozent

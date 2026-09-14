@@ -48,6 +48,7 @@ ist eine Messung, kein Geschmack: Die Back-Taste liefert keine Rohevents
 |---|---|---|
 | Up | linker Flipper (Halten moeglich) | lang: Bildschirm wechseln |
 | Down | rechter Flipper (Halten moeglich) | Belegung umschalten, 2x Ton, 3x Log |
+| Up kurz | (Flipper) | Tempostufe weiterschalten |
 | Select | Magnetgriff; solange die Kugel in der Bahn liegt: Plunger | Aktion des Bildschirms |
 | Back | Bildschirm wechseln; lang: App verlassen | App verlassen |
 | Finger | Magnet, Plunger-Zug in der Abschussbahn | |
@@ -72,7 +73,10 @@ Vier Bildschirme:
   228 Zeilen, einmal mit 10. Select startet, danach wechselt Select die
   Variante.
 - **MESS** Zahlen und Umschalter. Select faehrt den Physik-Stresstest
-  (2000 Substeps mit drei Kugeln und bewegten Flippern).
+  (2000 Substeps mit drei Kugeln und bewegten Flippern), kurzes Up schaltet
+  die Tempostufe weiter (70, 85, 100, 120 Prozent). Die Stufe skaliert
+  Schwerkraft, Tischneigung und Magnetkraft gemeinsam, damit die Traggrenze
+  des Magneten am Rand der Fingerkuppe bleibt; sie steht im HUD und im Log.
 
 ## Die Messungen und was sie zeigen muessen
 

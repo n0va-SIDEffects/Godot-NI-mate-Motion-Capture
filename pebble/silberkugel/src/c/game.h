@@ -53,3 +53,8 @@ const GameStats *game_stats(void);
 void game_reset_stats(void);
 // Stresstest: viele Substeps am Stueck, misst die reine Physikzeit.
 void game_bench_physics(void);
+// Tempo: Stufe 0 bis SPEED_STEPS-1, skaliert Schwerkraft, Neigung und
+// Magnetkraft gemeinsam.
+void game_speed_next(void);
+uint8_t game_speed_idx(void);
+uint16_t game_speed_pct(void);

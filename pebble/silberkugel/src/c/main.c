@@ -226,6 +226,13 @@ static void prv_down_multi(ClickRecognizerRef rec, void *ctx) {
   prv_mark_dirty();
 }
 
+static void prv_up_click(ClickRecognizerRef rec, void *ctx) {
+  nudge_button_mask();
+  game_speed_next();
+  prv_update_hud();
+  prv_mark_dirty();
+}
+
 static void prv_up_long(ClickRecognizerRef rec, void *ctx) {
   nudge_button_mask();
   game_plunge_button(false);   // ein gehaltener Plunger wird nicht abgeschossen
@@ -252,6 +259,7 @@ static void prv_click_config(void *ctx) {
     }
   } else {
     window_long_click_subscribe(BUTTON_ID_UP, 1000, prv_up_long, NULL);
+    window_single_click_subscribe(BUTTON_ID_UP, prv_up_click);
     window_single_click_subscribe(BUTTON_ID_DOWN, prv_down_click);
     window_multi_click_subscribe(BUTTON_ID_DOWN, 2, 3, 300, true, prv_down_multi);
   }
@@ -307,6 +315,10 @@ static void prv_update_hud(void) {
                (unsigned long)g->bumper, (unsigned long)(r->fps_x10 / 10),
                (unsigned long)(r->fps_x10 % 10),
                n->tilted ? " TILT" : (n->warn ? " !" : ""));
+      if (game_speed_pct() != 100) {
+        size_t k = strlen(l1);
+        snprintf(l1 + k, sizeof(l1) - k, " %u%%", (unsigned)game_speed_pct());
+      }
       l2[0] = '\0';
       l3[0] = '\0';
       break;
@@ -332,14 +344,15 @@ static void prv_update_hud(void) {
       break;
     }
     case ModeMess:
-      snprintf(l1, sizeof(l1), "MESS  Sel=Physik-Test");
+      snprintf(l1, sizeof(l1), "MESS  Sel=Physik-Test  g=%u",
+               (unsigned)((GRAVITY_PX_S2 * game_speed_pct()) / 100));
       snprintf(l2, sizeof(l2), "phys %lu.%luus rend %lu.%lums gap %lums",
                (unsigned long)(g->phys_us_per_substep_x10 / 10),
                (unsigned long)(g->phys_us_per_substep_x10 % 10),
                (unsigned long)(r->render_ms_x10 / 10), (unsigned long)(r->render_ms_x10 % 10),
                (unsigned long)s_tick_gap_max);
-      snprintf(l3, sizeof(l3), "Dn=%s 2x=Ton%s 3x=Log", s_thumb_mode ? "Zange" : "Daumen",
-               s_audio_load ? "aus" : "an");
+      snprintf(l3, sizeof(l3), "Up=Tempo %u%% Dn=%s 2x=Ton%s", (unsigned)game_speed_pct(),
+               s_thumb_mode ? "Zange" : "Daumen", s_audio_load ? "aus" : "an");
       break;
     default:
       l1[0] = l2[0] = l3[0] = '\0';
@@ -426,13 +439,13 @@ static void prv_log_tick(void *data) {
           (unsigned long)s_tick_gap_max, (unsigned long)s_game_ms_max,
           (unsigned long)a->queue_ms_est, (unsigned long)a->underruns);
   APP_LOG(APP_LOG_LEVEL_INFO,
-          "[P1p] sub=%lu seg=%lu krs=%lu flp=%lu split=%lu esc=%lu vmax=%ld ball=%ld,%ld v=%ld,%ld",
+          "[P1p] sub=%lu seg=%lu krs=%lu flp=%lu split=%lu esc=%lu vmax=%ld ball=%ld,%ld tempo=%u",
           (unsigned long)p->substeps, (unsigned long)p->contacts_seg,
           (unsigned long)p->contacts_circ, (unsigned long)p->contacts_flip,
           (unsigned long)p->splits_max,
           (unsigned long)p->escapes, (long)FX_TO_INT(p->speed_max),
           (long)FX_TO_INT(s_world.ball[0].p.x), (long)FX_TO_INT(s_world.ball[0].p.y),
-          (long)FX_TO_INT(s_world.ball[0].v.x), (long)FX_TO_INT(s_world.ball[0].v.y));
+          (unsigned)game_speed_pct());
   if ((s_log_tick % 5) != 1) {
     return;
   }
