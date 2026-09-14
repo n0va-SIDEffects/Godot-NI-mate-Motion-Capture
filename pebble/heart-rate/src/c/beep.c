@@ -7,11 +7,12 @@
 #define BEEP_SAMPLES      ((uint32_t)(sizeof(s_beep_pcm) / sizeof(s_beep_pcm[0])))
 #define STREAM_FORMAT     SpeakerPcmFormat_16kHz_16bit
 #define BYTES_PER_MS      (BEEP_SAMPLE_RATE_HZ / 1000 * 2)   // 16 kHz, 16 bit, mono
-//! How far ahead of the speaker the stream is kept filled. Long enough that a late pump cannot
-//! run it dry, which would click, and short enough that a beat is not heard noticeably late.
+//! How far ahead of the speaker the stream is kept filled. Run it dry and it clicks.
 #define STREAM_LEAD_MS    70
-//! Biggest slice written in one go; also the size of the working buffer.
-#define CHUNK_SAMPLES     640
+//! How often the stream is topped up. Well below the lead, so a single late pump cannot empty it.
+#define PUMP_MS           10
+//! Biggest slice written in one go, and the size of the working buffer: 128 ms of audio.
+#define CHUNK_SAMPLES     2048
 
 static const SpeakerSample s_sample = {
   .data = s_beep_pcm,
@@ -27,6 +28,7 @@ static uint32_t s_stream_start_ms;   // when the stream was opened
 static uint32_t s_written_bytes;     // bytes handed over since then
 static uint32_t s_pos_q16;           // position in the sample, 16.16; past the end means silent
 static uint32_t s_step_q16;          // how far to advance per output sample: the pitch
+static AppTimer *s_pump_timer;
 static int16_t s_chunk[CHUNK_SAMPLES];
 
 static uint32_t now_ms(void) {
@@ -61,20 +63,25 @@ static uint32_t pitch_step_q16(uint8_t note) {
   return step ? step : 1;
 }
 
-//! One sample of the beep, resampled to the wanted pitch, or silence once it has run out.
-static int16_t next_sample(void) {
-  const uint32_t index = s_pos_q16 >> 16;
+//! One sample of the beep at the wanted pitch, or silence once it has run out.
+static int16_t sample_at(uint32_t pos_q16) {
+  const uint32_t index = pos_q16 >> 16;
   if (index >= BEEP_SAMPLES) {
     return 0;
   }
   const int32_t a = s_beep_pcm[index];
   const int32_t b = (index + 1 < BEEP_SAMPLES) ? s_beep_pcm[index + 1] : 0;
-  const int32_t frac = (int32_t)(s_pos_q16 & 0xFFFF);
-  s_pos_q16 += s_step_q16;
+  const int32_t frac = (int32_t)(pos_q16 & 0xFFFF);
   return (int16_t)(a + (((b - a) * frac) >> 16));
 }
 
+static void pump_timer_callback(void *context);
+
 static void stream_close(void) {
+  if (s_pump_timer) {
+    app_timer_cancel(s_pump_timer);
+    s_pump_timer = NULL;
+  }
   if (s_stream_open) {
     speaker_stream_close();
     s_stream_open = false;
@@ -85,17 +92,24 @@ static void stream_open(void) {
   if (s_stream_open) {
     return;
   }
+  // The speaker refuses a new session while it is still busy with the previous one.
+  if (speaker_get_status() != SpeakerStatusIdle) {
+    return;
+  }
   if (!speaker_stream_open(STREAM_FORMAT, s_settings.volume)) {
-    return;   // the caller falls back to playing each beat on its own
+    return;   // beep_play falls back to handing over one sample per beat
   }
   s_stream_open = true;
   s_stream_start_ms = now_ms();
   s_written_bytes = 0;
   s_pos_q16 = BEEP_SAMPLES << 16;   // start silent
+  if (!s_pump_timer) {
+    s_pump_timer = app_timer_register(PUMP_MS, pump_timer_callback, NULL);
+  }
 }
 
 void beep_setup(const Settings *settings) {
-  const bool was_stream = s_settings.sound_mode == BeepModeStream;
+  const bool was_stream = s_stream_open;
   s_settings = *settings;
   s_step_q16 = pitch_step_q16(s_settings.pitch_note);
 
@@ -105,7 +119,7 @@ void beep_setup(const Settings *settings) {
     stream_close();
     return;
   }
-  if (s_stream_open && was_stream) {
+  if (was_stream) {
     speaker_set_volume(s_settings.volume);
     return;
   }
@@ -121,6 +135,8 @@ void beep_play(void) {
     beep_pump();
     return;
   }
+  // The speaker refuses a second call while it is still busy with the last beep. Nothing useful
+  // can be done about that from here, so just ask and let it decide.
   const SpeakerNote note = {
     .midi_note = s_settings.pitch_note,
     .waveform = SpeakerWaveformSine,   // ignored while a sample is attached
@@ -147,16 +163,25 @@ void beep_pump(void) {
   if (samples > CHUNK_SAMPLES) {
     samples = CHUNK_SAMPLES;
   }
+
+  const uint32_t start_pos = s_pos_q16;
   for (uint32_t i = 0; i < samples; i++) {
-    s_chunk[i] = next_sample();
+    s_chunk[i] = sample_at(start_pos + i * s_step_q16);
   }
   const uint32_t accepted = speaker_stream_write(s_chunk, samples * 2);
   s_written_bytes += accepted;
-  const uint32_t rejected = samples - accepted / 2;
-  if (rejected > 0 && (s_pos_q16 >> 16) < BEEP_SAMPLES + rejected) {
-    // The buffer took less than offered: wind the beep back so nothing is skipped.
-    const uint32_t back = rejected * s_step_q16;
-    s_pos_q16 = (s_pos_q16 > back) ? s_pos_q16 - back : 0;
+  // Advance by exactly what the speaker took, so a partial write neither skips nor repeats any of
+  // the beep. Getting this wrong replayed fragments of it over and over.
+  if ((start_pos >> 16) < BEEP_SAMPLES) {
+    s_pos_q16 = start_pos + (accepted / 2) * s_step_q16;
+  }
+}
+
+static void pump_timer_callback(void *context) {
+  s_pump_timer = NULL;
+  beep_pump();
+  if (s_stream_open) {
+    s_pump_timer = app_timer_register(PUMP_MS, pump_timer_callback, NULL);
   }
 }
 

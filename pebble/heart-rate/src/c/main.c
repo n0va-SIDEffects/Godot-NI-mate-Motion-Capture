@@ -179,7 +179,6 @@ static bool advance_to_now(void) {
 }
 
 static void on_frame(void *context) {
-  beep_pump();   // keep the speaker fed before anything else can delay it
   if (advance_to_now()) {
     layer_mark_dirty(s_trace_layer);
   }

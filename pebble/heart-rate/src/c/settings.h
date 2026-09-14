@@ -7,8 +7,8 @@
 
 //! How the beep reaches the speaker.
 typedef enum {
-  BeepModeStream = 0,   //! keep the speaker open the whole time, writing silence between beats
-  BeepModeSingle = 1,   //! hand over one sample per beat and let the speaker close again
+  BeepModeSingle = 0,   //! hand over one sample per beat and let the speaker close again
+  BeepModeStream = 1,   //! keep the speaker open the whole time, writing silence between beats
 } BeepMode;
 
 //! What the backlight does while the app is open.

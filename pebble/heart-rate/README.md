@@ -94,7 +94,7 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 | --- | --- |
 | Piep bei jedem Schlag | an/aus |
 | Lautstärke | 0 bis 100, Schritte von 5 |
-| Wiedergabe | durchgehend oder einzelne Töne |
+| Wiedergabe | einzelne Töne oder durchgehend |
 | Tonhöhe | tief 660 Hz, Monitor 880 Hz, hoch 1046 Hz |
 | Vibration bei jedem Schlag | an/aus |
 | Länge der Vibration | kurz 15 ms, normal 25 ms, kräftig 40 ms |
@@ -107,17 +107,22 @@ Alles wird auf der Uhr gespeichert und gilt sofort, ohne die App neu zu starten.
 
 ### Warum es zwei Wiedergabearten gibt
 
-Bei **einzelnen Tönen** bekommt der Lautsprecher pro Schlag ein Sample und wird danach wieder
-freigegeben. Auf der Core Time 2 knackt er dabei gelegentlich, hörbar etwa 100 bis 200 ms nach dem
-Piep, also genau dann, wenn der Verstärker abschaltet.
+Bei **einzelnen Tönen**, der Voreinstellung, bekommt der Lautsprecher pro Schlag ein Sample und
+wird danach wieder freigegeben. Auf der Core Time 2 knackt er dabei gelegentlich, hörbar etwa 100
+bis 200 ms nach dem Piep, also genau dann, wenn der Verstärker abschaltet.
 
-**Durchgehend** hält deshalb einen PCM-Strom über die ganze Sitzung offen und schreibt zwischen den
-Schlägen Stille hinein. Der Verstärker bleibt an und kann nicht zwischendurch knacken. Der Strom
-wird 70 ms im Voraus gefüllt, weit genug, dass ein verspätetes Bild ihn nicht leerlaufen lässt, und
-kurz genug, dass der Piep nicht merklich hinter der Kurve herhinkt. Das kostet etwas mehr Akku.
+**Durchgehend** hält stattdessen einen PCM-Strom über die ganze Sitzung offen und schreibt zwischen
+den Schlägen Stille hinein, sodass der Verstärker gar nicht erst abschaltet. Der Strom wird 70 ms
+im Voraus gefüllt und alle 10 ms nachgefüllt: weit genug, dass eine verspätete Runde ihn nicht
+leerlaufen lässt, kurz genug, dass der Piep bei seiner Zacke bleibt.
 
-Das ist die Voreinstellung. Sollte sie sich auf einer Uhr schlechter anhören, stellt die andere
-Wiedergabeart das alte Verhalten wieder her.
+Diese Variante ist als Versuch gekennzeichnet und nicht voreingestellt. Auf einem Rechner lässt
+sich kein Ton prüfen, deshalb bleibt die bewährte Art die Vorgabe, bis jemand die andere auf einer
+echten Uhr gehört hat.
+
+Nebenbei aus dem Emulator gelernt: Solange der Lautsprecher noch spielt, lehnt er einen zweiten
+Abspielbefehl ab, statt ihn zu übernehmen. Ein Schlag, der zu kurz nach dem vorigen kommt, bleibt
+also stumm. Deshalb die Sperre von 260 ms zwischen zwei Schlägen weiter oben.
 
 Der Vibrationsmotor klickt bei jedem Schlag hörbar mit. Wer einen reinen Monitor-Ton will, schaltet
 die Vibration aus, entweder in den Einstellungen oder mit der Auswahltaste.
@@ -132,6 +137,14 @@ im Paket liegt.
 Die Seite selbst baut [Clay](https://github.com/pebble/clay). Clay liegt als reines JavaScript in
 `src/pkjs/vendor/clay.js` statt als Pebble-Paket, weil das veröffentlichte Paket die neuen
 Plattformen flint und gabbro nicht kennt und den Build dort abbrechen lässt.
+
+Clay verwandelt die eigene Funktion aus `src/pkjs/custom-clay.js` in Text und legt sie in die
+Seite. Alles, was dort einen Modullader bräuchte, lässt die Seite kommentarlos leer bleiben. Dieser
+Test baut die Seite so auf, wie das Handy es täte, und prüft genau das:
+
+```sh
+pebble build && node tools/check_config_page.js
+```
 
 ## Bedienung
 
@@ -189,6 +202,7 @@ im Emulator: `pebble emu-button --emulator diorite push down`, kurz warten, `...
 | `src/pkjs/config.js` | Aufbau der Einstellungsseite |
 | `tools/make_beep_sample.py` | erzeugt dieses Sample (braucht nur numpy) |
 | `tools/test_beat_clock.c` | Test der Taktlogik, läuft auf dem Rechner |
+| `tools/check_config_page.js` | prüft, ob die Einstellungsseite aufgebaut werden kann |
 
 ## Zielplattformen
 

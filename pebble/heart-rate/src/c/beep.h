@@ -3,11 +3,12 @@
  *
  * Two ways of playing it, chosen in the settings:
  *
- *   BeepModeStream    keeps a PCM stream open for the whole session and writes silence between
- *                     the beats. The amplifier never powers down, so it cannot click on its way
- *                     out. This is the default.
  *   BeepModeSingle    hands the sample to the speaker once per beat and lets it close again.
- *                     Simpler and cheaper, but each close is a chance for the amplifier to click.
+ *                     The default, and what the watch has always done. Each close is a chance for
+ *                     the amplifier to click on its way out.
+ *   BeepModeStream    keeps a PCM stream open for the whole session and writes silence between
+ *                     the beats, so the amplifier never powers down. Untried on real hardware:
+ *                     none of this can be heard from a build machine.
  */
 #pragma once
 
@@ -21,7 +22,7 @@ void beep_setup(const Settings *settings);
 //! Sound one beat.
 void beep_play(void);
 
-//! Keep the stream fed. Call regularly (every couple of frames) while the app runs.
+//! Keep the stream fed. Driven by its own timer; exposed so a beat can top it up straight away.
 void beep_pump(void);
 
 //! Release the speaker.

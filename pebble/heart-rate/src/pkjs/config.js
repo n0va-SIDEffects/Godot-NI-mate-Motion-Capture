@@ -37,11 +37,11 @@ var config = [
         type: 'select',
         messageKey: 'SOUND_MODE',
         label: 'Wiedergabe',
-        description: 'Durchgehend hält den Lautsprecher offen, damit sein Verstärker zwischen den Schlägen nicht ab- und wieder anschaltet und dabei knackt. Einzeln ist sparsamer.',
+        description: 'Einzeln ist die bewährte Art. Durchgehend hält den Lautsprecher offen, damit sein Verstärker zwischen den Schlägen nicht abschaltet und dabei knackt, ist aber noch nicht auf echter Hardware erprobt.',
         defaultValue: '0',
         options: [
-          { label: 'Durchgehend', value: '0' },
-          { label: 'Einzelne Töne', value: '1' }
+          { label: 'Einzelne Töne', value: '0' },
+          { label: 'Durchgehend (Versuch)', value: '1' }
         ]
       },
       {
@@ -151,7 +151,8 @@ if (DONATION_URL) {
       {
         type: 'text',
         defaultValue: 'Die App ist kostenlos und ohne Werbung. Wenn sie dir Freude macht, freue ' +
-                      'ich mich über einen Kaffee.'
+                      'ich mich über einen Kaffee: <a href="' + DONATION_URL +
+                      '" target="_blank">' + DONATION_URL.replace(/^https:\/\//, '') + '</a>'
       },
       { type: 'button', id: 'donate', primary: true, defaultValue: '☕ Buy me a coffee' }
     ]
@@ -159,4 +160,3 @@ if (DONATION_URL) {
 }
 
 module.exports = config;
-module.exports.DONATION_URL = DONATION_URL;
