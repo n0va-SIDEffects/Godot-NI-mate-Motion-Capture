@@ -1,0 +1,7 @@
+build/
+node_modules/
+*.pbw
+.lock-waf*
+__pycache__/
+tools/hosttest/test_physics
+*.o

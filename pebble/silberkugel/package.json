@@ -1,0 +1,26 @@
+{
+  "name": "silberkugel-p1",
+  "author": "SIDE effect's",
+  "version": "0.1.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Silberkugel P1",
+    "uuid": "a222f14e-c640-4b3d-8f89-f524bc9177d4",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "dummy"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}
