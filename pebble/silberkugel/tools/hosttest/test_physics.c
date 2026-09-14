@@ -7,8 +7,13 @@
 //   4. Gleiche Eingaben ergeben Bit fuer Bit dieselbe Bahn (Determinismus).
 #include <stdio.h>
 #include "../../src/c/physics.h"
+#include "../../src/c/view.h"
 
 static int s_fails;
+// Der Tisch laesst sich strecken (siehe table.h). Beide Laengen muessen
+// dieselben Pruefungen bestehen: die kurze, die genau auf den Bildschirm
+// passt, und die lange, die die Kamera abfahren muss.
+static int16_t g_stretch;
 
 static void check(const char *name, bool ok, const char *detail) {
   printf("%-46s %s%s%s\n", name, ok ? "ok" : "FEHLER",
@@ -32,7 +37,7 @@ static void test_tunneling(void) {
   for (int speed = 200; speed <= 1500; speed += 100) {
     for (int dir = 0; dir < 16; dir++) {
       World w;
-      phys_init(&w);
+      phys_init(&w, g_stretch);
       Ball *b = phys_spawn_lane(&w);
       b->p = vec_make(FX_FROM_INT(91), FX_FROM_INT(60));
       b->in_lane = false;
@@ -44,7 +49,7 @@ static void test_tunneling(void) {
       // Abgeflossen ist erlaubt (unten offen), ausserhalb des Tisches nicht.
       if (b->alive) {
         int32_t x = FX_TO_INT(b->p.x), y = FX_TO_INT(b->p.y);
-        if (x < 0 || x > TABLE_W || y < 0 || y > DRAIN_Y) {
+        if (x < 0 || x > TABLE_W || y < 0 || y > w.table.drain_y) {
           lost++;
         }
       }
@@ -60,9 +65,12 @@ static void test_tunneling(void) {
 static void test_plunger_lane(void) {
   int back_in_lane = 0;
   int never_left = 0;
-  for (int speed = PLUNGER_MIN_PX_S; speed <= PLUNGER_MAX_PX_S; speed += 40) {
+  World probe;
+  phys_init(&probe, g_stretch);
+  int vmin = table_plunger_min_speed(&probe.table, GRAVITY_PX_S2);
+  for (int speed = vmin; speed <= vmin + PLUNGER_SPAN_PX_S; speed += 40) {
     World w;
-    phys_init(&w);
+    phys_init(&w, g_stretch);
     Ball *b = phys_spawn_lane(&w);
     b->v = vec_make(0, -FX_FROM_INT(speed));
     bool left = false;
@@ -103,11 +111,11 @@ static void test_plunger_tilted(void) {
   for (int gx = -105; gx <= 105; gx += 35) {
     for (int sx = 176; sx <= 190; sx += 2) {
       World w;
-      phys_init(&w);
+      phys_init(&w, g_stretch);
       w.gravity = vec_make(FX_FROM_INT(gx), FX_FROM_INT(GRAVITY_PX_S2));
       Ball *b = phys_spawn_lane(&w);
-      b->p = vec_make(FX_FROM_INT(sx), FX_FROM_INT(PLUNGER_REST_Y));
-      b->v = vec_make(0, -FX_FROM_INT(PLUNGER_MIN_PX_S));
+      b->p = vec_make(FX_FROM_INT(sx), FX_FROM_INT(w.table.plunger_y));
+      b->v = vec_make(0, -FX_FROM_INT(table_plunger_min_speed(&w.table, GRAVITY_PX_S2)));
       int32_t top = 999;
       bool left = false;
       for (int i = 0; i < 4000 / PHYS_DT_MS && b->alive; i++) {
@@ -148,7 +156,7 @@ static void test_gate_oneway(void) {
       for (int speed = 100; speed <= 1200; speed += 220) {
         for (int dir = 0; dir < 12; dir++) {
           World w;
-          phys_init(&w);
+          phys_init(&w, g_stretch);
           Ball *b = phys_spawn_lane(&w);
           b->p = vec_make(FX_FROM_INT(sx), FX_FROM_INT(sy));
           b->in_lane = false;
@@ -160,7 +168,7 @@ static void test_gate_oneway(void) {
               break;
             }
             int32_t bx = FX_TO_INT(b->p.x);
-            if (bx > 176 && bx < 192 && FX_TO_INT(b->p.y) > 120) {
+            if (bx > 176 && bx < 192 && FX_TO_INT(b->p.y) > w.table.mag_dead_y - 40) {
               back_in++;
               worst_x = sx; worst_y = sy; worst_speed = speed; worst_dir = dir;
               break;
@@ -185,7 +193,7 @@ static void test_reaches_flippers(void) {
   int32_t ms_sum = 0;
   for (int sx = 20; sx <= 165; sx += 5) {
     World w;
-    phys_init(&w);
+    phys_init(&w, g_stretch);
     Ball *b = phys_spawn_lane(&w);
     b->p = vec_make(FX_FROM_INT(sx), FX_FROM_INT(30));
     b->v = vec_make(0, 0);
@@ -196,7 +204,7 @@ static void test_reaches_flippers(void) {
     for (; i < 8000 / PHYS_DT_MS && b->alive; i++) {
       phys_substep(&w);
       int32_t x = FX_TO_INT(b->p.x), y = FX_TO_INT(b->p.y);
-      if (y > 176 && x > 30 && x < 150) {
+      if (y > w.table.drain_y - 52 && x > 30 && x < 150) {
         hit = true;
         break;
       }
@@ -216,7 +224,7 @@ static void test_reaches_flippers(void) {
 // deutlich schneller werden, als sie durch Schwerkraft werden koennte.
 static void test_flipper_transfer(void) {
   World w;
-  phys_init(&w);
+  phys_init(&w, g_stretch);
   Ball *b = phys_spawn_lane(&w);
   // Kugel auf den linken Flipper legen, knapp vor der Spitze
   Vec tip = phys_flipper_tip(&w.table.flip[0]);
@@ -242,7 +250,7 @@ static void test_determinism(void) {
   Vec vel[2];
   for (int k = 0; k < 2; k++) {
     World w;
-    phys_init(&w);
+    phys_init(&w, g_stretch);
     Ball *b = phys_spawn_lane(&w);
     b->v = vec_make(0, -FX_FROM_INT(700));
     for (int i = 0; i < 2000; i++) {
@@ -268,7 +276,7 @@ static void test_determinism(void) {
 // die Groesse, die sich auf 180 Segmente hochrechnen laesst.
 static void test_cost(void) {
   World w;
-  phys_init(&w);
+  phys_init(&w, g_stretch);
   for (int i = 0; i < MAX_BALLS; i++) {
     Ball *b = phys_spawn_lane(&w);
     if (!b) break;
@@ -310,7 +318,7 @@ static void test_magnet_reach(void) {
   int carry = -1;
   for (int d = 2; d <= MAG_RADIUS_PX; d++) {
     World w;
-    phys_init(&w);
+    phys_init(&w, g_stretch);
     Ball *b = phys_spawn_lane(&w);
     b->p = vec_make(FX_FROM_INT(91), FX_FROM_INT(80 + d));
     b->v = vec_make(0, 0);
@@ -340,8 +348,85 @@ static void test_magnet_reach(void) {
   check("Magnet traegt bis ausserhalb der Fingerkuppe", carry > FINGER_TIP_R_PX, d);
 }
 
-int main(void) {
-  printf("SILBERKUGEL, Physik-Pruefstand\n\n");
+// 7. Ansicht: Die Umrechnung Tisch nach Bildschirm muss umkehrbar sein, sonst
+// greift der Magnetfinger woanders an, als der Spieler hinfasst. Geprueft in
+// beiden Ausrichtungen und ueber den ganzen Kameraweg.
+static void test_view_roundtrip(void) {
+  World w;
+  phys_init(&w, TABLE_STRETCH_PX);
+  int bad = 0, checked = 0;
+  for (int rot = 0; rot < 2; rot++) {
+    View v;
+    view_init(&v, &w.table);
+    view_set_rot(&v, rot != 0, &w.table);
+    view_set_camera(&v, true, &w.table);
+    for (int cam = 0; cam <= v.cam_max; cam += 7) {
+      v.cam = (int16_t)cam;
+      for (int tx = 0; tx < TABLE_W; tx += 9) {
+        for (int ty = cam; ty < cam + v.view_len; ty += 9) {
+          int16_t sx, sy, bx, by;
+          view_to_screen(&v, (int16_t)tx, (int16_t)ty, &sx, &sy);
+          view_to_table(&v, sx, sy, &bx, &by);
+          checked++;
+          if (bx != tx || by != ty) {
+            bad++;
+          }
+        }
+      }
+    }
+  }
+  char d[80];
+  snprintf(d, sizeof(d), "%d von %d Punkten stimmen nicht", bad, checked);
+  check("Tisch nach Bildschirm und zurueck ist umkehrbar", bad == 0, d);
+}
+
+// 8. Kamera: Sie darf nur ausserhalb des Totbands nachziehen, nie ueber die
+// Tischenden hinaus, und sie muss die Kugel im Bild halten.
+static void test_camera(void) {
+  World w;
+  phys_init(&w, TABLE_STRETCH_PX);
+  View v;
+  view_init(&v, &w.table);
+  view_set_camera(&v, true, &w.table);
+  int out_of_range = 0, lost = 0, jitter = 0;
+  int16_t prev = v.cam;
+  // Kugel einmal von oben nach unten und zurueck, in Schritten, wie sie bei
+  // 25 Bildern je Sekunde und 450 px/s tatsaechlich vorkommen.
+  view_snap(&v, 0);
+  prev = v.cam;
+  for (int pass = 0; pass < 2; pass++) {
+    for (int k = 0; k <= w.table.height_px / 18; k++) {
+      int16_t y = (int16_t)(pass == 0 ? k * 18 : w.table.height_px - k * 18);
+      if (y < 0) {
+        y = 0;
+      }
+      view_track(&v, y);
+      if (v.cam < 0 || v.cam > v.cam_max) {
+        out_of_range++;
+      }
+      int16_t rel = (int16_t)(y - v.cam);
+      // Die Kugel darf nur dann aus dem Bild laufen, wenn der Tisch zu Ende ist
+      if ((rel < 0 || rel >= v.view_len) && v.cam > 0 && v.cam < v.cam_max) {
+        lost++;
+      }
+      int16_t step = (int16_t)(v.cam - prev);
+      if (step < 0) {
+        step = (int16_t)-step;
+      }
+      if (step > 40) {
+        jitter++;   // Sprung ueber ein halbes Bild waere sichtbares Reissen
+      }
+      prev = v.cam;
+    }
+  }
+  char d[90];
+  snprintf(d, sizeof(d), "%d mal ausserhalb, %d mal Kugel verloren, %d Spruenge, Weg 0..%d",
+           out_of_range, lost, jitter, (int)v.cam_max);
+  check("Kamera bleibt in den Grenzen und haelt die Kugel", 
+        out_of_range == 0 && lost == 0 && jitter == 0, d);
+}
+
+static void run_all(void) {
   test_tunneling();
   test_plunger_lane();
   test_plunger_tilted();
@@ -351,6 +436,18 @@ int main(void) {
   test_determinism();
   test_magnet_reach();
   test_cost();
+}
+
+int main(void) {
+  printf("SILBERKUGEL, Physik-Pruefstand\n");
+  test_view_roundtrip();
+  test_camera();
+  for (int k = 0; k < 2; k++) {
+    g_stretch = k ? TABLE_STRETCH_PX : 0;
+    printf("\n--- Tisch %d px hoch (Streckung %d) ---\n",
+           TABLE_H + g_stretch, g_stretch);
+    run_all();
+  }
   printf("\n%s\n", s_fails == 0 ? "Alles bestanden." : "FEHLER vorhanden.");
   return s_fails == 0 ? 0 : 1;
 }

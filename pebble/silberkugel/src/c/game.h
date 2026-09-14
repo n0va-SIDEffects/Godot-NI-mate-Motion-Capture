@@ -2,6 +2,7 @@
 #include <pebble.h>
 #include "physics.h"
 #include "render.h"
+#include "view.h"
 
 typedef enum {
   BallIdle = 0,     // keine Kugel im Spiel
@@ -39,7 +40,7 @@ typedef struct {
   uint32_t phys_us_per_substep_x10;   // aus dem Stresstest
 } GameStats;
 
-void game_init(World *w);
+void game_init(World *w, View *v);
 void game_deinit(void);
 void game_set_magnet_drill(bool on);   // Uebungsmodus statt Flipperspiel
 bool game_magnet_drill(void);

@@ -94,12 +94,13 @@
 #define PLUNGER_TICK_PX 10        // pro 10 px Zugweg ein Ratschenimpuls
 #define PLUNGER_TICKS_MAX 6
 #define PLUNGER_SKILL_TICKS 4     // Skill-Shot aus dem Konzept
-// Untergrenze: Die Abschussbahn ist rund 160 px hoch, dafuer braucht es
-// mindestens sqrt(2*g*h), bei 500 px/s^2 also 400 px/s. Darunter rollt die
-// Kugel zurueck und der Spieler sitzt fest. Gemessen mit tools/hosttest,
-// das jeden Wert des Bereichs einzeln durchprobiert.
-#define PLUNGER_MIN_PX_S 440
-#define PLUNGER_MAX_PX_S 820
+// Die Untergrenze rechnet table_plunger_min_speed aus der tatsaechlichen
+// Bahnhoehe und dem eingestellten Tempo aus; ein fester Wert waere bei jeder
+// Aenderung wieder falsch, und die Kugel bliebe in der Bahn stecken. Diese
+// beiden Werte sind nur noch Klemmen, damit nichts davonlaeuft.
+#define PLUNGER_MIN_CLAMP_PX_S 300
+#define PLUNGER_SPAN_PX_S 380     // Zuschlag bei vollem Zug
+#define PLUNGER_MAX_CLAMP_PX_S 1100
 #define PLUNGER_LANE_X0 168       // Zone, in der eine Zieh-Geste als Plunger gilt
 #define PLUNGER_LANE_Y0 120
 
@@ -188,3 +189,11 @@
 // knapp ausserhalb der Fingerkuppe.
 #define SPEED_STEPS 4
 #define SPEED_DEFAULT_IDX 2       // 100 Prozent
+
+// ------------------------------------------------------------------- Ansicht
+// Streckung des Tisches fuer den Kameramodus. 112 px machen aus dem 228er
+// Tisch einen von 340, also gut anderthalb Bildschirme.
+#define TABLE_STRETCH_PX 112
+// Totband der Kamera: Innerhalb dieses mittleren Streifens bewegt sie sich
+// nicht. Das Konzept nennt 60 px.
+#define CAM_DEADBAND_PX 60

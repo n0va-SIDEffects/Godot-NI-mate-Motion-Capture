@@ -53,7 +53,7 @@ typedef struct {
 } Flipper;
 
 #define TABLE_MAX_SEGMENTS 40
-#define TABLE_MAX_CIRCLES 4
+#define TABLE_MAX_CIRCLES 5
 
 typedef struct {
   Segment seg[TABLE_MAX_SEGMENTS];
@@ -61,9 +61,24 @@ typedef struct {
   Circle circ[TABLE_MAX_CIRCLES];
   uint8_t circ_count;
   Flipper flip[2];        // 0 = links, 1 = rechts
+  int16_t height_px;      // Tischlaenge: 228 ohne Streckung, mehr mit
+  int16_t drain_y;        // ab hier ist die Kugel weg
+  int16_t mag_dead_y;     // unterhalb wirkt der Magnet nicht
+  int16_t plunger_y;      // Ruhelage der Kugel in der Abschussbahn
+  int16_t stretch;        // eingefuegtes gerades Stueck
 } Table;
 
-void table_build(Table *t);
+// Baut den Tisch. stretch_px schiebt alles unterhalb der Pfosten um diesen
+// Betrag nach unten und verlaengert dabei die Seitenwaende: So entsteht aus
+// derselben Geometrie ein laengerer Tisch, den die Kamera abfahren muss, ohne
+// dass eine zweite Geometrie gepflegt werden will.
+void table_build(Table *t, int16_t stretch_px);
 
 // Startpunkt der Kugel in der Plunger-Bahn
-Vec table_plunger_pos(void);
+Vec table_plunger_pos(const Table *t);
+
+// Kleinste Abschussgeschwindigkeit, mit der die Kugel oben aus der Bahn
+// kommt, in px/s. Sie folgt aus sqrt(2*g*h) mit der tatsaechlichen Bahnhoehe,
+// plus Reserve: Ein fester Wert waere bei jeder Aenderung der Tischlaenge oder
+// des Grundtempos wieder falsch, und der Spieler saesse fest.
+int16_t table_plunger_min_speed(const Table *t, int32_t gravity_px_s2);

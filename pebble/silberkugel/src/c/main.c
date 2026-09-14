@@ -10,6 +10,7 @@
 #include "nudge.h"
 #include "audio.h"
 #include "tone.h"
+#include "view.h"
 
 // SILBERKUGEL, Phase 1. Vier Bildschirme, Wechsel mit langem Druck auf Up:
 //   SPIEL   Flipper auf dem grauen Testtisch
@@ -35,6 +36,10 @@ static const char *s_mode_names[ModeCount] = { "SPIEL", "MAGNET", "PANEL", "MESS
 static Window *s_window;
 static Layer *s_layer;
 static World s_world;
+static View s_view;
+// Die Messbildschirme bleiben immer hochkant: Dort zaehlt die Schrift, und
+// die laesst sich nicht mitdrehen.
+static View s_view_flat;
 static Mode s_mode = ModeSpiel;
 static AppTimer *s_game_timer;
 static AppTimer *s_render_timer;
@@ -206,21 +211,41 @@ static void prv_down_click(ClickRecognizerRef rec, void *ctx) {
   }
 }
 
+static void prv_apply_view(void) {
+  render_set_view(&s_view);
+  APP_LOG(APP_LOG_LEVEL_INFO, "[P1][ANSICHT] %s, Kamera %s, Ausschnitt %dx%d, Versatz 0..%d",
+          s_view.rot90 ? "quer" : "hoch", s_view.camera ? "an" : "aus",
+          (int)s_view.view_wid, (int)s_view.view_len, (int)s_view.cam_max);
+}
+
 static void prv_down_multi(ClickRecognizerRef rec, void *ctx) {
   if (s_mode != ModeMess) {
     return;
   }
-  if (click_number_of_clicks_counted(rec) >= 3) {
-    s_quiet = !s_quiet;
-    APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Sekundenlog %s", s_quiet ? "AUS" : "an");
-  } else {
-    s_audio_load = !s_audio_load;
-    if (s_audio_load) {
-      audio_start();
-    } else {
-      audio_stop();
-    }
-    APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Tonlast %s", s_audio_load ? "an" : "AUS");
+  switch (click_number_of_clicks_counted(rec)) {
+    case 2:
+      // Tisch quer statt hoch. Die Geometrie bleibt, nur die Ansicht dreht.
+      view_set_rot(&s_view, !s_view.rot90, &s_world.table);
+      prv_apply_view();
+      break;
+    case 3:
+      view_set_camera(&s_view, !s_view.camera, &s_world.table);
+      view_set_camera(&s_view_flat, s_view.camera, &s_world.table);
+      prv_apply_view();
+      break;
+    case 4:
+      s_audio_load = !s_audio_load;
+      if (s_audio_load) {
+        audio_start();
+      } else {
+        audio_stop();
+      }
+      APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Tonlast %s", s_audio_load ? "an" : "AUS");
+      break;
+    default:
+      s_quiet = !s_quiet;
+      APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Sekundenlog %s", s_quiet ? "AUS" : "an");
+      break;
   }
   prv_update_hud();
   prv_mark_dirty();
@@ -261,7 +286,7 @@ static void prv_click_config(void *ctx) {
     window_long_click_subscribe(BUTTON_ID_UP, 1000, prv_up_long, NULL);
     window_single_click_subscribe(BUTTON_ID_UP, prv_up_click);
     window_single_click_subscribe(BUTTON_ID_DOWN, prv_down_click);
-    window_multi_click_subscribe(BUTTON_ID_DOWN, 2, 3, 300, true, prv_down_multi);
+    window_multi_click_subscribe(BUTTON_ID_DOWN, 2, 5, 320, true, prv_down_multi);
   }
 }
 
@@ -351,8 +376,10 @@ static void prv_update_hud(void) {
                (unsigned long)(g->phys_us_per_substep_x10 % 10),
                (unsigned long)(r->render_ms_x10 / 10), (unsigned long)(r->render_ms_x10 % 10),
                (unsigned long)s_tick_gap_max);
-      snprintf(l3, sizeof(l3), "Up=Tempo %u%% Dn=%s 2x=Ton%s", (unsigned)game_speed_pct(),
-               s_thumb_mode ? "Zange" : "Daumen", s_audio_load ? "aus" : "an");
+      snprintf(l2, sizeof(l2), "%s Kamera %s Tempo %u%%", s_view.rot90 ? "quer" : "hoch",
+               s_view.camera ? "an" : "aus", (unsigned)game_speed_pct());
+      snprintf(l3, sizeof(l3), "Up=Tempo Dn=%s 2x=dreh 3x=Kam 4x=Ton",
+               s_thumb_mode ? "Zange" : "Daumen");
       break;
     default:
       l1[0] = l2[0] = l3[0] = '\0';
@@ -403,6 +430,25 @@ static void prv_render_tick(void *data) {
   if (s_paused || !s_layer) {
     return;
   }
+  // Kamera der untersten lebenden Kugel nachfuehren, bevor gezeichnet wird.
+  int16_t track = -1;
+  for (uint8_t i = 0; i < s_world.ball_count; i++) {
+    if (!s_world.ball[i].alive) {
+      continue;
+    }
+    int16_t y = (int16_t)FX_TO_INT(s_world.ball[i].p.y);
+    if (y > track) {
+      track = y;
+    }
+  }
+  view_track(&s_view, track);
+  if (s_mode == ModeSpiel || s_mode == ModeMagnet) {
+    render_set_view(&s_view);
+  } else {
+    s_view_flat.cam = s_view.cam;
+    render_set_view(&s_view_flat);
+  }
+
   Overlay ov;
   game_fill_overlay(&ov);
   if (s_mode != ModeSpiel && s_mode != ModeMagnet) {
@@ -510,7 +556,9 @@ static void prv_window_load(Window *window) {
   layer_add_child(root, s_layer);
   render_init(s_layer);
   render_set_world(&s_world);
+  render_set_view(&s_view);
   input_init(window);
+  input_set_view(&s_view);
   prv_enter_mode(ModeSpiel);
 }
 
@@ -528,8 +576,13 @@ static void prv_window_unload(Window *window) {
 
 static void prv_init(void) {
   e1clock_init();
-  phys_init(&s_world);
-  game_init(&s_world);
+  // Der Tisch wird von vornherein lang gebaut; ohne Kamera zeigt der
+  // Ausschnitt einfach sein unteres Ende mit den Flippern. So laesst sich
+  // zwischen beiden Ansichten umschalten, ohne die Welt neu aufzubauen.
+  phys_init(&s_world, TABLE_STRETCH_PX);
+  view_init(&s_view, &s_world.table);
+  view_init(&s_view_flat, &s_world.table);
+  game_init(&s_world, &s_view);
   haptics_init();
   nudge_init();
   tone_init();

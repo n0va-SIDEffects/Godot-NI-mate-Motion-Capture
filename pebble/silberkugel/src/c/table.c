@@ -67,9 +67,22 @@ static const CircDef s_circs[] = {
 
 #define DEG_TO_TRIG(d) ((int32_t)(((int32_t)(d) * TRIG_MAX_ANGLE) / 360))
 
-static void prv_init_segment(Segment *s, const SegDef *d) {
-  s->a = vec_make(FX_FROM_INT(d->ax), FX_FROM_INT(d->ay));
-  s->b = vec_make(FX_FROM_INT(d->bx), FX_FROM_INT(d->by));
+// Ab dieser Hoehe wandert alles mit der Streckung nach unten. Die Linie liegt
+// unter den Pfosten und ueber den Rueckfuehrungen, laeuft also nur durch die
+// beiden senkrechten Seitenwaende und die Trennwand der Abschussbahn: Genau
+// dort laesst sich ein gerades Stueck einfuegen, ohne die Form zu veraendern.
+#define STRETCH_ANCHOR_Y 115
+// Oberkante der Abschussbahn: Dort sitzt das Einwegtor, so hoch muss die
+// Kugel mindestens kommen.
+#define GATE_TOP_Y 54
+
+static int16_t prv_y(int16_t y, int16_t stretch) {
+  return (int16_t)(y >= STRETCH_ANCHOR_Y ? y + stretch : y);
+}
+
+static void prv_init_segment(Segment *s, const SegDef *d, int16_t stretch) {
+  s->a = vec_make(FX_FROM_INT(d->ax), FX_FROM_INT(prv_y(d->ay, stretch)));
+  s->b = vec_make(FX_FROM_INT(d->bx), FX_FROM_INT(prv_y(d->by, stretch)));
   Vec ab = vec_sub(s->b, s->a);
   s->len = vec_len(ab);
   if (s->len > 0) {
@@ -82,29 +95,53 @@ static void prv_init_segment(Segment *s, const SegDef *d) {
   s->rest_pct = d->rest_pct;
 }
 
-void table_build(Table *t) {
+void table_build(Table *t, int16_t stretch_px) {
+  if (stretch_px < 0) {
+    stretch_px = 0;
+  }
+  t->stretch = stretch_px;
+  t->height_px = (int16_t)(TABLE_H + stretch_px);
+  t->drain_y = (int16_t)(DRAIN_Y + stretch_px);
+  t->mag_dead_y = (int16_t)(MAG_DEAD_Y + stretch_px);
+  t->plunger_y = (int16_t)(PLUNGER_REST_Y + stretch_px);
+
   t->seg_count = (uint8_t)(sizeof(s_segs) / sizeof(s_segs[0]));
   for (uint8_t i = 0; i < t->seg_count; i++) {
-    prv_init_segment(&t->seg[i], &s_segs[i]);
+    prv_init_segment(&t->seg[i], &s_segs[i], stretch_px);
   }
   t->circ_count = (uint8_t)(sizeof(s_circs) / sizeof(s_circs[0]));
   for (uint8_t i = 0; i < t->circ_count; i++) {
     const CircDef *d = &s_circs[i];
     Circle *c = &t->circ[i];
-    c->c = vec_make(FX_FROM_INT(d->cx), FX_FROM_INT(d->cy));
+    int16_t cy = prv_y(d->cy, stretch_px);
+    c->c = vec_make(FX_FROM_INT(d->cx), FX_FROM_INT(cy));
     c->r = FX_FROM_INT(d->r);
     c->kind = d->kind;
     c->rest_pct = d->rest_pct;
     c->cx_px = d->cx;
-    c->cy_px = d->cy;
+    c->cy_px = cy;
     c->r_px = d->r;
+  }
+  // Ein gestreckter Tisch bekommt in der neuen Mitte einen zweiten Bumper,
+  // sonst ist das eingefuegte Stueck eine leere Flaeche, auf der nichts
+  // passiert und an der die Kamera nichts zu zeigen hat.
+  if (stretch_px >= 60 && t->circ_count < TABLE_MAX_CIRCLES) {
+    Circle *c = &t->circ[t->circ_count++];
+    c->cx_px = 91;
+    c->cy_px = (int16_t)(STRETCH_ANCHOR_Y + stretch_px / 2);
+    c->r_px = 11;
+    c->c = vec_make(FX_FROM_INT(c->cx_px), FX_FROM_INT(c->cy_px));
+    c->r = FX_FROM_INT(c->r_px);
+    c->kind = CircBumper;
+    c->rest_pct = REST_WALL_PCT;
   }
 
   // Flipper: Winkel 0 zeigt nach rechts. Der linke Flipper ruht bei +30 Grad
   // (Spitze rechts unten) und schlaegt auf -30 Grad; der rechte spiegelt das
   // um 180 Grad, damit beide nach oben schlagen.
+  const int16_t piv_y = (int16_t)(FLIPPER_L_PIVOT_Y + stretch_px);
   Flipper *l = &t->flip[0];
-  l->pivot = vec_make(FX_FROM_INT(FLIPPER_L_PIVOT_X), FX_FROM_INT(FLIPPER_L_PIVOT_Y));
+  l->pivot = vec_make(FX_FROM_INT(FLIPPER_L_PIVOT_X), FX_FROM_INT(piv_y));
   l->len = FX_FROM_INT(FLIPPER_LEN_PX);
   l->radius = FX_FROM_INT(FLIPPER_R_PX);
   l->angle_rest = DEG_TO_TRIG(FLIPPER_SWING_DEG);
@@ -114,10 +151,10 @@ void table_build(Table *t) {
   l->up = false;
   l->left = true;
   l->pivot_x_px = FLIPPER_L_PIVOT_X;
-  l->pivot_y_px = FLIPPER_L_PIVOT_Y;
+  l->pivot_y_px = piv_y;
 
   Flipper *r = &t->flip[1];
-  r->pivot = vec_make(FX_FROM_INT(FLIPPER_R_PIVOT_X), FX_FROM_INT(FLIPPER_R_PIVOT_Y));
+  r->pivot = vec_make(FX_FROM_INT(FLIPPER_R_PIVOT_X), FX_FROM_INT(piv_y));
   r->len = FX_FROM_INT(FLIPPER_LEN_PX);
   r->radius = FX_FROM_INT(FLIPPER_R_PX);
   r->angle_rest = DEG_TO_TRIG(180 - FLIPPER_SWING_DEG);
@@ -127,9 +164,34 @@ void table_build(Table *t) {
   r->up = false;
   r->left = false;
   r->pivot_x_px = FLIPPER_R_PIVOT_X;
-  r->pivot_y_px = FLIPPER_R_PIVOT_Y;
+  r->pivot_y_px = piv_y;
 }
 
-Vec table_plunger_pos(void) {
-  return vec_make(FX_FROM_INT(PLUNGER_X), FX_FROM_INT(PLUNGER_REST_Y));
+// Ganzzahlige Wurzel nach Newton; die Physik selbst rechnet in Q12, hier geht
+// es aber um einen glatten Pixelwert.
+static int32_t prv_isqrt(int32_t v) {
+  if (v <= 0) {
+    return 0;
+  }
+  int32_t x = v;
+  int32_t y = (x + 1) / 2;
+  while (y < x) {
+    x = y;
+    y = (x + v / x) / 2;
+  }
+  return x;
+}
+
+int16_t table_plunger_min_speed(const Table *t, int32_t gravity_px_s2) {
+  int32_t h = t->plunger_y - GATE_TOP_Y;
+  if (h < 20) {
+    h = 20;
+  }
+  int32_t v = prv_isqrt(2 * gravity_px_s2 * h);
+  v = (v * 115) / 100;      // 15 Prozent Reserve fuer Reibung und Abpraller
+  return (int16_t)v;
+}
+
+Vec table_plunger_pos(const Table *t) {
+  return vec_make(FX_FROM_INT(PLUNGER_X), FX_FROM_INT(t->plunger_y));
 }

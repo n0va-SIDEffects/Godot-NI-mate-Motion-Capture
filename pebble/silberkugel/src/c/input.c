@@ -5,6 +5,7 @@
 #define VEL_HIST 3
 
 static TouchState s_st;
+static const View *s_view;
 static uint32_t s_last_ev_ms;
 static uint32_t s_rate_t0;
 static uint32_t s_rate_n0;
@@ -103,15 +104,19 @@ static void prv_plunger_end(void) {
 static void prv_touch(const TouchEvent *e, void *ctx) {
   uint32_t now = e1clock_now_ms();
   s_st.events++;
-  s_st.x = e->x;
-  s_st.y = e->y;
+  int16_t ex = e->x, ey = e->y;
+  if (s_view) {
+    view_to_table(s_view, e->x, e->y, &ex, &ey);
+  }
+  s_st.x = ex;
+  s_st.y = ey;
   switch (e->type) {
     case TouchEvent_Touchdown:
       s_st.down = true;
       s_st.touchdowns++;
       s_hist_n = 0;
-      prv_hist_push(e->x, e->y, now);
-      prv_plunger_begin(e->x, e->y);
+      prv_hist_push(ex, ey, now);
+      prv_plunger_begin(ex, ey);
       break;
     case TouchEvent_Liftoff:
       s_st.down = false;
@@ -124,7 +129,7 @@ static void prv_touch(const TouchEvent *e, void *ctx) {
         // Magnet an einer alten Position fest.
         s_st.down = true;
         s_hist_n = 0;
-        prv_plunger_begin(e->x, e->y);
+        prv_plunger_begin(ex, ey);
       }
       uint32_t dt = now - s_last_ev_ms;
       if (s_last_ev_ms != 0 && dt > 0) {
@@ -136,13 +141,17 @@ static void prv_touch(const TouchEvent *e, void *ctx) {
         }
       }
       s_st.moves++;
-      prv_hist_push(e->x, e->y, now);
+      prv_hist_push(ex, ey, now);
       prv_update_velocity();
-      prv_plunger_update(e->y);
+      prv_plunger_update(ey);
       break;
     }
   }
   s_last_ev_ms = now;
+}
+
+void input_set_view(const View *v) {
+  s_view = v;
 }
 
 void input_init(Window *window) {

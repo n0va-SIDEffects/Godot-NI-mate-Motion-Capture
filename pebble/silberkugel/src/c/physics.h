@@ -53,7 +53,9 @@ typedef struct {
   PhysStats st;
 } World;
 
-void phys_init(World *w);
+// stretch_px verlaengert den Tisch (siehe table.h). 0 heisst: Er passt genau
+// auf den Bildschirm, die Kamera hat nichts zu tun.
+void phys_init(World *w, int16_t stretch_px);
 void phys_reset_stats(World *w);
 
 // Fester Zeitschritt. Der Aufrufer ruft das so oft, wie Zeit vergangen ist

@@ -16,9 +16,9 @@ Vec phys_flipper_tip(const Flipper *f) {
   return vec_add(f->pivot, vec_rot(vec_make(f->len, 0), f->angle));
 }
 
-void phys_init(World *w) {
+void phys_init(World *w, int16_t stretch_px) {
   memset(w, 0, sizeof(*w));
-  table_build(&w->table);
+  table_build(&w->table, stretch_px);
   w->gravity = vec_make(0, FX_FROM_INT(GRAVITY_PX_S2));
   w->ball_count = 0;
   phys_reset_stats(w);
@@ -53,7 +53,7 @@ Ball *phys_spawn_lane(World *w) {
       continue;
     }
     memset(b, 0, sizeof(*b));
-    b->p = table_plunger_pos();
+    b->p = table_plunger_pos(&w->table);
     b->v = vec_make(0, 0);
     b->alive = true;
     b->in_lane = true;
@@ -276,7 +276,7 @@ static void prv_step_flippers(World *w) {
 
 static void prv_apply_forces(World *w, Ball *b) {
   Vec a = w->gravity;
-  if (w->mag_on && b->p.y < FX_FROM_INT(MAG_DEAD_Y)) {
+  if (w->mag_on && b->p.y < FX_FROM_INT(w->table.mag_dead_y)) {
     // Magnetfinger: Kraft faellt mit 1/(r^2 + r0^2) ab, wie im Konzept. Der
     // weiche Kern r0 verhindert, dass die Kraft direkt unter der Kuppe
     // explodiert und die Kugel durch den Tisch schiesst.
@@ -355,7 +355,7 @@ void phys_substep(World *w) {
     prv_apply_forces(w, b);
     prv_move(w, b);
 
-    if (b->p.y > FX_FROM_INT(DRAIN_Y)) {
+    if (b->p.y > FX_FROM_INT(w->table.drain_y)) {
       b->alive = false;
       w->ev.drain++;
       continue;
@@ -367,7 +367,7 @@ void phys_substep(World *w) {
       w->st.escapes++;
       b->p.x = fx_clamp(b->p.x, FX_FROM_INT(BALL_R_PX + 1),
                         FX_FROM_INT(TABLE_W - BALL_R_PX - 1));
-      b->p.y = fx_clamp(b->p.y, FX_FROM_INT(BALL_R_PX + 1), FX_FROM_INT(DRAIN_Y));
+      b->p.y = fx_clamp(b->p.y, FX_FROM_INT(BALL_R_PX + 1), FX_FROM_INT(w->table.drain_y));
       b->v = vec_scale(b->v, FX_HALF);
     }
     if (b->in_lane && b->p.x < FX_FROM_INT(PLUNGER_LANE_X0)) {

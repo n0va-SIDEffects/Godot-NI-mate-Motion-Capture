@@ -6,6 +6,8 @@
 #include "nudge.h"
 
 static World *s_w;
+static const View *s_view;
+static View *s_view_rw;     // dieselbe Ansicht, zum Umsetzen der Kamera
 static GameStats s_st;
 static BallState s_state;
 static uint32_t s_state_since;
@@ -34,17 +36,32 @@ static uint32_t prv_rand(void) {
 }
 
 static void prv_new_target(void) {
-  // Ziele nur im mittleren Band: oben sitzt das HUD, unten die Flipperzone,
-  // in der der Magnet ohnehin nicht wirkt.
+  // Ziele nur im mittleren Band des sichtbaren Ausschnitts: oben sitzt das
+  // HUD, unten die Flipperzone, in der der Magnet ohnehin nicht wirkt, und
+  // ausserhalb des Bildes waere ein Ziel keine Uebung, sondern eine Suche.
+  int16_t top = (int16_t)(s_view ? s_view->cam + 50 : 60);
+  int16_t span = (int16_t)(s_view ? s_view->view_len - 110 : 90);
+  if (span < 40) {
+    span = 40;
+  }
+  int16_t dead = (int16_t)(s_w->table.mag_dead_y - 30);
+  if (top + span > dead) {
+    span = (int16_t)(dead - top);
+    if (span < 30) {
+      span = 30;
+    }
+  }
   s_target_x = (int16_t)(40 + (prv_rand() % 100));
-  s_target_y = (int16_t)(60 + (prv_rand() % 90));
+  s_target_y = (int16_t)(top + (int16_t)(prv_rand() % (uint32_t)span));
   s_target_hit = false;
   s_st.hold_cur_ms = 0;
   s_st.hold_attempts++;
 }
 
-void game_init(World *w) {
+void game_init(World *w, View *v) {
   s_w = w;
+  s_view = v;
+  s_view_rw = v;
   memset(&s_st, 0, sizeof(s_st));
   s_state = BallIdle;
   s_state_since = 0;
@@ -78,7 +95,7 @@ void game_set_magnet_drill(bool on) {
     // Uebung: Die Kugel startet frei im Feld, damit man sofort ueben kann.
     Ball *b = phys_spawn_lane(s_w);
     if (b) {
-      b->p = vec_make(FX_FROM_INT(91), FX_FROM_INT(40));
+      b->p = vec_make(FX_FROM_INT(91), FX_FROM_INT(s_view ? s_view->cam + 40 : 40));
       b->v = vec_make(0, 0);
       b->in_lane = false;
       for (uint8_t k = 0; k < BALL_TRAIL; k++) {
@@ -105,6 +122,10 @@ void game_new_ball(void) {
   if (!b) {
     return;
   }
+  // Szenenwechsel: Die Kamera setzt um, statt quer ueber den Tisch zu fahren.
+  if (s_view_rw) {
+    view_snap(s_view_rw, (int16_t)FX_TO_INT(b->p.y));
+  }
   s_state = BallLane;
   s_state_since = e1clock_now_ms();
   s_st.balls++;
@@ -124,8 +145,15 @@ static void prv_launch(int16_t pull_px, uint8_t ticks) {
   if (!b) {
     return;
   }
-  int32_t span = PLUNGER_MAX_PX_S - PLUNGER_MIN_PX_S;
-  int32_t speed = PLUNGER_MIN_PX_S + (span * pull_px) / PLUNGER_PULL_MAX_PX;
+  int32_t g_eff = (GRAVITY_PX_S2 * game_speed_pct()) / 100;
+  int32_t vmin = table_plunger_min_speed(&s_w->table, g_eff);
+  if (vmin < PLUNGER_MIN_CLAMP_PX_S) {
+    vmin = PLUNGER_MIN_CLAMP_PX_S;
+  }
+  int32_t speed = vmin + (PLUNGER_SPAN_PX_S * pull_px) / PLUNGER_PULL_MAX_PX;
+  if (speed > PLUNGER_MAX_CLAMP_PX_S) {
+    speed = PLUNGER_MAX_CLAMP_PX_S;
+  }
   b->v = vec_make(0, -FX_FROM_INT(speed));
   s_state = BallPlay;
   s_state_since = e1clock_now_ms();
@@ -201,7 +229,7 @@ static void prv_magnet(uint32_t now, uint32_t dt_ms) {
       int32_t span = GEIGER_SLOW_MS - GEIGER_FAST_MS;
       int32_t period = GEIGER_FAST_MS + (span * near_px) / MAG_RADIUS_PX;
       haptics_geiger((uint32_t)period);
-      if (charged && near->p.y < FX_FROM_INT(MAG_DEAD_Y) && !near->held) {
+      if (charged && near->p.y < FX_FROM_INT(s_w->table.mag_dead_y) && !near->held) {
         s_st.mag_ms += dt_ms;
         // In der Uebung kostet der Magnet nichts: Gemessen werden soll, ob
         // sich die Kugel unter der verdeckenden Fingerkuppe fuehren laesst,
@@ -243,7 +271,7 @@ static void prv_magnet(uint32_t now, uint32_t dt_ms) {
         }
       }
     } else if (s_grab_btn && near_px <= MAG_GRAB_DIST_PX &&
-               s_charge_x100 >= 30 * 100 && near->p.y < FX_FROM_INT(MAG_DEAD_Y)) {
+               s_charge_x100 >= 30 * 100 && near->p.y < FX_FROM_INT(s_w->table.mag_dead_y)) {
       near->held = true;
       s_st.grabs++;
       haptics_pulse(LRA_BUMPER_MS, HapEvent);
@@ -265,7 +293,7 @@ static void prv_drill(uint32_t now, uint32_t dt_ms) {
     // Kugel abgeflossen: neue setzen, der Versuch zaehlt als beendet.
     b = phys_spawn_lane(s_w);
     if (b) {
-      b->p = vec_make(FX_FROM_INT(91), FX_FROM_INT(40));
+      b->p = vec_make(FX_FROM_INT(91), FX_FROM_INT(s_view ? s_view->cam + 40 : 40));
       b->v = vec_make(0, 0);
       b->in_lane = false;
       for (uint8_t k = 0; k < BALL_TRAIL; k++) {
@@ -298,8 +326,8 @@ static void prv_drill(uint32_t now, uint32_t dt_ms) {
   }
   // Die Uebung soll nicht am Abfluss enden, sondern am Koennen: Wer die Kugel
   // verliert, bekommt sofort eine neue oben.
-  if (b->p.y > FX_FROM_INT(MAG_DEAD_Y + 30)) {
-    b->p = vec_make(FX_FROM_INT(91), FX_FROM_INT(40));
+  if (b->p.y > FX_FROM_INT(s_w->table.mag_dead_y + 30)) {
+    b->p = vec_make(FX_FROM_INT(91), FX_FROM_INT(s_view ? s_view->cam + 40 : 40));
     b->v = vec_make(0, 0);
     prv_new_target();
   }
@@ -376,15 +404,30 @@ void game_tick(uint32_t now, uint32_t dt_ms) {
   }
 
   // Neigung in die Schwerkraft, Stoesse auf die Kugeln
-  fix gx, gy;
-  nudge_gravity_offset(&gx, &gy);
+  fix gx, gy, rx, ry;
+  nudge_gravity_offset(&rx, &ry);
+  // Haelt man die Uhr quer, zeigt die x-Achse des Sensors die Tischlaenge
+  // entlang. Ohne diese Drehung stiesse der Nudge quer zur Anschauung.
+  if (s_view) {
+    view_dir_to_table(s_view, rx, ry, &gx, &gy);
+  } else {
+    gx = rx;
+    gy = ry;
+  }
   uint16_t sp = game_speed_pct();
   gx = (fix)(((int64_t)gx * sp) / 100);
   gy = (fix)(((int64_t)gy * sp) / 100);
   s_w->gravity = vec_make(gx, (fix)(((int64_t)FX_FROM_INT(GRAVITY_PX_S2) * sp) / 100) + gy);
   fix dvx, dvy;
   if (nudge_take_impulse(&dvx, &dvy) && !nudge_is_tilted()) {
-    phys_nudge(s_w, dvx, dvy);
+    fix tx, ty;
+    if (s_view) {
+      view_dir_to_table(s_view, dvx, dvy, &tx, &ty);
+    } else {
+      tx = dvx;
+      ty = dvy;
+    }
+    phys_nudge(s_w, tx, ty);
   }
   if (nudge_is_tilted()) {
     // TILT: Flipper tot. Im Prototyp reicht das, die Anzeige uebernimmt das HUD.
@@ -473,7 +516,7 @@ uint16_t game_speed_pct(void) {
 
 void game_bench_physics(void) {
   World bench;
-  phys_init(&bench);
+  phys_init(&bench, s_w ? s_w->table.stretch : 0);
   for (uint8_t i = 0; i < MAX_BALLS; i++) {
     Ball *b = phys_spawn_lane(&bench);
     if (!b) {

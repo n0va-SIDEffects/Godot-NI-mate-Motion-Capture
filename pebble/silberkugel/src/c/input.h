@@ -1,11 +1,18 @@
 #pragma once
 #include <pebble.h>
 #include "fixed.h"
+#include "view.h"
 
-// Touch fuer den Flipper: Der Zeigefinger ist der Magnet, eine senkrechte
-// Zieh-Geste in der Abschussbahn ist der Plunger. Rohevents, kein Recognizer:
-// Das TouchEvent traegt keinen Zeitstempel, deshalb wird die Zeit beim
-// Eingang selbst genommen (e1clock, nicht time_ms).
+// Touch fuer den Flipper: Der Zeigefinger ist der Magnet, eine Zieh-Geste in
+// der Abschussbahn ist der Plunger. Rohevents, kein Recognizer: Das TouchEvent
+// traegt keinen Zeitstempel, deshalb wird die Zeit beim Eingang selbst
+// genommen (e1clock, nicht time_ms).
+//
+// Alle Positionen hier sind Tischkoordinaten, nicht Bildschirmkoordinaten.
+// Jedes Ereignis wird sofort durch die Ansicht zurueckgerechnet; damit gelten
+// Plunger-Zone und Zugrichtung in jeder Ausrichtung und bei jedem Kamerastand,
+// ohne dass irgendwer sonst davon wissen muss. Abstaende bleiben dabei
+// richtig, weil Drehung und Verschiebung Laengen nicht aendern.
 
 typedef struct {
   bool down;
@@ -24,6 +31,8 @@ typedef struct {
 } TouchState;
 
 void input_init(Window *window);
+// Ansicht, gegen die Touch-Ereignisse zurueckgerechnet werden.
+void input_set_view(const View *v);
 void input_deinit(void);
 void input_tick(uint32_t now_ms);
 bool input_touch_available(void);

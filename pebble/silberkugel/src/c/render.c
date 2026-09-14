@@ -4,6 +4,7 @@
 
 static Layer *s_layer;
 static const World *s_world;
+static View s_view;
 static Overlay s_ov;
 static RenderStats s_rs;
 static PanelStats s_ps;
@@ -30,6 +31,16 @@ static inline void prv_px(int x, int y, uint8_t c) {
   s_fb[(uint32_t)y * s_stride + x] = c;
 }
 
+// Tischkoordinaten nach Bildschirm. Alles, was auf dem Tisch steht, geht hier
+// durch; der Finger und die Statusbalken zeichnen dagegen direkt, weil sie am
+// Bildschirm haengen und nicht am Tisch.
+static inline void prv_t2s(int tx, int ty, int *sx, int *sy) {
+  int16_t x, y;
+  view_to_screen(&s_view, (int16_t)tx, (int16_t)ty, &x, &y);
+  *sx = x;
+  *sy = y;
+}
+
 static void prv_rect(int x0, int y0, int x1, int y1, uint8_t c) {
   if (x0 < 0) x0 = 0;
   if (y0 < 0) y0 = 0;
@@ -38,6 +49,17 @@ static void prv_rect(int x0, int y0, int x1, int y1, uint8_t c) {
   for (int y = y0; y < y1; y++) {
     memset(s_fb + (uint32_t)y * s_stride + x0, c, (size_t)(x1 - x0));
   }
+}
+
+// Achsenparalleles Rechteck in Tischkoordinaten. Die Drehung um 90 Grad
+// vertauscht nur die Achsen, ein Rechteck bleibt also eines.
+static void prv_trect(int tx0, int ty0, int tx1, int ty1, uint8_t c) {
+  int ax, ay, bx, by;
+  prv_t2s(tx0, ty0, &ax, &ay);
+  prv_t2s(tx1, ty1, &bx, &by);
+  if (ax > bx) { int t = ax; ax = bx; bx = t; }
+  if (ay > by) { int t = ay; ay = by; by = t; }
+  prv_rect(ax, ay, bx, by, c);
 }
 
 static void prv_line(int x0, int y0, int x1, int y1, uint8_t c) {
@@ -179,39 +201,52 @@ static void prv_build_colors(void) {
   C_RING   = GColorFromRGB(255, 255, 255).argb;
 }
 
+static void prv_seg_line(int tax, int tay, int tbx, int tby, uint8_t c) {
+  int ax, ay, bx, by;
+  prv_t2s(tax, tay, &ax, &ay);
+  prv_t2s(tbx, tby, &bx, &by);
+  prv_line(ax, ay, bx, by, c);
+}
+
 static void prv_draw_table(void) {
   const Table *t = &s_world->table;
-  prv_rect(0, 0, SCR_W, SCR_H, C_FLOOR);
-  // Rand ausserhalb der Aussenkontur abdunkeln, damit der Tisch eine Form hat
-  prv_rect(0, 0, SCR_W, 8, C_VOID);
-  prv_rect(0, 8, 7, SCR_H, C_VOID);
-  prv_rect(193, 8, SCR_W, SCR_H, C_VOID);
+  // Schwarz als Grund, darauf die Tischflaeche. So stimmt der Rand in jeder
+  // Ausrichtung und bei jedem Kamerastand, ohne Sonderfaelle.
+  prv_rect(0, 0, SCR_W, SCR_H, C_VOID);
+  prv_trect(7, s_view.cam - 2, 193, s_view.cam + s_view.view_len + 2, C_FLOOR);
 
   for (uint8_t i = 0; i < t->seg_count; i++) {
     const Segment *s = &t->seg[i];
     uint8_t c = (s->kind == SegSling) ? C_SLING : C_WALL;
     int ax = FX_TO_INT_R(s->a.x), ay = FX_TO_INT_R(s->a.y);
     int bx = FX_TO_INT_R(s->b.x), by = FX_TO_INT_R(s->b.y);
+    if (!view_visible(&s_view, (int16_t)ax, (int16_t)ay) &&
+        !view_visible(&s_view, (int16_t)bx, (int16_t)by)) {
+      continue;
+    }
     if (s->kind == SegGate) {
       // Einwegtor gestrichelt: es ist eine Regel, keine Wand.
       int steps = 8;
       for (int k = 0; k < steps; k += 2) {
-        int x0 = ax + ((bx - ax) * k) / steps;
-        int y0 = ay + ((by - ay) * k) / steps;
-        int x1 = ax + ((bx - ax) * (k + 1)) / steps;
-        int y1 = ay + ((by - ay) * (k + 1)) / steps;
-        prv_line(x0, y0, x1, y1, C_SLING);
+        prv_seg_line(ax + ((bx - ax) * k) / steps, ay + ((by - ay) * k) / steps,
+                     ax + ((bx - ax) * (k + 1)) / steps, ay + ((by - ay) * (k + 1)) / steps,
+                     C_SLING);
       }
       continue;
     }
-    prv_line(ax, ay, bx, by, c);
+    prv_seg_line(ax, ay, bx, by, c);
   }
   for (uint8_t i = 0; i < t->circ_count; i++) {
     const Circle *c = &t->circ[i];
-    prv_disc(c->cx_px, c->cy_px, c->r_px, C_BUMPER);
+    if (!view_visible(&s_view, c->cx_px, c->cy_px)) {
+      continue;
+    }
+    int sx, sy;
+    prv_t2s(c->cx_px, c->cy_px, &sx, &sy);
+    prv_disc(sx, sy, c->r_px, C_BUMPER);
     if (c->kind == CircBumper) {
-      prv_circle(c->cx_px, c->cy_px, c->r_px, C_WALL);
-      prv_disc(c->cx_px, c->cy_px, 3, C_WALL);
+      prv_circle(sx, sy, c->r_px, C_WALL);
+      prv_disc(sx, sy, 3, C_WALL);
     }
   }
 }
@@ -220,9 +255,11 @@ static void prv_draw_flippers(void) {
   for (uint8_t i = 0; i < 2; i++) {
     const Flipper *f = &s_world->table.flip[i];
     Vec tip = phys_flipper_tip(f);
-    prv_capsule(f->pivot_x_px, f->pivot_y_px, FX_TO_INT_R(tip.x), FX_TO_INT_R(tip.y),
-                FLIPPER_R_PX, C_WALL);
-    prv_disc(f->pivot_x_px, f->pivot_y_px, 2, C_FLOOR);
+    int px, py, tx, ty;
+    prv_t2s(f->pivot_x_px, f->pivot_y_px, &px, &py);
+    prv_t2s(FX_TO_INT_R(tip.x), FX_TO_INT_R(tip.y), &tx, &ty);
+    prv_capsule(px, py, tx, ty, FLIPPER_R_PX, C_WALL);
+    prv_disc(px, py, 2, C_FLOOR);
   }
 }
 
@@ -234,25 +271,33 @@ static void prv_draw_balls(void) {
     }
     // Spur zuerst, damit die Kugel obenauf liegt. Sie fuellt die Luecke
     // zwischen zwei Bildern: bei 25 fps und 500 px/s sind das 20 px.
+    int sx, sy;
     for (uint8_t k = BALL_TRAIL; k > 0; k--) {
       const Vec *p = &b->trail[k - 1];
-      prv_disc(FX_TO_INT_R(p->x), FX_TO_INT_R(p->y), (k >= 3) ? 1 : 2, C_TRAIL);
+      prv_t2s(FX_TO_INT_R(p->x), FX_TO_INT_R(p->y), &sx, &sy);
+      prv_disc(sx, sy, (k >= 3) ? 1 : 2, C_TRAIL);
     }
-    prv_disc(FX_TO_INT_R(b->p.x), FX_TO_INT_R(b->p.y), BALL_R_PX, C_BALL);
+    prv_t2s(FX_TO_INT_R(b->p.x), FX_TO_INT_R(b->p.y), &sx, &sy);
+    prv_disc(sx, sy, BALL_R_PX, C_BALL);
   }
 }
 
 static void prv_draw_overlay(void) {
+  int sx, sy;
   if (s_ov.show_deadline) {
+    // Grenze der Magnet-Totzone, quer ueber den Tisch gestrichelt
     for (int x = 8; x < 193; x += 6) {
-      prv_px(x, MAG_DEAD_Y, C_SLING);
-      prv_px(x + 1, MAG_DEAD_Y, C_SLING);
+      prv_t2s(x, s_world->table.mag_dead_y, &sx, &sy);
+      prv_px(sx, sy, C_SLING);
+      prv_t2s(x + 1, s_world->table.mag_dead_y, &sx, &sy);
+      prv_px(sx, sy, C_SLING);
     }
   }
   if (s_ov.target_r > 0) {
-    prv_circle(s_ov.target_x, s_ov.target_y, s_ov.target_r, C_WALL);
+    prv_t2s(s_ov.target_x, s_ov.target_y, &sx, &sy);
+    prv_circle(sx, sy, s_ov.target_r, C_WALL);
     if (s_ov.target_hit) {
-      prv_circle(s_ov.target_x, s_ov.target_y, s_ov.target_r - 2, C_WALL);
+      prv_circle(sx, sy, s_ov.target_r - 2, C_WALL);
     }
   }
   if (s_ov.finger) {
@@ -274,11 +319,12 @@ static void prv_draw_overlay(void) {
     }
   }
   if (s_ov.plunger_pull > 0) {
-    // Zugweg als Balken neben der Abschussbahn, plus ein Strich je Ratsche
-    int h = s_ov.plunger_pull;
-    prv_rect(195, 222 - h, 198, 222, C_WALL);
+    // Zugweg als Balken neben der Abschussbahn, plus ein Strich je Ratsche.
+    // In Tischkoordinaten, damit er im Querformat mitwandert.
+    int base = s_world->table.plunger_y + 8;
+    prv_trect(195, base - s_ov.plunger_pull, 198, base, C_WALL);
     for (uint8_t k = 0; k < s_ov.plunger_ticks; k++) {
-      prv_rect(193, 220 - k * 10, 199, 221 - k * 10, C_SLING);
+      prv_trect(193, base - 2 - k * 10, 199, base - 1 - k * 10, C_SLING);
     }
   }
   if (s_ov.tilted) {
@@ -326,7 +372,14 @@ static void prv_update(Layer *layer, GContext *ctx) {
       prv_draw_flippers();
       prv_draw_balls();
       prv_draw_overlay();
-      prv_rect(0, 0, SCR_W, HUD_H, C_VOID);
+      if (s_view.rot90) {
+        // Ladung als Balken am oberen Rand, Bildrate darunter als kurzer
+        // Strich. Beides liest sich im Augenwinkel, ohne Schrift.
+        prv_rect(0, 0, SCR_W, 3, C_VOID);
+        prv_rect(0, 0, (SCR_W * s_ov.charge_pct) / 100, 2, C_WALL);
+      } else {
+        prv_rect(0, 0, SCR_W, HUD_H, C_VOID);
+      }
     }
   }
   graphics_release_frame_buffer(ctx, fb);
@@ -367,6 +420,25 @@ static void prv_update(Layer *layer, GContext *ctx) {
     } else if (!s_panel_timer) {
       s_panel_timer = app_timer_register(1, prv_panel_next, NULL);
     }
+  } else if (s_view.rot90) {
+    // Quer gehaltene Uhr: Die Systemschrift laesst sich nicht mitdrehen, ein
+    // waagerechter Text stuende also quer im Bild. Statt Text deshalb zwei
+    // Balken am Rand, die man ohnehin nur im Augenwinkel liest: links die
+    // Magnetladung, rechts die Bildrate. Die Zahlen stehen im MESS-Bildschirm,
+    // und der bleibt immer hochkant.
+    s_rs.frames++;
+    s_rs.render_ms_x10 = (s_rs.render_ms_x10 * 7 + render_ms * 10) / 8;
+    if (render_ms > s_rs.render_ms_max) {
+      s_rs.render_ms_max = render_ms;
+    }
+    if (s_last_frame_ms != 0) {
+      uint32_t dt = t_start - s_last_frame_ms;
+      if (dt == 0) {
+        dt = 1;
+      }
+      s_rs.fps_x10 = (s_rs.fps_x10 * 7 + 10000 / dt) / 8;
+    }
+    s_last_frame_ms = t_start;
   } else {
     graphics_context_set_text_color(ctx, GColorWhite);
     graphics_draw_text(ctx, s_hud1, s_font, GRect(2, -3, SCR_W - 4, 16),
@@ -415,6 +487,10 @@ void render_deinit(void) {
 
 void render_set_world(const World *w) {
   s_world = w;
+}
+
+void render_set_view(const View *v) {
+  s_view = *v;
 }
 
 void render_set_overlay(const Overlay *ov) {

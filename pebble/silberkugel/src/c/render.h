@@ -1,6 +1,7 @@
 #pragma once
 #include <pebble.h>
 #include "physics.h"
+#include "view.h"
 
 // Renderer direkt im 8-Bit-Framebuffer. Grauer Testtisch, noch ohne
 // Grafikpracht: Banden als Linien, Bumper und Pfosten als Scheiben, Flipper
@@ -58,6 +59,7 @@ typedef struct {
 void render_init(Layer *layer);
 void render_deinit(void);
 void render_set_world(const World *w);
+void render_set_view(const View *v);
 void render_set_overlay(const Overlay *ov);
 void render_set_hud(const char *line1, const char *line2, const char *line3);
 void render_panel_test_start(uint8_t variant);

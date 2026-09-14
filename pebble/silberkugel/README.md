@@ -49,6 +49,7 @@ ist eine Messung, kein Geschmack: Die Back-Taste liefert keine Rohevents
 | Up | linker Flipper (Halten moeglich) | lang: Bildschirm wechseln |
 | Down | rechter Flipper (Halten moeglich) | Belegung umschalten, 2x Ton, 3x Log |
 | Up kurz | (Flipper) | Tempostufe weiterschalten |
+| Down 2x / 3x | | Tisch drehen / Kamera umschalten |
 | Select | Magnetgriff; solange die Kugel in der Bahn liegt: Plunger | Aktion des Bildschirms |
 | Back | Bildschirm wechseln; lang: App verlassen | App verlassen |
 | Finger | Magnet, Plunger-Zug in der Abschussbahn | |
@@ -77,6 +78,38 @@ Vier Bildschirme:
   die Tempostufe weiter (70, 85, 100, 120 Prozent). Die Stufe skaliert
   Schwerkraft, Tischneigung und Magnetkraft gemeinsam, damit die Traggrenze
   des Magneten am Rand der Fingerkuppe bleibt; sie steht im HUD und im Log.
+  Down schaltet die Tastenbelegung um, Doppelklick dreht den Tisch quer,
+  Dreifachklick die Kamera, Vierfachklick die Tonlast, Fuenffachklick das Log.
+
+## Ansicht: hoch oder quer, mit oder ohne Kamera
+
+Der Tisch ist immer 340 Pixel lang, also anderthalb Bildschirme. Was man davon
+sieht, entscheiden zwei Schalter, die sich frei kombinieren lassen.
+
+**Hoch oder quer.** Im Hochformat laeuft die Tischachse senkrecht ueber den
+Bildschirm, wie erwartet. Im Querformat liegt sie waagerecht, die Flipper
+stehen links: Dreht man die Uhr um 90 Grad gegen den Uhrzeigersinn, steht der
+Tisch wieder aufrecht vor einem, ist aber 228 statt 200 Pixel breit. Dafuer
+sieht man weniger von seiner Laenge (200 statt 228 Pixel).
+
+**Kamera an oder aus.** Aus heisst: fester Ausschnitt auf das untere Tischende,
+wo die Flipper stehen; der obere Teil bleibt unsichtbar. An heisst: Der
+Ausschnitt folgt der untersten Kugel, aber nur wenn sie ein Totband von 60
+Pixeln verlaesst, und nur in ganzen Pixeln. Beim Ballwechsel setzt die Kamera
+um, statt ueber den Tisch zu fahren.
+
+Alles, was zwischen Tisch und Bildschirm liegt, geht durch `view.c`: der
+Renderer, der Finger auf dem Glas und die Achsen des Beschleunigungssensors.
+Haelt man die Uhr quer, zeigt die x-Achse des Sensors die Tischlaenge entlang;
+ohne diese Drehung stiesse der Nudge quer zur Anschauung. Der Pruefstand
+prueft die Umrechnung an gut 21.000 Punkten in beiden Ausrichtungen und ueber
+den ganzen Kameraweg auf Umkehrbarkeit, denn davon haengt ab, ob der
+Magnetfinger dort angreift, wo der Spieler hinfasst.
+
+Eine Einschraenkung bleibt: Im Querformat gibt es keinen HUD-Text. Die
+Systemschrift laesst sich nicht mitdrehen, ein waagerechter Text stuende also
+quer im Bild. Stattdessen zeigt ein Balken am Rand die Magnetladung; die
+Zahlen stehen im MESS-Bildschirm, und der bleibt immer hochkant.
 
 ## Die Messungen und was sie zeigen muessen
 
@@ -191,15 +224,23 @@ fuer `pebble.h` auf dem Rechner und prueft in zwei Sekunden, was auf der Uhr
 Stunden kostet:
 
 ```
+Tisch nach Bildschirm und zurueck ist umkehrbar  21.275 Punkte, beide Ausrichtungen
+Kamera bleibt in den Grenzen und haelt die Kugel  ganzer Kameraweg, kein Sprung
 Kein Tunneling bei 200 bis 1500 px/s             16 Richtungen, 14 Tempi
-Abschuss verlaesst die Bahn und bleibt draussen  jedes Tempo von 520 bis 980 px/s
+Abschuss verlaesst die Bahn und bleibt draussen  der ganze Plunger-Bereich
 Abschuss traegt auch an der Bande und bei Neigung sieben Neigungen, acht Startpunkte
 Einwegtor laesst keine Kugel zurueck in die Bahn rund 6000 Fluege
 Kugeln von oben erreichen die Flipper            30 Startpunkte
-Flipper uebertraegt Winkelgeschwindigkeit        55 px/s werden zu 835 px/s
+Flipper uebertraegt Winkelgeschwindigkeit        39 px/s werden zu 674 px/s
 Gleiche Eingaben, gleiche Bahn (Fixed-Point)     zwei Laeufe, bitgleich
 Magnet traegt bis ausserhalb der Fingerkuppe     Traggrenze 45 px, Kuppe 40 px
 ```
+
+Die Physikpruefungen laufen zweimal, fuer den kurzen Tisch von 228 Pixeln und
+den langen von 340. Genau dieser Durchlauf hat gezeigt, dass eine feste
+Abschussgeschwindigkeit nicht taugt: Am langen Tisch ist die Bahn 274 statt
+160 Pixel hoch, und die Kugel blieb darin stecken. Die Untergrenze rechnet
+sich jetzt aus der tatsaechlichen Bahnhoehe und dem eingestellten Tempo.
 
 Der Determinismus-Test ist mehr als eine Formalie: Auf ihm beruhen Replay,
 Tagestisch und Ghost-Duell aus dem Konzept. Faellt er, ist irgendwo eine
@@ -212,6 +253,7 @@ Gleitkommazahl oder ein uninitialisierter Wert in die Physik geraten.
 | `src/c/fixed.h` | Q20.12 in int32: Multiplikation, Division, Wurzel, Vektoren, Drehung |
 | `src/c/table.c` | grauer Testtisch als Segment- und Kreisliste, Flipperdrehpunkte |
 | `src/c/physics.c` | fester Zeitschritt, Teilschritte gegen Tunneling, Kontakte mit Coulomb-Reibung, Flipper als rotierende Kapsel, Magnetfeld |
+| `src/c/view.c` | Ansicht: Drehung um 90 Grad, Kamera mit Totband, Umrechnung Tisch nach Bildschirm und zurueck |
 | `src/c/render.c` | Framebuffer-Direktzugriff: Banden, Scheiben, Kapseln, Kugel mit Spur, Magnetring, Umriss der Fingerkuppe, Panel-Test |
 | `src/c/input.c` | Touch als Rohereignis: Magnetposition, Zieh-Geste des Plungers mit Ratsche, Wurfgeschwindigkeit aus den letzten drei Positionen |
 | `src/c/nudge.c` | Beschleunigung: Hochpass als Stoss, Tiefpass als Neigung, Tilt-Bob, Klaps, Vibrationsmaske |
