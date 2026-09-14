@@ -15,6 +15,8 @@ static uint16_t s_prev_ms;
 static uint64_t s_raw_base;
 static uint32_t s_glitches;
 static uint32_t s_resyncs;
+static uint32_t s_long_gaps;
+static uint64_t s_prev_raw;
 static bool s_off;
 static uint32_t s_off_since;
 static int64_t s_last_diff;
@@ -28,6 +30,8 @@ void e1clock_init(void) {
   s_raw_base = (uint64_t)secs * 1000ULL + ms;
   s_glitches = 0;
   s_resyncs = 0;
+  s_long_gaps = 0;
+  s_prev_raw = (uint64_t)secs * 1000ULL + ms;
   s_off = false;
   s_last_diff = 0;
   s_init = true;
@@ -41,11 +45,22 @@ uint32_t e1clock_now_ms(void) {
   time_t secs = 0;
   uint16_t ms = 0;
   time_ms(&secs, &ms);
+  uint64_t raw_now = (uint64_t)secs * 1000ULL + ms;
   uint32_t d = ((uint32_t)ms + 1000u - (uint32_t)s_prev_ms) % 1000u;
+  // Die Modulo-Rechnung stimmt nur, solange wir oefter als einmal je Sekunde
+  // gefragt werden. Stand der App-Task laenger, verlieren wir sonst stillschweigend
+  // ganze Sekunden, und zwar in die gefaehrliche Richtung: die Audio-Buchhaltung
+  // haelt den Puffer dann fuer voller, als er ist. Ab 1,4 s (deutlich ueber dem
+  // beobachteten Sprung von +-1000 ms) zaehlt die rohe Differenz.
+  int64_t raw_step = (int64_t)raw_now - (int64_t)s_prev_raw;
+  if (raw_step > 1400) {
+    d = (uint32_t)raw_step;
+    s_long_gaps++;
+  }
+  s_prev_raw = raw_now;
   s_prev_ms = ms;
   s_acc_ms += d;
 
-  uint64_t raw_now = (uint64_t)secs * 1000ULL + ms;
   int64_t raw_el = (int64_t)raw_now - (int64_t)s_raw_base;
   int64_t diff = raw_el - (int64_t)s_acc_ms;
   int64_t jitter = diff - s_last_diff;
@@ -81,4 +96,8 @@ uint32_t e1clock_glitches(void) {
 
 uint32_t e1clock_resyncs(void) {
   return s_resyncs;
+}
+
+uint32_t e1clock_long_gaps(void) {
+  return s_long_gaps;
 }

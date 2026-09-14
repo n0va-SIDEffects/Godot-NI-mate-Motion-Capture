@@ -14,6 +14,10 @@ static uint32_t s_open_ms;         // Zeitpunkt der letzten Oeffnung
 static bool s_zero_active;         // seit s_zero_since_ms wird nichts angenommen
 static uint32_t s_zero_since_ms;
 static uint32_t s_stall_streak;    // Staus kurz nach der Oeffnung hintereinander
+static uint32_t s_target_ms = AUDIO_TARGET_QUEUE_MS;
+static AudioSource s_source = AudioSourceSynth;
+static bool s_calibrate;
+static uint32_t s_last_tick_ms;
 
 static const char *s_reason_names[] = { "Done", "Stopped", "Preempted", "Error" };
 
@@ -26,6 +30,7 @@ static void prv_reset_stream_state(void) {
   s_st.played_bytes_est = 0;
   s_st.queue_bytes_est = 0;
   s_st.queue_ms_est = 0;
+  s_st.queue_min_bytes = 0xFFFFFFFFu;
   s_zero_active = false;
 }
 
@@ -87,7 +92,11 @@ static bool prv_open(void) {
 // Fuellstand nachfuehren und bis target_bytes Vorlauf schreiben.
 static void prv_fill(uint32_t now, uint32_t target_bytes, uint32_t max_blocks) {
   if (s_t0 != 0) {
-    uint32_t played = (now - s_t0) * AUDIO_BYTES_PER_MS;
+    uint32_t el = now - s_t0;
+    // Der Kalibrierzuschlag laesst die Schaetzung bewusst vorlaufen (+0,4 %),
+    // damit der Ring irgendwann Backpressure meldet und wir den wahren
+    // Fuellstand erfahren. Nur in den Diagnose-Bildschirmen aktiv.
+    uint32_t played = el * AUDIO_BYTES_PER_MS + (s_calibrate ? (el >> 3) : 0);
     if (played > s_st.written_bytes) {
       if (s_st.queue_bytes_est > 0) {
         s_st.underruns++;
@@ -102,7 +111,9 @@ static void prv_fill(uint32_t now, uint32_t target_bytes, uint32_t max_blocks) {
   uint32_t blocks = 0;
   while (queue < target_bytes && blocks < max_blocks) {
     if (s_pend_len == 0) {
-      synth_render(s_block, AUDIO_BLOCK_SAMPLES);
+      if (s_source == AudioSourceSynth) {
+        synth_render(s_block, AUDIO_BLOCK_SAMPLES);
+      }   // Schleife und Stille: s_block wurde beim Umschalten einmal gefuellt
       s_pend_off = 0;
       s_pend_len = AUDIO_BLOCK_BYTES;
     }
@@ -116,7 +127,16 @@ static void prv_fill(uint32_t now, uint32_t target_bytes, uint32_t max_blocks) {
       s_t0 = now;
     }
     if (w < want) {
-      s_st.short_writes++;   // Backpressure: Rest im naechsten Tick
+      // Backpressure ist die einzige Rueckmeldung der Firmware ueber den
+      // wahren Fuellstand: der Ring ist jetzt exakt voll. Damit korrigieren
+      // wir eine ueber die Zeit weggelaufene Schaetzung (Taktdrift, verlorene
+      // Sekunden), die sonst niemand bemerken koennte.
+      s_st.short_writes++;
+      if (s_st.written_bytes >= AUDIO_RING_BYTES) {
+        s_st.played_bytes_est = s_st.written_bytes - AUDIO_RING_BYTES;
+        queue = AUDIO_RING_BYTES;
+        s_st.recalibrations++;
+      }
       break;
     }
     s_pend_len = 0;
@@ -127,6 +147,9 @@ static void prv_fill(uint32_t now, uint32_t target_bytes, uint32_t max_blocks) {
   }
   s_st.queue_bytes_est = queue;
   s_st.queue_ms_est = queue / AUDIO_BYTES_PER_MS;
+  if (queue < s_st.queue_min_bytes) {
+    s_st.queue_min_bytes = queue;   // Tiefstand: trennt eigene Fehler von denen unter uns
+  }
 
   // Stau-Erkennung: der Systemring (8 KB = 256 ms) leert sich normalerweise
   // mit 32 B/ms, auch bei Unterlauf (die Firmware schiebt dann Stille nach).
@@ -156,6 +179,13 @@ static void prv_fill(uint32_t now, uint32_t target_bytes, uint32_t max_blocks) {
 static void prv_tick(void *data) {
   s_tick = app_timer_register(AUDIO_TICK_MS, prv_tick, NULL);
   uint32_t now = e1clock_now_ms();
+  if (s_last_tick_ms != 0) {
+    uint32_t gap = now - s_last_tick_ms;
+    if (gap > s_st.tick_gap_max_ms) {
+      s_st.tick_gap_max_ms = gap;   // misst direkt, wie lange der App-Task stand
+    }
+  }
+  s_last_tick_ms = now;
   s_st.ticks++;
   if (!s_st.wanted) {
     return;
@@ -170,7 +200,46 @@ static void prv_tick(void *data) {
       return;
     }
   }
-  prv_fill(now, AUDIO_TARGET_QUEUE_MS * AUDIO_BYTES_PER_MS, AUDIO_MAX_BLOCKS_PER_TICK);
+  prv_fill(now, s_target_ms * AUDIO_BYTES_PER_MS, AUDIO_MAX_BLOCKS_PER_TICK);
+  uint32_t dur = e1clock_now_ms() - now;
+  if (dur > s_st.fill_ms_max) {
+    s_st.fill_ms_max = dur;
+  }
+}
+
+void audio_set_source(AudioSource src) {
+  s_source = src;
+  s_pend_off = 0;
+  s_pend_len = 0;
+  if (src == AudioSourceSilence) {
+    for (uint32_t i = 0; i < AUDIO_BLOCK_SAMPLES; i++) {
+      s_block[i] = 0;
+    }
+  } else if (src == AudioSourceLoop) {
+    synth_render_loop_block(s_block);
+  }
+}
+
+AudioSource audio_source(void) {
+  return s_source;
+}
+
+void audio_set_calibrate(bool on) {
+  s_calibrate = on;
+}
+
+void audio_set_target_ms(uint32_t ms) {
+  if (ms < AUDIO_LEAD_MIN_MS) {
+    ms = AUDIO_LEAD_MIN_MS;
+  }
+  if (ms > AUDIO_LEAD_MAX_MS) {
+    ms = AUDIO_LEAD_MAX_MS;
+  }
+  s_target_ms = ms;
+}
+
+uint32_t audio_target_ms(void) {
+  return s_target_ms;
 }
 
 void audio_top_up(uint32_t ms) {
@@ -209,6 +278,15 @@ void audio_stop(void) {
     speaker_stream_close();     // spielt den Rest aus, Finish-Callback kommt mit Done
     s_st.open = false;
   }
+}
+
+// Sofort beenden: stream_close laesst den Stream erst 80 ms ausklingen, und
+// solange er das tut, lehnt die Firmware gleichrangige Toene ab. Fuer den
+// Referenzton im TON-Bildschirm muss der Lautsprecher wirklich frei sein.
+void audio_stop_now(void) {
+  s_st.wanted = false;
+  speaker_stop();
+  prv_reset_stream_state();
 }
 
 void audio_probe_capacity(void) {

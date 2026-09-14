@@ -49,6 +49,7 @@ Langer Druck auf Select wechselt den Bildschirm. Back beendet die App.
 | LRA | naechste Rate (2, 4, 6, 8 Hz) | | |
 | LICHT | naechster Schritt (Atmen 1, 2, 3, 4 Hz, Dimmrampe, aus) | | |
 | PANEL | Test starten, danach Variante wechseln | | |
+| TON | Referenzton der Firmware (440 Hz, 5 s) | eigener Stream mit nacktem Sinus an/aus | Vorlauf plus/minus 16 ms |
 
 STIMMEN: Finger aufs Glas legen, die Gabel singt, solange er liegt. Senkrecht
 ziehen aendert die Tonhoehe relativ (langsam 0,25 Hz pro Pixel, schnell bis
@@ -62,6 +63,63 @@ Glasklang, Bloom). Nach einer Sekunde Karenz laeuft die Haltezeit: nach
 
 ## Die fuenf Messungen und was sie zeigen muessen
 
+### 0. Klick-Suche (TON)
+
+Der wichtigste Bildschirm, wenn der Ton knackt. Er trennt drei Dinge
+voneinander, die sonst immer zusammen auftreten:
+
+- **Select** spielt `speaker_play_tone(440 Hz, 5 s)`. Diesen Ton erzeugt die
+  Firmware selbst, ohne dass unsere App einen einzigen Sample schreibt.
+- **Doppelklick** schaltet die Quelle unseres Streams weiter: aus, nackter
+  Sinus (feste Frequenz, feste Amplitude, keine Huellkurve), wiederholter
+  Block (dieselben 256 Samples immer wieder, ohne jede Rechenarbeit), reine
+  Stille (nur Nullen, der Stream laeuft aber mit voller Rate).
+- **Dreifachklick** schaltet das Rendern ab. Dann laeuft nur der Ton, das
+  Bild friert ein.
+- **Vierfachklick** schaltet das Sekundenlog um. In TON und LATENZ ist es
+  ohnehin automatisch still, weil jede Logzeile den App-Task blockiert.
+- **Up/Down** verschieben den Vorlauf zwischen 24 und 240 ms. Beim Verlassen
+  des Bildschirms stellt die App wieder 160 ms her.
+
+Dasselbe Up/Down und derselbe Drei-/Vierfachklick wirken auch in LATENZ.
+
+Hintergrund aus den PebbleOS-Quellen (ausfuehrlich in
+`docs/firmware-befund.md`): der Systemtask, der den Lautsprecher nachfuellt,
+laeuft auf der *niedrigsten* Prioritaet, unterhalb der App. Er holt alle
+32 ms genau einen Block von 1024 Byte und baut im Treiber keinen Vorrat auf,
+obwohl dort 128 ms Platz waeren. Kommt er einmal zu spaet, spielt der Wandler
+32 ms Stille, und das wird nirgends gezaehlt. Alles, was die App tut
+(Vollbild rendern, `APP_LOG` schreiben, vibrieren), kann diesen Nachschub
+verzoegern.
+
+#### Der Testbaum
+
+Sieben Schritte, in dieser Reihenfolge; jeder schliesst moeglichst viel aus.
+
+1. **Referenzton.** TON, Select. Knackt er genauso wie unser Stream, ist
+   unsere App unbeteiligt und die Ursache liegt im gemeinsamen Nachschubpfad
+   der Firmware. Weiter mit 2. Ist er sauber, liegt es am Streamen, weiter
+   mit 3.
+2. **Stille.** Doppelklick bis zur Quelle `Stille`, Lautstaerke hoch, eine
+   Minute hoeren. Knackt es, obwohl nur Nullen fliessen, ist der Analogpfad
+   schuld (Verstaerker, Wandler), und keine Software hilft.
+3. **Schleife gegen Sinus.** Je 30 s vergleichen. Klingt beides gleich, ist
+   unsere Klangerzeugung entlastet und es geht um den Transport.
+4. **Rendern aus.** Dreifachklick, 30 s, wieder an, 30 s. Aendert sich nichts
+   und bleibt `gap` unter 32 ms, ist nicht die Bildrate schuld.
+5. **Vorlauf.** Mit Up auf 240 ms, hoeren; mit Down auf 24 ms, hoeren; zurueck
+   auf 160. Klingt es bei 240 und 24 gleich, ist der Vorlauf ohne Einfluss,
+   und es bleibt der Nachschub der Firmware. Ist 240 sauber und 24 ein
+   Brummen, ist der Vorlauf unser Hebel.
+6. **Zahlen lesen.** Bei 160 ms zwei Minuten laufen lassen und `lo`, `cal`
+   und `gap` ablesen. Faellt `lo` weit unter den Sollwert, waehrend `q` bei
+   160 steht, war unsere Buchhaltung falsch und die Eichung (`cal`) korrigiert
+   das jetzt.
+7. **Dauerlauf.** 15 Minuten ungestoert, Telefon im Flugmodus, ohne Vibration.
+   Wird es mit der Zeit schlimmer, ist es Taktdrift zwischen Uhrzeit und
+   Wandler. Bleibt es sauber, kommen die Stoerungen von aussen (Bluetooth,
+   Benachrichtigungen, Vibration).
+
 ### 1. Stream-Latenz (LATENZ)
 
 In diesem Bildschirm singt die Gabel dauerhaft, auch ohne Finger, damit der
@@ -74,7 +132,9 @@ angeboten. Im Log steht
 `roh` ist alles, was angenommen wurde, `Abfluss` das, was waehrend der Probe
 schon abgespielt wurde (32 Byte pro ms), `Puffer` die Differenz. Das ist
 die Obergrenze der Latenz, wenn man den Puffer einfach vollschreibt. Der
-Stream haelt danach mit eigener Buchhaltung nur rund 56 ms Vorlauf.
+Stream haelt danach mit eigener Buchhaltung 160 ms Vorlauf (frueher 56 ms,
+das lag unter der rechnerischen Untergrenze von 80 ms). Up/Down aendern den
+Wert live zwischen 24 und 240 ms.
 
 Select loest einen Oktavsprung mit gleichzeitigem LRA-Marker aus:
 
@@ -165,8 +225,8 @@ gefilterten Zeitspruenge, `rs` die Neusynchronisationen der Uhr. Die HUD-Zeile u
 |---|---|
 | `src/c/config.h` | alle Konstanten (Centi-Hertz, Millisekunden) |
 | `src/c/e1clock.c` | monotone ms-Uhr, filtert die +-1000-ms-Spruenge von `time_ms()` |
-| `src/c/synth.c` | Gabel, Blume, Glasklang, Splitterrauschen; Phasenakkumulator plus Sinus-LUT |
-| `src/c/audio.c` | PCM-Stream 16 kHz/16 Bit, Fuellstandsbuchhaltung, Puffer-Probe, Preemption |
+| `src/c/synth.c` | Gabel, Blume, Glasklang, Splitterrauschen; Phasenakkumulator plus Sinus-LUT, plus nackter Sinus fuer die Klick-Suche |
+| `src/c/audio.c` | PCM-Stream 16 kHz/16 Bit, Fuellstandsbuchhaltung mit Eichung an der Backpressure, Quellenumschaltung, Puffer-Probe, Preemption |
 | `src/c/haptics.c` | LRA-Einzelpulse per Timer, ohne `vibes_cancel`; Warnung, Doppelpuls, Bruch warten, bis der Motor frei ist |
 | `src/c/backlight.c` | Farborgel nach Tonklasse, Atmen bis 3 Hz, Keepalive, Testschritte |
 | `src/c/input.c` | Touch als Trackpad: Dead Zone, Kupplung, Tastenmaske, Ereignisrate, Jitter |
@@ -197,6 +257,12 @@ Ein paar Regeln, die aus den PebbleOS-Quellen folgen und im Code stecken:
   PebbleOS-Quellen: Ring 8 KB (256 ms bei 16 kHz/16 Bit), Nachfuellen in Bloecken
   von 512 Samples (32 ms) aus dem Systemtask, und die Firmware rechnet beim
   Ausklingen mit 80 ms Treiberpuffer. Bei Unterlauf schiebt sie Stille nach.
+- Wie oft der Nachschub der Firmware seine 32-ms-Frist reisst, laesst sich von
+  aussen nicht messen; genau das prueft der Testbaum oben am Ohr.
+- Die Firmware meldet uns den wahren Fuellstand nur, wenn der Ring voll ist
+  (`speaker_stream_write` nimmt dann weniger an). Die App nutzt das jetzt zur
+  Eichung; ohne sie kann eine Taktabweichung ueber Minuten unbemerkt
+  weglaufen.
 - Ob `graphics_release_frame_buffer` nur geaenderte Zeilen ueberträgt, ist offen.
 - Wie fein der Backlight-Treiber dimmt und wie schnell er folgt, ist offen.
 - Touch-Abtastrate und Ruhe-Jitter sind nicht dokumentiert (HUD-Zeile unten).

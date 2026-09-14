@@ -1,0 +1,39 @@
+# Befund fuer Core Devices: Audioaussetzer auf obelix (Pebble Time 2)
+
+Ergebnis einer Quellenanalyse von PebbleOS 5503dd4, ausgeloest durch
+kontinuierliches Knacken eines gleichbleibenden Tons in mehreren
+PCM-streamenden Apps. Der Text ist als Fehlerbericht formuliert und kann so
+eingereicht werden. Die Messungen auf der Uhr, die ihn bestaetigen oder
+widerlegen, stehen im Messprotokoll der README unter "Klick-Suche (TON)".
+
+---
+
+TITLE: sf32lb52 speaker path has zero timing margin by construction: the refill is one 1024 B chunk per 32.000 ms on the lowest-priority task, 96 of the 128 ms driver ring are never used, and the resulting dropouts are counted nowhere
+
+BOARD/BUILD: obelix (Pebble Time 2), PebbleOS commit 5503dd4, playback 16 kHz / 16 bit / mono = 32.000 B/ms.
+
+1) ZERO-SLACK REFILL (main issue)
+prv_dma_request_processing() consumes exactly CFG_AUDIO_PLAYBACK_PIPE_SIZE = 1024 B per DMA half-complete/complete IRQ and requests exactly ONE refill (src/fw/drivers/speaker/sf32lb52/audec.c:462-498). The service answers with exactly ONE audec_write() of SPEAKER_REFILL_SAMPLES = 512 samples = 1024 B per callback and DISCARDS the free space that audec_write() returns (src/fw/services/audio/speaker_service.c:500-501; audec_write returns circular_buffer_get_write_space_remaining at audec.c:412). The driver ring therefore oscillates 1024 -> 0 -> 1024 B forever and 3072 of its 4096 B (96 of 128 ms, allocated per include/pbl/drivers/speaker/sf32lb52/audio_definitions.h:16-18) are permanently unused.
+
+Consequence: every refill has a hard 32.000 ms deadline with zero margin, and the path crosses the system task queue TWICE - system_task_add_callback_from_isr_droppable -> prv_audio_trans_bg (audec.c:455-460) -> system_task_add_callback -> prv_refill_bg -> audec_write - on KernelBG at SYSTEM_TASK_PRIORITY = PBL_PRIO_IDLE + 1 (src/fw/services/system_task/service.c:21), the LOWEST priority task in the system, below the App task (PBL_PRIO_IDLE + 2, src/fw/process_management/app_manager.h:17) and below KernelMain (PBL_PRIO_IDLE + 3, src/fw/main.c:136). Any app that renders a full framebuffer, or any KernelMain/BT activity, preempts the audio refill. Missing the window once inserts exactly 512 zero samples = 32.000 ms of digital silence. Because of the callback_pending gate (audec.c:489-496) the system never builds lead again; it only re-syncs at zero.
+
+The comment at audec.c:484-488 already documents that KernelBG starvation was observed here and that momentary underruns were chosen over an Event-Queue-Full reset. In practice this is audible as continuous clicking/crackling on a steady tone in every PCM-streaming app, at up to 31.25 events/s, and it is independent of how much audio the app has queued in the 8192 B service ring - because prv_refill_locked itself runs on KernelBG.
+
+MINIMAL REPRODUCTION: on obelix, an app that calls speaker_stream_open(SpeakerPcmFormat_16kHz_16bit, 85) and keeps the service ring topped up to 160 ms with a steady 440 Hz sine, while redrawing a full 200x228 8-bit framebuffer at 30 fps, clicks continuously. The same app with speaker_play_tone(440, 5000, 85, SpeakerWaveformSine) under the same render load clicks identically, which rules out the streaming API and points at the shared refill path.
+
+PROPOSED FIX A (five lines, biggest win): make prv_refill_locked fill the driver ring instead of writing exactly one block. audio_write already returns the remaining free space; wrap the generate+write in a loop while free >= SPEAKER_REFILL_SAMPLES * 2. This raises the driver-ring lead from 0-32 ms to up to 128 ms and makes the existing 4096 B allocation do something. It turns a hard 32.000 ms deadline into a ~96 ms one.
+
+PROPOSED FIX B (two lines): system_task_enable_raised_priority(bool) exists at src/fw/services/system_task/service.c:213-218 and raises KernelBG to PBL_PRIO_IDLE + 3 ("same as KernelMain / BT tasks"), but a repo-wide grep finds ZERO call sites - only the definition and the header declaration. Calling it with true in speaker_service_stream_open()/prv_start_audio() and false in prv_stop_internal()/close (and around play_tone/play_notes/play_tracks) moves the refill above the App task and above the compositor for the duration of playback.
+
+2) SHORT-CHUNK ZERO PADDING IS SILENT AND UNCOUNTED
+When circular_buffer_get_read_space_remaining() < 1024, audec.c:465-471 memsets the WHOLE 1024 B DMA half to zero and copies only available_data bytes, so the tail of that half is silence - a step to zero and a step back (1024 - N)/32 ms later, i.e. an audible click pair rather than a clean dropout. When available_data == 0 the copy is skipped entirely (audec.c:472) and the full 32.000 ms half is silent. Neither case is counted: speaker_stream_underrun_count in the service counts a different event (service ring empty), and the only report here is a PBL_LOG_DBG at audec.c:468 that is compiled out at the default CONFIG_DRIVER_SPEAKER_LOG_LEVEL (src/fw/drivers/speaker/Kconfig:33-35). A device can therefore drop 30% of its audio with every analytics counter reading zero.
+REQUEST: two separate counters at audec.c:467-471 (available_data == 0 vs 0 < available_data < 1024), exported next to speaker_stream_underrun_count. Also note that the short chunk originates one layer up: prv_refill_locked forwards a short pcm_stream_read result as-is (speaker_service.c:424-425) without ever topping it up.
+ALSO: PBL_LOG_DBG at audec.c:469 sits inside the DMA ISR and dbgserial is a 115200-baud busy-wait (~86.8 us/char, ~4-8 ms per line, src/fw/drivers/dbgserial.c:14-16). Enabling debug logging on this module to diagnose underruns will itself blow the 32.000 ms deadline and manufacture the underruns being measured. It should be removed or replaced by a counter.
+
+3) DATA RACE: circular_buffer publishes the length before the payload, and audec_write takes no lock
+circular_buffer_write() increments buffer->data_length BEFORE the memcpy that fills those bytes (lib/util/circular_buffer.c:42-57). audec_write() calls it with no interrupt lock whatsoever (audec.c:404-416) while prv_dma_request_processing() reads the same CircularBuffer from the audio DMA ISR (NVIC priority 5, board_obelix.c:643-661). An ISR that lands inside that window copies up to 1024 B of STALE ring contents straight to the DAC - a burst of garbage, not a gap. The window is small (a 1024 B memcpy) and is normally far from the next IRQ because the refill is scheduled by the IRQ itself, but it opens exactly in the regime described in item 1, where KernelBG latency is already at the 32 ms edge.
+Separately, buffer->data_length is a non-atomic read-modify-write on both sides: `data_length += length` in circular_buffer_write (circular_buffer.c:42) versus `data_length -= length` in circular_buffer_consume called from the ISR (circular_buffer.c:151-157). A lost update permanently corrupts data_length and therefore the derived write index (get_write_index = read_index + data_length, circular_buffer.c:15-17), which would produce continuous garbage for the life of the stream. Probability per IRQ is low (~3 instructions in 32 ms) but the consequence is unbounded.
+REQUEST: either wrap the audec_write ring update in pbl_irq_lock/unlock (or mask only the audio DMA IRQ), or restructure circular_buffer_write to memcpy first and publish data_length last with a release barrier, and make the two length updates interrupt-safe.
+
+4) MINOR, POSSIBLY UNRELATED, FOUND WHILE READING
+SystemCoreClock is a hardcoded 48000000 stub with an empty SystemCoreClockUpdate() (third_party/hal_sifli/sf32lb52/system_bf0_ap.c:14), while the real HCPU rate is set by the SiFli bootloader; delay_us() derives its cycle count from SystemCoreClock (src/fw/kernel/util/delay.c:35), so if the real clock is higher than 48 MHz every delay_us() in the tree is proportionally too short. profiler.c:130 uses HAL_RCC_GetHCLKFreq(CORE_ID_HCPU) and would give the true value.

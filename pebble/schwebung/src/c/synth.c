@@ -26,6 +26,7 @@ static int32_t s_fork_chz = FORK_START_CHZ;
 static uint8_t s_flower_w;
 static bool s_octave;
 static bool s_force_gate;
+static bool s_flat;
 static Partial s_ping[3];
 static uint32_t s_lfsr = 0xACE1u;
 static int32_t s_crack_amp;   // 16.16
@@ -71,7 +72,9 @@ void synth_init(void) {
 
 void synth_set_fork(int32_t chz, bool gate) {
   s_fork_chz = chz;
-  s_fork.inc = prv_inc(s_octave ? chz * 2 : chz);
+  if (!s_flat) {   // im Flachtest bleibt die Frequenz fest, sonst zieht das Spiel sie mit
+    s_fork.inc = prv_inc(s_octave ? chz * 2 : chz);
+  }
   s_fork.target = (gate || s_force_gate) ? ENV_ONE : 0;
 }
 
@@ -89,7 +92,9 @@ void synth_set_force_gate(bool on) {
 
 void synth_set_octave_jump(bool on) {
   s_octave = on;
-  s_fork.inc = prv_inc(on ? s_fork_chz * 2 : s_fork_chz);
+  if (!s_flat) {
+    s_fork.inc = prv_inc(on ? s_fork_chz * 2 : s_fork_chz);
+  }
 }
 
 void synth_ping(int32_t chz) {
@@ -104,7 +109,35 @@ void synth_crack(void) {
   s_crack_lp = 0;
 }
 
+void synth_set_flat(bool on) {
+  s_flat = on;
+  if (on) {
+    s_fork.inc = prv_inc(TON_FLAT_CHZ);
+  } else {
+    s_fork.inc = prv_inc(s_octave ? s_fork_chz * 2 : s_fork_chz);
+  }
+}
+
+// 500 Hz bei 16 kHz: 1024 LUT-Schritte * 500 / 16000 = 32 je Sample, also acht
+// volle Perioden je 256-Sample-Block. Der Block laesst sich nahtlos wiederholen,
+// deshalb ist jedes Knacken im Ergebnis garantiert nicht von uns.
+void synth_render_loop_block(int16_t *out) {
+  for (uint32_t i = 0; i < AUDIO_BLOCK_SAMPLES; i++) {
+    out[i] = (int16_t)((s_sin[(i * 32) & (LUT_N - 1)] * 18) >> 6);
+  }
+}
+
 void synth_render(int16_t *out, uint32_t num_samples) {
+  if (s_flat) {
+    // Nackter Sinus mit fester Amplitude: keine Huellkurve, keine Blume, kein Glas.
+    // Trennt Transport (Stream, Firmware, Treiber) von unserer Klangerzeugung.
+    for (uint32_t i = 0; i < num_samples; i++) {
+      int32_t v = prv_sin(s_fork.phase);
+      s_fork.phase += s_fork.inc;
+      out[i] = (int16_t)((v * 18) >> 6);
+    }
+    return;
+  }
   const int32_t flower_target = s_fork.target ? (ENV_ONE / 100) * s_flower_w : 0;
   s_flower.target = flower_target;
   for (uint32_t i = 0; i < num_samples; i++) {
@@ -126,7 +159,7 @@ void synth_render(int16_t *out, uint32_t num_samples) {
       if (pp->amp > 0) {
         int32_t v = prv_sin(pp->phase);
         pp->phase += pp->inc;
-        acc += (((v * (pp->amp >> 4)) >> 12) * 8) >> 6;
+        acc += (((v * (pp->amp >> 4)) >> 12) * 7) >> 6;
         pp->amp -= (pp->amp >> pp->decay_shift) + 1;
         if (pp->amp < 64) {
           pp->amp = 0;
@@ -143,7 +176,7 @@ void synth_render(int16_t *out, uint32_t num_samples) {
       }
       int32_t noise = bit ? 32767 : -32767;
       s_crack_lp += ((noise - s_crack_lp) * (s_crack_cut >> 8)) >> 8;
-      acc += (((s_crack_lp * (s_crack_amp >> 4)) >> 12) * 14) >> 6;
+      acc += (((s_crack_lp * (s_crack_amp >> 4)) >> 12) * 6) >> 6;
       s_crack_amp -= (s_crack_amp >> 12) + 1;
       s_crack_cut -= (s_crack_cut >> 13) + 1;
       if (s_crack_cut < 1300) {

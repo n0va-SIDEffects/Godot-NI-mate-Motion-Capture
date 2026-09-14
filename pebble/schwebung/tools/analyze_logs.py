@@ -2,9 +2,9 @@
 """Wertet die [E1]-Zeilen aus `pebble logs` aus.
 
 Das Sekundenlog besteht aus drei Zeilen (APP_LOG schneidet bei ~87 Zeichen ab):
-  [E1]  Modus, fps, Renderzeit, Vorlauf, Unterlaeufe, Backpressure, Heap, Uhr-Glitches
+  [E1]  Modus, fps, Renderzeit, Vorlauf, Vorlauf-Tiefstand, groesste Tick-Luecke, Eichungen, Unterlaeufe
   [E1t] Touch-Rate, Jitter, Ruheabweichung, Dead-Zone-Ausreisser, min. Intervall, LRA- und Backlight-Aufrufe, Stream-Staus
-  [E1+] Gabel, Blume, Schwebung, Spielzustand, Uhr-Resyncs
+  [E1+] Gabel, Blume, Schwebung, Spielzustand, Uhr-Resyncs/lange Pausen, Heap, Uhr-Glitches
 """
 import re
 import statistics
@@ -13,18 +13,19 @@ from collections import defaultdict
 
 SUMMARY = re.compile(
     r"\[E1\] (?P<mode>\w+) fps=(?P<fps>[\d.]+) rend=(?P<rend>[\d.]+)ms q=(?P<q>\d+)ms "
-    r"ur=(?P<ur>\d+) sw=(?P<sw>\d+) heap=(?P<heap>\d+) glitch=(?P<glitch>\d+)")
+    r"lo=(?P<lo>\d+)ms gap=(?P<gap>\d+)ms cal=(?P<cal>\d+) ur=(?P<ur>\d+)")
 TOUCH = re.compile(
     r"\[E1t\] touch=(?P<touch>\d+)/s jit=(?P<jit>[\d.]+)px still=(?P<still>\d+)px "
     r"dz=(?P<dz>\d+) ivl=(?P<ivl>\d+)ms lra=(?P<lra>\d+) bl=(?P<bl>\d+)(?: stau=(?P<stau>\d+))?")
 EXTRA = re.compile(r"\[E1\+\] fork=(?P<fork>[\d.]+) fl=(?P<fl>[\d.]+) beat=(?P<beat>[\d.]+) "
-                   r"st=(?P<st>\w+) rs=(?P<rs>\d+)")
+                   r"st=(?P<st>\w+) rs=(?P<rs>\d+)/(?P<gaps>\d+) heap=(?P<heap>\d+) gl=(?P<gl>\d+)")
 LRA = re.compile(r"\[E1\]\[LRA\] t=(?P<t>\d+) pulse mode=\w+ period=(?P<p>\d+) ms len=(?P<len>\d+) ms")
 PROBE = re.compile(r"\[E1\]\[PROBE\] (?P<txt>.*)")
 JUMP = re.compile(r"\[E1\]\[LATENZ\] (?P<txt>.*)")
 PANEL = re.compile(r"\[E1\]\[PANEL\] (?P<txt>.*)")
 LICHT = re.compile(r"\[E1\]\[LICHT\] (?P<txt>.*)")
 GAME = re.compile(r"\[E1\]\[GAME\] (?P<txt>.*)")
+TON = re.compile(r"\[E1\]\[TON\] (?P<txt>.*)")
 AUDIO = re.compile(r"\[E1\]\[AUDIO\] (?P<txt>.*)")
 FAULT = re.compile(r"fault|assert|crash", re.IGNORECASE)
 
@@ -42,7 +43,7 @@ def main(path):
             if m:
                 mode = m.group("mode")
                 d = per_mode[mode]
-                for k in ("fps", "rend", "q", "ur", "sw", "heap", "glitch"):
+                for k in ("fps", "rend", "q", "lo", "gap", "cal", "ur"):
                     d[k].append(float(m.group(k)))
                 continue
             m = TOUCH.search(line)
@@ -54,7 +55,8 @@ def main(path):
                 continue
             m = EXTRA.search(line)
             if m and mode:
-                per_mode[mode]["rs"].append(float(m.group("rs")))
+                for k in ("rs", "gaps", "heap", "gl"):
+                    per_mode[mode][k].append(float(m.group(k)))
                 continue
             m = LRA.search(line)
             if m:
@@ -62,8 +64,8 @@ def main(path):
                 continue
             if FAULT.search(line) and "[E1]" not in line:
                 faults.append(line.strip())
-            for name, rx in (("Audio", AUDIO), ("Probe", PROBE), ("Latenz", JUMP), ("Panel", PANEL),
-                             ("Licht", LICHT), ("Spiel", GAME)):
+            for name, rx in (("Audio", AUDIO), ("Ton", TON), ("Probe", PROBE), ("Latenz", JUMP),
+                             ("Panel", PANEL), ("Licht", LICHT), ("Spiel", GAME)):
                 m = rx.search(line)
                 if m:
                     events[name].append(m.group("txt").strip())
@@ -74,9 +76,9 @@ def main(path):
         n = len(d["fps"])
         out = (f"{mode}: {n} s  fps {statistics.mean(d['fps']):.1f} (min {min(d['fps']):.1f})  "
                f"render {statistics.mean(d['rend']):.1f} ms (max {max(d['rend']):.1f})  "
-               f"vorlauf {statistics.mean(d['q']):.0f} ms (min {min(d['q']):.0f})  "
-               f"unterlaeufe {int(max(d['ur']))}  backpressure {int(max(d['sw']))}  "
-               f"heap min {min(d['heap']):.0f} B  uhr-glitches {int(max(d['glitch']))}")
+               f"vorlauf {statistics.mean(d['q']):.0f} ms (tiefstand {min(d['lo']):.0f} ms)  "
+               f"groesste tick-luecke {max(d['gap']):.0f} ms  eichungen {int(max(d['cal']))}  "
+               f"unterlaeufe {int(max(d['ur']))}")
         if d["touch"]:
             ivl = [x for x in d["ivl"] if x > 0]
             out += (f"\n    touch {max(d['touch']):.0f}/s  jitter {statistics.mean(d['jit']):.2f} px  "
@@ -85,7 +87,8 @@ def main(path):
                     f"lra-aufrufe {int(max(d['lra']))}  backlight-aufrufe {int(max(d['bl']))}"
                     + (f"  stream-staus {int(max(d['stau']))}" if d["stau"] else ""))
         if d["rs"]:
-            out += f"  uhr-resyncs {int(max(d['rs']))}"
+            out += (f"\n    heap min {min(d['heap']):.0f} B  uhr-glitches {int(max(d['gl']))}  "
+                    f"uhr-resyncs {int(max(d['rs']))}  lange pausen {int(max(d['gaps']))}")
         print(out)
 
     if lra_times:
@@ -99,7 +102,7 @@ def main(path):
                   f"{statistics.mean(gaps):.0f} ms (min {min(gaps)}, max {max(gaps)}, "
                   f"Streuung {statistics.pstdev(gaps):.1f} ms)")
 
-    for name in ("Audio", "Probe", "Latenz", "Panel", "Licht", "Spiel"):
+    for name in ("Audio", "Ton", "Probe", "Latenz", "Panel", "Licht", "Spiel"):
         if events[name]:
             print(f"\n== {name} ==")
             for e in events[name][:40]:
@@ -117,4 +120,7 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Aufruf: analyze_logs.py <logdatei>")
         sys.exit(1)
-    main(sys.argv[1])
+    try:
+        main(sys.argv[1])
+    except BrokenPipeError:
+        pass   # z. B. beim Weiterleiten an head

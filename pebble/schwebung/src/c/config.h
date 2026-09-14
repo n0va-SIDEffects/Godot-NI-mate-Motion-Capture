@@ -25,13 +25,23 @@
 #define AUDIO_BLOCK_SAMPLES 256      // 16 ms pro Block
 #define AUDIO_BLOCK_BYTES (AUDIO_BLOCK_SAMPLES * 2)
 #define AUDIO_TICK_MS 8
-#define AUDIO_TARGET_QUEUE_MS 56     // Ziel-Vorlauf im Systempuffer
+#define AUDIO_TARGET_QUEUE_MS 160    // Vorlauf: die Firmware holt 1024-B-Bloecke (32 ms) im
+                                     // Systemtask (niedrigste Prioritaet); 56 ms waren zu knapp     // Ziel-Vorlauf im Systempuffer
 #define AUDIO_MAX_BLOCKS_PER_TICK 6
 #define AUDIO_VOLUME 85
 #define AUDIO_TOPUP_MS 130           // Auffuellen vor blockierenden Aufrufen (vibes_cancel)
 #define AUDIO_PIPELINE_ASSUMED_MS 80 // Annahme fuer Treiberpuffer, nur Anzeige; die Firmware
                                      // rechnet selbst mit 80 ms (SPEAKER_PIPELINE_DRAIN_SAMPLES)
+#define AUDIO_RING_BYTES 8192        // pcm_stream der Firmware: 8 KB = 256 ms
 #define AUDIO_STALL_MS 300           // so lange nichts angenommen trotz leerem Vorlauf = Stau
+#define AUDIO_LEAD_MIN_MS 24         // Klick-Diagnose: Vorlauf live per Up/Down in LATENZ
+#define AUDIO_LEAD_MAX_MS 240        // Ring hat 256 ms
+#define AUDIO_LEAD_STEP_MS 16
+
+// Klick-Diagnose TON: Referenzton der Firmware gegen unseren Stream
+#define TON_TEST_FREQ_HZ 440
+#define TON_TEST_MS 5000
+#define TON_FLAT_CHZ 44000           // 440,00 Hz, gleiche Frequenz wie der Firmware-Ton
 
 // Stimmen
 #define FORK_MIN_CHZ    30000
