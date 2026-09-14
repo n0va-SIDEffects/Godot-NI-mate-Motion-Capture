@@ -195,10 +195,15 @@ static void prv_magnet(uint32_t now, uint32_t dt_ms) {
       int32_t period = GEIGER_FAST_MS + (span * near_px) / MAG_RADIUS_PX;
       haptics_geiger((uint32_t)period);
       if (charged && near->p.y < FX_FROM_INT(MAG_DEAD_Y) && !near->held) {
-        s_charge_x100 -= (int32_t)((MAG_DRAIN_PER_S * dt_ms) / 10);
         s_st.mag_ms += dt_ms;
-        if (s_charge_x100 < 0) {
-          s_charge_x100 = 0;
+        // In der Uebung kostet der Magnet nichts: Gemessen werden soll, ob
+        // sich die Kugel unter der verdeckenden Fingerkuppe fuehren laesst,
+        // nicht wie lange die Ladung reicht. Im Spiel zieht der Verbrauch.
+        if (!s_drill) {
+          s_charge_x100 -= (int32_t)((MAG_DRAIN_PER_S * dt_ms) / 10);
+          if (s_charge_x100 < 0) {
+            s_charge_x100 = 0;
+          }
         }
       }
     } else {
@@ -223,9 +228,11 @@ static void prv_magnet(uint32_t now, uint32_t dt_ms) {
       } else {
         near->p = fpos;
         near->v = vec_make(0, 0);
-        s_charge_x100 -= (int32_t)((MAG_DRAIN_PER_S * 2 * dt_ms) / 10);
-        if (s_charge_x100 <= 0) {
-          s_charge_x100 = 0;
+        if (!s_drill) {
+          s_charge_x100 -= (int32_t)((MAG_DRAIN_PER_S * 2 * dt_ms) / 10);
+          if (s_charge_x100 <= 0) {
+            s_charge_x100 = 0;
+          }
         }
       }
     } else if (s_grab_btn && near_px <= MAG_GRAB_DIST_PX &&

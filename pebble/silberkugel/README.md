@@ -66,7 +66,8 @@ Vier Bildschirme:
   Zielkreis gehalten werden, zwei Sekunden zaehlen als Treffer. Gemessen
   werden Ziele je Versuch, beste Haltezeit und der Anteil der Zeit, in der die
   Kugel unter der Fingerkuppe lag, also unsichtbar war. Select setzt die
-  Zaehler zurueck.
+  Zaehler zurueck. Der Magnet kostet hier keine Ladung: Geprueft wird die
+  Fuehrbarkeit, nicht der Haushalt mit der Ressource.
 - **PANEL** Vollbildzeit: 300 Frames so schnell wie moeglich, einmal mit allen
   228 Zeilen, einmal mit 10. Select startet, danach wechselt Select die
   Variante.
@@ -159,6 +160,17 @@ als solches gekennzeichnet.
   geradewegs in die Outlane; ein Ball war nach rund einer Sekunde weg. Mit
   ihnen erreichen alle 30 Startpunkte des Pruefstands die Flipperzone, im
   Mittel nach 1,1 s.
+- **Naehe-Geiger und Vibrationsmaske schliessen sich gegenseitig aus.** Das
+  ist keine Emulator-Messung, sondern faellt beim Zusammenbau auf: Das
+  Konzept laesst den Geiger direkt unter der Fingerkuppe alle 60 ms ticken und
+  maskiert die Stosserkennung 60 ms nach jedem Vibrationsaufruf. Beides
+  zusammen heisst, dass der Nudge genau dann tot ist, wenn der Finger die
+  Kugel dicht fuehrt. Im Spiel ist das halb so schlimm, weil in dem Moment
+  ohnehin der Magnet steuert; wer aber beides gleichzeitig will, muss die
+  Maske kuerzen oder waehrend der Vibration nur die Schwelle anheben, statt
+  alle Samples zu verwerfen. Was die Maske wirklich kostet, zeigt `mask=` im
+  Log: der erste Wert sind die wegen eigener Vibration verworfenen Samples.
+  **Auf der Uhr messen**, wie lange der LRA tatsaechlich nachschwingt.
 - **Der Emulator kennt keinen Touch.** Im QEMU-Protokoll gibt es Tasten,
   Beschleunigung, Klaps, Kompass und Batterie, aber kein Touch-Paket. Alles
   zum Magnetfinger, zur Zieh-Geste des Plungers und zum Naehe-Geiger muss auf
