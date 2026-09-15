@@ -1,0 +1,66 @@
+{
+  "name": "ptz-remote",
+  "author": "SIDE effect's",
+  "version": "1.0",
+  "keywords": [
+    "pebble-app",
+    "ptz",
+    "panasonic",
+    "camera",
+    "remote"
+  ],
+  "private": true,
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
+  "pebble": {
+    "displayName": "PTZ Remote",
+    "uuid": "6f97eaed-2965-432c-a94b-15c53451d7f1",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery",
+      "basalt",
+      "chalk",
+      "diorite"
+    ],
+    "watchapp": {
+      "watchface": false,
+      "hiddenApp": false,
+      "onlyShownOnCommunication": false
+    },
+    "messageKeys": [
+      "CMD",
+      "PAN",
+      "TILT",
+      "ZOOM",
+      "FOCUS",
+      "VALUE",
+      "CAM",
+      "STATUS",
+      "MSG",
+      "CAM_NAMES",
+      "CAM_COUNT",
+      "CAM_ACTIVE",
+      "READY",
+      "cfgSpeed",
+      "cfgGyroSens",
+      "cfgGyroDead",
+      "cfgInvertPan",
+      "cfgInvertTilt",
+      "cfgVibrate",
+      "cfgPresetCount",
+      "cfgGyroLock"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/menu_icon.png",
+          "menuIcon": true
+        }
+      ]
+    }
+  }
+}
