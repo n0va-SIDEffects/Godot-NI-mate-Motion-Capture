@@ -44,21 +44,46 @@ Standard ist der **Daumen-Modus**, nicht der Zangengriff des Konzepts. Grund
 ist eine Messung, kein Geschmack: Die Back-Taste liefert keine Rohevents
 (siehe Befunde), damit laesst sich der linke Flipper nicht halten.
 
-| Taste | SPIEL und MAGNET (Daumen-Modus) | MESS und PANEL |
+| Taste | SPIEL und MAGNET | MESS und PANEL |
 |---|---|---|
-| Up | linker Flipper (Halten moeglich) | lang: Bildschirm wechseln |
-| Down | rechter Flipper (Halten moeglich) | Belegung umschalten, 2x Ton, 3x Log |
-| Up kurz | (Flipper) | Tempostufe weiterschalten |
-| Down 2x / 3x | | Tisch drehen / Kamera umschalten |
+| Up | linker Flipper (Halten moeglich) | |
+| Down | rechter Flipper (Halten moeglich) | |
 | Select | Magnetgriff; solange die Kugel in der Bahn liegt: Plunger | Aktion des Bildschirms |
-| Back | Bildschirm wechseln; lang: App verlassen | App verlassen |
+| Back | Menue oeffnen | Menue oeffnen |
 | Finger | Magnet, Plunger-Zug in der Abschussbahn | |
 
-Im **Zangengriff** (im MESS-Bildschirm mit Down umschaltbar) liegt der linke
-Flipper wie im Konzept auf Back, der rechte auf Down, der Plunger auf Up und
-der Bildschirmwechsel auf langem Up. Der linke Flipper schlaegt dort erst beim
-Loslassen der Taste und faellt nach 170 ms von selbst zurueck; Kugel fangen und
+Im **Zangengriff** (im Menue umschaltbar) liegt der linke Flipper wie im
+Konzept auf Back, der rechte auf Down, der Plunger auf Up und das Menue auf
+einem langen Druck auf Up. Der linke Flipper schlaegt dort erst beim Loslassen
+der Taste und faellt nach 170 ms von selbst zurueck; Kugel fangen und
 Post-Pass gehen damit nicht.
+
+## Menue
+
+Alles laesst sich zur Laufzeit umstellen, ohne neu zu bauen: Back oeffnet das
+Menue, Up und Down blaettern, Select aendert den Wert oder loest die Aktion
+aus, Back kehrt ins Spiel zurueck. Die Einstellungen ueberleben den Neustart;
+geschrieben wird erst beim Schliessen, weil `persist_write` die App einige
+Millisekunden anhaelt und genau dann dem Lautsprecher der Nachschub fehlt.
+
+| Eintrag | Werte |
+|---|---|
+| Bildschirm | Spiel, Magnet-Uebung, Panel-Test, Messwerte |
+| Ansicht | hoch, quer gedreht |
+| Kamera | fest unten, folgt der Kugel |
+| Tempo | 70, 85, 100, 120 Prozent |
+| Tasten | Daumen (Up/Down), Zange (Back/Down) |
+| Tonlast | aus, Stille, Ton |
+| Fingerkuppe | Umriss zeigen, aus |
+| Sekundenlog | an, aus |
+| Physik-Test | Select startet den Stresstest |
+| Panel-Test | Select startet die Vollbildmessung |
+| Zaehler | Select setzt alle Statistiken zurueck |
+| App beenden | Select |
+
+Der letzte Eintrag ist noetig, weil Back im Spiel das Menue oeffnet statt die
+App zu verlassen; ein langer Druck auf Back wird von der App abgefangen und
+taugt nicht als Ausweg.
 
 Vier Bildschirme:
 
@@ -208,6 +233,16 @@ als solches gekennzeichnet.
   alle Samples zu verwerfen. Was die Maske wirklich kostet, zeigt `mask=` im
   Log: der erste Wert sind die wegen eigener Vibration verworfenen Samples.
   **Auf der Uhr messen**, wie lange der LRA tatsaechlich nachschwingt.
+- **Was aus dem Lautsprecher klickt, ist nicht der Ton.** Beim ersten
+  Spieltest auf der Uhr war ein Klicken zu hoeren, obwohl Phase 1 keinen
+  Spielklang erzeugt. Zwei Ursachen, beide unabhaengig von der
+  Klangerzeugung: Der LRA ist im Lautsprecher hoerbar, weil Motor und Membran
+  im selben Gehaeuse sitzen, und der Verstaerker rauscht, sobald ein Stream
+  offen ist, auch bei digitaler Stille. Beim Flipper ist das erste sogar
+  erwuenscht, es ist das Klacken der Spule; das zweite ist der Grund, warum
+  die Tonlast jetzt standardmaessig aus ist und der Stream dann gar nicht erst
+  geoeffnet wird. Wer die Last messen will, schaltet im Menue auf Stille
+  (Stream laeuft mit voller Rate, schreibt Nullen) oder Ton.
 - **Der Emulator kennt keinen Touch.** Im QEMU-Protokoll gibt es Tasten,
   Beschleunigung, Klaps, Kompass und Batterie, aber kein Touch-Paket. Alles
   zum Magnetfinger, zur Zieh-Geste des Plungers und zum Naehe-Geiger muss auf
@@ -253,6 +288,7 @@ Gleitkommazahl oder ein uninitialisierter Wert in die Physik geraten.
 | `src/c/fixed.h` | Q20.12 in int32: Multiplikation, Division, Wurzel, Vektoren, Drehung |
 | `src/c/table.c` | grauer Testtisch als Segment- und Kreisliste, Flipperdrehpunkte |
 | `src/c/physics.c` | fester Zeitschritt, Teilschritte gegen Tunneling, Kontakte mit Coulomb-Reibung, Flipper als rotierende Kapsel, Magnetfeld |
+| `src/c/settings.c` | Menue mit MenuLayer, Einstellungen im Persist-Speicher |
 | `src/c/view.c` | Ansicht: Drehung um 90 Grad, Kamera mit Totband, Umrechnung Tisch nach Bildschirm und zurueck |
 | `src/c/render.c` | Framebuffer-Direktzugriff: Banden, Scheiben, Kapseln, Kugel mit Spur, Magnetring, Umriss der Fingerkuppe, Panel-Test |
 | `src/c/input.c` | Touch als Rohereignis: Magnetposition, Zieh-Geste des Plungers mit Ratsche, Wurfgeschwindigkeit aus den letzten drei Positionen |

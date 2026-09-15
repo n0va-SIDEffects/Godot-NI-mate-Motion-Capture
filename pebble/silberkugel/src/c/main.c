@@ -11,6 +11,7 @@
 #include "audio.h"
 #include "tone.h"
 #include "view.h"
+#include "settings.h"
 
 // SILBERKUGEL, Phase 1. Vier Bildschirme, Wechsel mit langem Druck auf Up:
 //   SPIEL   Flipper auf dem grauen Testtisch
@@ -23,15 +24,14 @@
 // Weil Back damit belegt ist, laesst sich die App aus SPIEL heraus nicht mit
 // Back verlassen; in den anderen Bildschirmen und im Daumen-Modus schon.
 
-typedef enum {
-  ModeSpiel = 0,
-  ModeMagnet,
-  ModePanel,
-  ModeMess,
-  ModeCount,
-} Mode;
+typedef ScreenId Mode;
+#define ModeSpiel ScreenSpiel
+#define ModeMagnet ScreenMagnet
+#define ModePanel ScreenPanel
+#define ModeMess ScreenMess
+#define ModeCount ScreenCount
 
-static const char *s_mode_names[ModeCount] = { "SPIEL", "MAGNET", "PANEL", "MESS" };
+static const char *s_mode_names[ScreenCount] = { "SPIEL", "MAGNET", "PANEL", "MESS" };
 
 static Window *s_window;
 static Layer *s_layer;
@@ -53,7 +53,7 @@ static bool s_paused;
 // docs/emulator-befund.md). Der Zangengriff bleibt als Option, dort schlaegt
 // der linke Flipper beim Loslassen und faellt von selbst zurueck.
 static bool s_thumb_mode = true;
-static bool s_audio_load = true; // Ton als Last mitlaufen lassen
+static uint8_t s_audio_mode = AudioOff;   // aus, Stille oder Ton
 static bool s_quiet;             // Sekundenlog aus (APP_LOG haelt den App-Task an)
 static uint8_t s_panel_variant;
 static uint32_t s_log_tick;
@@ -127,13 +127,6 @@ static void prv_back_flip(ClickRecognizerRef rec, void *ctx) {
 
 static void prv_enter_mode(Mode m);
 
-// Im Daumen-Modus ist Back frei: kurzer Druck wechselt den Bildschirm, langer
-// Druck verlaesst die App (das nimmt einem das System ohnehin nicht ab).
-static void prv_back_mode(ClickRecognizerRef rec, void *ctx) {
-  nudge_button_mask();
-  prv_enter_mode((Mode)((s_mode + 1) % ModeCount));
-}
-
 // Select ist der Magnetgriff. Solange die Kugel aber noch in der Abschussbahn
 // liegt, gibt es nichts zu greifen: Dann ist es der Plunger. So bleibt der
 // Daumen-Modus ohne Touch vollstaendig spielbar, und im Emulator laesst sich
@@ -199,18 +192,6 @@ static void prv_plunger_raw_up(ClickRecognizerRef rec, void *ctx) {
   game_plunge_button(false);
 }
 
-static void prv_down_click(ClickRecognizerRef rec, void *ctx) {
-  nudge_button_mask();
-  if (s_mode == ModeMess) {
-    s_thumb_mode = !s_thumb_mode;
-    APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Belegung: %s",
-            s_thumb_mode ? "Daumen-Modus (Up/Down)" : "Zangengriff (Back/Down)");
-    window_set_click_config_provider(s_window, window_get_click_config_provider(s_window));
-    prv_update_hud();
-    prv_mark_dirty();
-  }
-}
-
 static void prv_apply_view(void) {
   render_set_view(&s_view);
   APP_LOG(APP_LOG_LEVEL_INFO, "[P1][ANSICHT] %s, Kamera %s, Ausschnitt %dx%d, Versatz 0..%d",
@@ -218,75 +199,94 @@ static void prv_apply_view(void) {
           (int)s_view.view_wid, (int)s_view.view_len, (int)s_view.cam_max);
 }
 
-static void prv_down_multi(ClickRecognizerRef rec, void *ctx) {
-  if (s_mode != ModeMess) {
-    return;
-  }
-  switch (click_number_of_clicks_counted(rec)) {
-    case 2:
-      // Tisch quer statt hoch. Die Geometrie bleibt, nur die Ansicht dreht.
-      view_set_rot(&s_view, !s_view.rot90, &s_world.table);
-      prv_apply_view();
-      break;
-    case 3:
-      view_set_camera(&s_view, !s_view.camera, &s_world.table);
-      view_set_camera(&s_view_flat, s_view.camera, &s_world.table);
-      prv_apply_view();
-      break;
-    case 4:
-      s_audio_load = !s_audio_load;
-      if (s_audio_load) {
-        audio_start();
-      } else {
-        audio_stop();
-      }
-      APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Tonlast %s", s_audio_load ? "an" : "AUS");
-      break;
-    default:
-      s_quiet = !s_quiet;
-      APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Sekundenlog %s", s_quiet ? "AUS" : "an");
-      break;
-  }
-  prv_update_hud();
-  prv_mark_dirty();
-}
-
-static void prv_up_click(ClickRecognizerRef rec, void *ctx) {
+static void prv_open_menu(ClickRecognizerRef rec, void *ctx) {
   nudge_button_mask();
-  game_speed_next();
-  prv_update_hud();
-  prv_mark_dirty();
-}
-
-static void prv_up_long(ClickRecognizerRef rec, void *ctx) {
-  nudge_button_mask();
-  game_plunge_button(false);   // ein gehaltener Plunger wird nicht abgeschossen
-  prv_enter_mode((Mode)((s_mode + 1) % ModeCount));
+  // Flipper loslassen, sonst bleiben sie oben haengen, waehrend das Menue offen ist
+  phys_set_flipper(&s_world, 0, false);
+  phys_set_flipper(&s_world, 1, false);
+  game_set_grab(false);
+  game_plunge_button(false);
+  haptics_geiger(0);
+  settings_show();
 }
 
 static void prv_click_config(void *ctx) {
-  // Der lange Druck auf Up wechselt ueberall den Bildschirm. Select ist die
-  // Aktionstaste. Alles andere haengt am Bildschirm und an der Belegung.
+  // Select ist im Spiel die Aktionstaste (Griff und Plunger), Back oeffnet das
+  // Menue. Im Zangengriff ist Back der linke Flipper, dann liegt das Menue auf
+  // einem langen Druck auf Up.
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_select_click);
 
   if (s_mode == ModeSpiel || s_mode == ModeMagnet) {
     window_raw_click_subscribe(BUTTON_ID_SELECT, prv_select_raw_down, prv_select_raw_up, NULL);
     if (s_thumb_mode) {
-      // Beide Flipper am Daumen, beide mit echtem Halten.
       window_raw_click_subscribe(BUTTON_ID_UP, prv_flipper_down, prv_flipper_up, NULL);
       window_raw_click_subscribe(BUTTON_ID_DOWN, prv_flipper_down, prv_flipper_up, NULL);
-      window_single_click_subscribe(BUTTON_ID_BACK, prv_back_mode);
+      window_single_click_subscribe(BUTTON_ID_BACK, prv_open_menu);
     } else {
       window_single_click_subscribe(BUTTON_ID_BACK, prv_back_flip);
       window_raw_click_subscribe(BUTTON_ID_DOWN, prv_flipper_down, prv_flipper_up, NULL);
       window_raw_click_subscribe(BUTTON_ID_UP, prv_plunger_raw_down, prv_plunger_raw_up, NULL);
-      window_long_click_subscribe(BUTTON_ID_UP, 1000, prv_up_long, NULL);
+      window_long_click_subscribe(BUTTON_ID_UP, 700, prv_open_menu, NULL);
     }
   } else {
-    window_long_click_subscribe(BUTTON_ID_UP, 1000, prv_up_long, NULL);
-    window_single_click_subscribe(BUTTON_ID_UP, prv_up_click);
-    window_single_click_subscribe(BUTTON_ID_DOWN, prv_down_click);
-    window_multi_click_subscribe(BUTTON_ID_DOWN, 2, 5, 320, true, prv_down_multi);
+    window_single_click_subscribe(BUTTON_ID_BACK, prv_open_menu);
+  }
+}
+
+// ------------------------------------------------------------- Einstellungen
+
+static void prv_set_audio(uint8_t mode) {
+  s_audio_mode = mode;
+  if (mode == AudioOff) {
+    audio_stop();       // Stream zu: Der Verstaerker rauscht sonst auch bei Stille
+  } else {
+    audio_set_source(mode == AudioTone ? AudioSourceTone : AudioSourceSilence);
+    audio_start();
+  }
+}
+
+static void prv_apply_settings(const Settings *st) {
+  s_thumb_mode = st->thumb_mode != 0;
+  s_quiet = st->quiet_log != 0;
+  game_set_speed_idx(st->speed_idx);
+  if (st->audio_mode != s_audio_mode) {
+    prv_set_audio(st->audio_mode);
+  }
+  if ((bool)st->rot90 != s_view.rot90 || (bool)st->camera != s_view.camera) {
+    view_set_rot(&s_view, st->rot90 != 0, &s_world.table);
+    view_set_camera(&s_view, st->camera != 0, &s_world.table);
+    view_set_camera(&s_view_flat, st->camera != 0, &s_world.table);
+    prv_apply_view();
+  }
+  if (st->screen != (uint8_t)s_mode) {
+    prv_enter_mode((Mode)st->screen);
+  } else {
+    window_set_click_config_provider(s_window, prv_click_config);
+  }
+  prv_update_hud();
+  prv_mark_dirty();
+}
+
+static void prv_settings_action(uint8_t which) {
+  switch (which) {
+    case 0:
+      game_bench_physics();
+      break;
+    case 1:
+      settings_get()->screen = ScreenPanel;
+      prv_enter_mode(ModePanel);
+      render_panel_test_start(s_panel_variant);
+      break;
+    case 2:
+      game_reset_stats();
+      phys_reset_stats(&s_world);
+      APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Zaehler zurueckgesetzt");
+      break;
+    default:
+      // Back oeffnet das Menue, statt die App zu verlassen; der Ausstieg
+      // steht deshalb als Eintrag darin.
+      window_stack_pop_all(true);
+      break;
   }
 }
 
@@ -369,7 +369,7 @@ static void prv_update_hud(void) {
       break;
     }
     case ModeMess:
-      snprintf(l1, sizeof(l1), "MESS  Sel=Physik-Test  g=%u",
+      snprintf(l1, sizeof(l1), "MESS  g=%u",
                (unsigned)((GRAVITY_PX_S2 * game_speed_pct()) / 100));
       snprintf(l2, sizeof(l2), "phys %lu.%luus rend %lu.%lums gap %lums",
                (unsigned long)(g->phys_us_per_substep_x10 / 10),
@@ -378,8 +378,7 @@ static void prv_update_hud(void) {
                (unsigned long)s_tick_gap_max);
       snprintf(l2, sizeof(l2), "%s Kamera %s Tempo %u%%", s_view.rot90 ? "quer" : "hoch",
                s_view.camera ? "an" : "aus", (unsigned)game_speed_pct());
-      snprintf(l3, sizeof(l3), "Up=Tempo Dn=%s 2x=dreh 3x=Kam 4x=Ton",
-               s_thumb_mode ? "Zange" : "Daumen");
+      snprintf(l3, sizeof(l3), "Back = Menue");
       break;
     default:
       l1[0] = l2[0] = l3[0] = '\0';
@@ -405,6 +404,12 @@ static void prv_game_tick(void *data) {
     dt = 200;
   }
   if (s_paused || !s_layer) {
+    return;
+  }
+  if (settings_is_open()) {
+    // Solange das Menue offen ist, ruht das Spiel: Sonst flosse die Kugel ab,
+    // waehrend man eine Einstellung sucht.
+    s_last_tick_ms = 0;
     return;
   }
   if (s_back_hold_until != 0 && (int32_t)(now - s_back_hold_until) >= 0) {
@@ -451,6 +456,7 @@ static void prv_render_tick(void *data) {
 
   Overlay ov;
   game_fill_overlay(&ov);
+  ov.show_tip = settings_get()->show_tip != 0;
   if (s_mode != ModeSpiel && s_mode != ModeMagnet) {
     ov.finger = false;
     ov.target_r = 0;
@@ -540,7 +546,7 @@ static void prv_did_focus(bool in_focus) {
   if (in_focus && s_paused) {
     s_paused = false;
     s_last_tick_ms = 0;
-    if (s_audio_load) {
+    if (s_audio_mode != AudioOff) {
       audio_start();
     }
     APP_LOG(APP_LOG_LEVEL_INFO, "[P1] Fokus zurueck, weiter");
@@ -597,10 +603,10 @@ static void prv_init(void) {
   });
   window_stack_push(s_window, true);
 
-  audio_set_source(AudioSourceTone);
-  if (s_audio_load) {
-    audio_start();
-  }
+  // Einstellungen laden und anwenden; sie bestimmen auch, ob der Tonstrom
+  // ueberhaupt geoeffnet wird.
+  settings_init(&(SettingsHooks){ .apply = prv_apply_settings, .action = prv_settings_action });
+  prv_apply_settings(settings_get());
   app_focus_service_subscribe_handlers((AppFocusHandlers) {
     .will_focus = prv_will_focus,
     .did_focus = prv_did_focus,
@@ -620,6 +626,7 @@ static void prv_deinit(void) {
   if (s_game_timer) app_timer_cancel(s_game_timer);
   if (s_render_timer) app_timer_cancel(s_render_timer);
   if (s_log_timer) app_timer_cancel(s_log_timer);
+  settings_deinit();
   audio_deinit();
   nudge_deinit();
   game_deinit();

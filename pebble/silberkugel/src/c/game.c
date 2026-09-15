@@ -506,6 +506,10 @@ void game_speed_next(void) {
           (unsigned)((GRAVITY_PX_S2 * s_speed_pct[s_speed_idx]) / 100));
 }
 
+void game_set_speed_idx(uint8_t idx) {
+  s_speed_idx = (uint8_t)(idx % SPEED_STEPS);
+}
+
 uint8_t game_speed_idx(void) {
   return s_speed_idx;
 }
