@@ -29,6 +29,7 @@
 #define CATCHUP_PX         PBL_DISPLAY_WIDTH   // never replay more than one screen of timeline
 #define BEAT_AUDIBLE_MS    120    // a beat older than this is only drawn, not sounded
 #define BEAT_MIN_GAP_MS    260    // closest two beats may fall: 230 bpm, and longer than a beep
+#define LIGHT_FLASH_MS     90     // how long the backlight stays on for a beat
 #define HR_POLL_MS         200    // fallback polling of the heart rate metric
 #define HR_SAMPLE_SEC      1      // requested sensor sampling period
 #define HR_STALE_SEC       15     // no fresh reading for this long -> show "--"
@@ -95,6 +96,7 @@ static int s_demo_dir = 1;
 
 static AppTimer *s_frame_timer;
 static AppTimer *s_poll_timer;
+static AppTimer *s_light_timer;
 static BeatClock s_clock;                  // places the beats on the wall clock
 static uint32_t s_ppi_ms;                  // measured interval now driving the beats, 0 if none
 static uint32_t s_last_ppi_ms;             // wall clock of the last believed reading
@@ -105,6 +107,11 @@ static uint8_t s_ppi_have;                 // how many of them are filled
 
 // ---------- Beat playback ----------
 
+static void light_off(void *context) {
+  s_light_timer = NULL;
+  light_enable(false);   // back to the watch's own control
+}
+
 static void beat_feedback(void) {
   if (s_settings.vibe_on) {
     const uint32_t segments[] = {s_settings.vibe_ms};
@@ -112,7 +119,14 @@ static void beat_feedback(void) {
   }
   beep_play();
   if (s_settings.backlight == BacklightOnBeat) {
-    light_enable_interaction();
+    // light_enable_interaction() holds the backlight for the watch's own timeout, several
+    // seconds, so at any normal pulse it would simply never go out again. Switch it on and off
+    // instead, which is what a flash per beat actually looks like.
+    if (s_light_timer) {
+      app_timer_cancel(s_light_timer);
+    }
+    light_enable(true);
+    s_light_timer = app_timer_register(LIGHT_FLASH_MS, light_off, NULL);
   }
 }
 
@@ -429,19 +443,35 @@ static void status_update_proc(Layer *layer, GContext *ctx) {
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 }
 
+//! Put the settings to work. Called once at startup and again whenever the phone sends new ones.
+static void apply_settings(void) {
+  s_clock.px_ms = s_settings.px_ms;
+  beep_setup(&s_settings);
+  light_enable(s_settings.backlight == BacklightAlwaysOn);
+  if (s_settings.demo) {
+    s_ppi_ms = 0;
+    s_ppi_have = 0;
+  }
+  if (s_head_layer) {
+    layer_mark_dirty(s_head_layer);
+    layer_mark_dirty(s_trace_layer);
+    layer_mark_dirty(s_status_layer);
+  }
+}
+
 // ---------- Buttons ----------
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   s_settings.vibe_on = !s_settings.vibe_on;
   settings_save(&s_settings);
-  layer_mark_dirty(s_status_layer);
+  apply_settings();
 }
 
 static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 #if defined(PBL_SPEAKER)
   s_settings.sound_on = !s_settings.sound_on;
   settings_save(&s_settings);
-  layer_mark_dirty(s_status_layer);
+  apply_settings();
 #endif
 }
 
@@ -454,7 +484,7 @@ static void down_long_click_handler(ClickRecognizerRef recognizer, void *context
   if (s_settings.demo) {
     demo_step();
   }
-  layer_mark_dirty(s_status_layer);
+  apply_settings();
 }
 
 static void click_config_provider(void *context) {
@@ -524,22 +554,6 @@ static void init_sensor(void) {
 #endif
 }
 
-//! Put the settings to work. Called once at startup and again whenever the phone sends new ones.
-static void apply_settings(void) {
-  s_clock.px_ms = s_settings.px_ms;
-  beep_setup(&s_settings);
-  light_enable(s_settings.backlight == BacklightAlwaysOn);
-  if (s_settings.demo) {
-    s_ppi_ms = 0;
-    s_ppi_have = 0;
-  }
-  if (s_head_layer) {
-    layer_mark_dirty(s_head_layer);
-    layer_mark_dirty(s_trace_layer);
-    layer_mark_dirty(s_status_layer);
-  }
-}
-
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   settings_read_dict(&s_settings, iter);
   settings_save(&s_settings);
@@ -598,6 +612,7 @@ static void init(void) {
 }
 
 static void deinit(void) {
+  if (s_light_timer) app_timer_cancel(s_light_timer);
   beep_teardown();
   light_enable(false);   // hand the backlight back to the watch
   if (s_frame_timer) app_timer_cancel(s_frame_timer);

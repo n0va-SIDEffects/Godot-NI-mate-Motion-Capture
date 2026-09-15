@@ -12,7 +12,9 @@
 
 #include "settings.h"
 
-//! Prepare playback for the current settings. Safe to call again after they change.
+//! Point playback at the app's settings. They are read at each beat, so nothing has to be told
+//! about a change: an earlier version kept its own copy, and the button that switches the sound
+//! never reached it.
 void beep_setup(const Settings *settings);
 
 //! Sound one beat.

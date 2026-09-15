@@ -101,7 +101,7 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 | Tonhöhe | tief 660 Hz, Monitor 880 Hz, hoch 1046 Hz |
 | Vibration bei jedem Schlag | an/aus |
 | Länge der Vibration | kurz 15 ms, normal 25 ms, kräftig 40 ms |
-| Beleuchtung | wie sonst auch, bei jedem Schlag kurz, dauerhaft an |
+| Beleuchtung | wie sonst auch, bei jedem Schlag kurz (90 ms), dauerhaft an |
 | Kurvengeschwindigkeit | langsam 25 px/s, normal 50 px/s, schnell 75 px/s |
 | Kurvenfarbe | grün, rot, weiß, gelb, türkis (nur Farbdisplays) |
 | Puls simulieren | an/aus, derselbe Demo-Modus wie der lange Druck auf DOWN |
@@ -119,9 +119,21 @@ Clay schickt Auswahlfelder als Text, sobald deren Werte in `config.js` in Anfüh
 Die Uhr nimmt darum beides an, Zahl und Text. Beide Eigenschaften prüft
 `tools/check_config_page.js` mit.
 
+### Eine Einstellung, eine Wahrheit
+
+Die Tonausgabe las anfangs aus ihrer eigenen Kopie der Einstellungen. Die Seite auf dem Handy
+aktualisierte sie mit, die Tasten auf der Uhr nicht, also blieb der Ton nach einem Druck auf die
+obere Taste unbeirrt an, während die Statuszeile schon „Ton aus" anzeigte. Jetzt liest sie die
+Einstellungen der App direkt, sodass eine Kopie gar nicht erst veralten kann.
+
+Aus demselben Grund läuft jede Änderung, egal ob von der Seite oder von einer Taste, durch
+dieselbe Funktion `apply_settings()`.
+
 ### Zum Ton
 
-Der Lautsprecher bekommt pro Schlag ein Sample. Einen PCM-Strom über die Schläge hinweg offen zu
+Der Lautsprecher bekommt pro Schlag ein Sample. Es ist 90 ms lang: 50 ms Ton und 40 ms Stille
+dahinter. Die Note ist genau so lang wie das Sample. Vorher war sie 5 ms länger, und was der
+Lautsprecher in dieser Zeit ausgab, stand nirgends fest. Einen PCM-Strom über die Schläge hinweg offen zu
 halten, damit der Verstärker dazwischen nicht abschaltet, war schlechter: Der Verstärker rauscht,
 solange ein Strom offen ist, und diese App zeichnet oft genug, um den Strom leerlaufen zu lassen,
 was stottert.

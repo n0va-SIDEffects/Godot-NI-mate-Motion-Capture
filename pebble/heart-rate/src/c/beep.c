@@ -12,28 +12,29 @@ static const SpeakerSample s_sample = {
   .loop = false,
 };
 
-static Settings s_settings;
+static const Settings *s_settings;   // owned by the app, read afresh at every beat
 
 void beep_setup(const Settings *settings) {
-  s_settings = *settings;
+  s_settings = settings;
 }
 
 void beep_play(void) {
-  if (!s_settings.sound_on || s_settings.volume == 0 || speaker_is_muted()) {
+  if (!s_settings || !s_settings->sound_on || s_settings->volume == 0 || speaker_is_muted()) {
     return;
   }
   // Playing the sample at a note other than its own shifts the pitch by resampling. The speaker
   // refuses a second call while it is still busy with the last beep; nothing useful can be done
   // about that from here, so just ask and let it decide.
   const SpeakerNote note = {
-    .midi_note = s_settings.pitch_note,
+    .midi_note = s_settings->pitch_note,
     .waveform = SpeakerWaveformSine,   // ignored while a sample is attached
-    .duration_ms = BEEP_LEN_MS + 5,    // a little headroom so the release is not cut off
+    // Exactly as long as the sample. Asking for more left the speaker to invent the remainder.
+    .duration_ms = BEEP_LEN_MS,
     .velocity = 0,
     .reserved = 0,
   };
   const SpeakerTrack track = {.notes = &note, .num_notes = 1, .sample = &s_sample};
-  speaker_play_tracks(&track, 1, s_settings.volume);
+  speaker_play_tracks(&track, 1, s_settings->volume);
 }
 
 void beep_teardown(void) {
