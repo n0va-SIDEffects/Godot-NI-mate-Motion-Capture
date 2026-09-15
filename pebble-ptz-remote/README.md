@@ -8,6 +8,12 @@ Panasonic-PTZ-Kameras der AW-Serie direkt vom Handgelenk aus fahren lassen —
 |---|---|---|---|
 | ![](docs/screenshots/tasten.png) | ![](docs/screenshots/neigung_bereit.png) | ![](docs/screenshots/neigung_aktiv.png) | ![](docs/screenshots/menue.png) |
 
+Mit eingeschalteter Vorschau liegt das Kamerabild unter der Steuerung:
+
+| Tastenansicht | Neigungssteuerung |
+|---|---|
+| ![](docs/screenshots/vorschau_tasten.png) | ![](docs/screenshots/vorschau_neigung.png) |
+
 ## Wie es zusammenhängt
 
 ```
@@ -67,6 +73,54 @@ stimmen; falls nicht, in den Einstellungen **Pan** oder **Tilt umkehren**.
 > Eine reine Drehratenmessung würde mit der Zeit wegdriften und die Kamera
 > langsam davonlaufen lassen.
 
+## Vorschaubild
+
+Die Uhr kann ein Standbild der Kamera zeigen — **kein Livebild**. Die
+Bluetooth-Strecke zur Uhr schafft rund 1,6 Kilobyte je Sekunde; ein Bild
+dauert je nach Größe knapp eine bis knapp drei Sekunden. Für Bildkontrolle
+(steht der Ausschnitt? ist die Person drin?) reicht das, für Bildbeurteilung
+nicht.
+
+![](docs/screenshots/vorschau_stufen.png)
+
+Ein- und ausschalten lässt es sich **im Menü der Uhr** unter *Vorschau* und
+auf der Konfigurationsseite. Ausgeschaltet geht kein einziges Byte für Bilder
+über die Funkstrecke.
+
+| Stufe | Übertragen | Dauer |
+|---|---|---|
+| Klein | 64 × 36 Punkte, 1,2 KB | rund 1 s |
+| Mittel | 96 × 54 Punkte, 2,6 KB | rund 2 s |
+| Groß | 128 × 72 Punkte, 4,6 KB | rund 3 s |
+
+Ein frisches Bild wird geholt, nachdem eine Fahrt endet, nach einem Preset
+und nach einem Kamerawechsel — nie *während* einer Fahrt. Das ist Absicht:
+die Steuerbefehle haben Vorrang auf derselben Funkstrecke, und ein Bild aus
+der Bewegung wäre ohnehin verwischt. Beginnt eine Fahrt, wird eine laufende
+Bildübertragung sofort abgebrochen.
+
+### Wie aus einem JPEG ein Uhrenbild wird
+
+Alles passiert auf dem Telefon, ein zusätzlicher Rechner im Netz ist nicht
+nötig:
+
+1. **Schnappschuss holen** über `/cgi-bin/camera?resolution=1280` (mit
+   `/cgi-bin/view.cgi?action=snapshot` als Rückfallweg; welcher Weg bei einer
+   Kamera funktioniert, merkt sich die App).
+2. **Nur die DC-Ebene dekodieren.** Ein JPEG speichert das Bild in Blöcken
+   von 8 × 8 Punkten, und der erste Koeffizient jedes Blocks ist der
+   Mittelwert dieser 64 Punkte. Wer nur diese liest, bekommt das Bild in
+   einem Achtel der Kantenlänge — ohne die aufwendige Rücktransformation.
+   Aus 1280 × 720 wird so direkt 160 × 90, in etwa zehn Millisekunden.
+3. **Auf Sendegröße mitteln** und auf **16 Farben** bringen. Die Palette wird
+   fürs jeweilige Bild gewählt, mit erzwungenem Mindestabstand: ein dunkles
+   Bühnenbild besteht sonst zu neun Zehnteln aus kaum unterscheidbaren
+   Dunkeltönen, und der Lichtkegel bekäme zwei Plätze von sechzehn.
+4. **Zwei Punkte je Byte packen** und in Häppchen an die Uhr schicken. Wie
+   groß ein Häppchen sein darf, meldet die Uhr beim Verbinden.
+5. Die Uhr hält das Bild in Sendeauflösung und rechnet es erst beim Zeichnen
+   hoch. Das spart Speicher und macht die Bildgröße frei wählbar.
+
 ## Damit nichts unbeaufsichtigt weiterfährt
 
 Im Vorstellungsbetrieb ist eine Kamera, die von allein weiterschwenkt, der
@@ -79,6 +133,9 @@ schlimmste Fall. Dagegen stehen vier Vorkehrungen:
    hält das Telefon die Kamera von sich aus an.
 4. **Stopp beim Beenden** — App schließen, Kamera wechseln und jeder
    Ansichtswechsel schicken zuerst ein Stopp hinaus.
+
+Eine Störung steht außerdem in der Fußzeile der Hauptansicht. Wer im Dunkeln
+am Pult steht, soll sehen können, warum nichts passiert.
 
 ## Einrichten
 
@@ -134,10 +191,40 @@ Beide Tests laufen ohne Uhr und ohne Kamera:
 ```bash
 node test/panasonic.test.js   # CGI-Befehle, Grenzwerte, Fehlerfälle
 node test/bridge.test.js      # ganze Telefon-Seite gegen eine nachgebaute Kamera
+node test/jpeg.test.js        # JPEG-Dekoder gegen echte Dateien
+node test/preview.test.js     # Vorschau von der Kamera bis zum fertigen Bild
 ```
 
 `bridge.test.js` startet einen echten HTTP-Server, der wie eine Panasonic-Kamera
 antwortet, und prüft unter anderem, ob der Wachhund die Kamera wirklich anhält.
+
+`jpeg.test.js` vergleicht den Dekoder mit dem jeweiligen Originalbild, das mit
+einem Mittelwertfilter auf ein Achtel verkleinert wurde — denn genau das ist
+ein DC-Koeffizient. Geprüft werden 4:2:0, 4:2:2, 4:4:4, Graustufen,
+Restart-Marker, ungerade Bildmaße sowie abgeschnittene und beschädigte Dateien.
+
+`preview.test.js` setzt aus den abgefangenen Nachrichten das Bild wieder
+zusammen — genauso, wie die Uhr es tut — und prüft das Ergebnis.
+
+### Emulator
+
+Im Pebble-Emulator lässt sich die Vorschau **nicht** vollständig prüfen: die
+JavaScript-Umgebung des Emulators (pypkjs) reicht binäre XHR-Antworten nicht
+durch. Ein Puffer der richtigen Länge kommt an, gefüllt mit Nullen; die
+Zeichenkettenfassung ist ebenso unbrauchbar. Die App meldet dann
+`Bild: Kein JPEG (SOI fehlt)`.
+
+Die beiden Hälften sind einzeln geprüft: die Telefon-Seite durch
+`preview.test.js`, die Uhr-Seite im Emulator, indem man ihr ein fertiges Bild
+direkt schickt:
+
+```bash
+# Schlüsselnummern stehen in build/appinfo.json unter appKeys
+pebble send-app-message --emulator emery --uint 10021=96 10022=54 10023=2592 \
+    --bytes 10024=<32 Hexzeichen Palette>
+pebble send-app-message --emulator emery --uint 10025=0 \
+    --bytes-file 10026=bild.bin
+```
 
 ## Aufbau des Quelltextes
 

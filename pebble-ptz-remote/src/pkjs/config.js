@@ -95,6 +95,39 @@ var config = [
   }
 ];
 
+config.push({
+  type: 'section',
+  items: [
+    { type: 'heading', defaultValue: 'Vorschaubild' },
+    {
+      type: 'text',
+      defaultValue: 'Die Uhr holt nach jeder Fahrt und nach jedem Preset ein frisches ' +
+        'Einzelbild. Kein Livebild: die Bluetooth-Strecke zur Uhr schafft rund ' +
+        '1,6 Kilobyte je Sekunde, ein Bild braucht je nach Gr&ouml;&szlig;e ein bis drei ' +
+        'Sekunden. W&auml;hrend einer Fahrt wird nichts &uuml;bertragen, damit die ' +
+        'Steuerbefehle Vorrang haben. L&auml;sst sich auch an der Uhr im Men&uuml; ' +
+        'ein- und ausschalten.'
+    },
+    {
+      type: 'toggle',
+      messageKey: 'cfgPreview',
+      label: 'Vorschau einschalten',
+      defaultValue: false
+    },
+    {
+      type: 'select',
+      messageKey: 'cfgPreviewSize',
+      label: 'Bildgr&ouml;&szlig;e',
+      defaultValue: '1',
+      options: [
+        { label: 'Klein - 64 Punkte breit, rund 1 s', value: '0' },
+        { label: 'Mittel - 96 Punkte breit, rund 2 s', value: '1' },
+        { label: 'Gross - 128 Punkte breit, rund 3 s', value: '2' }
+      ]
+    }
+  ]
+});
+
 // Ein Block je Kamera. Leer gelassene Bl&ouml;cke tauchen auf der Uhr nicht auf.
 for (var i = 1; i <= CAMERA_SLOTS; i++) {
   config.push({

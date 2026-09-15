@@ -4,6 +4,7 @@
 #include "comm.h"
 #include "settings.h"
 #include "gauge.h"
+#include "preview.h"
 
 static Window *s_window;
 static Layer  *s_canvas;
@@ -50,12 +51,18 @@ static void press(int8_t dir) {
     return;
   }
   s_dir = dir;
+  // Waehrend einer Fahrt hat die Steuerung Vorrang vor dem Bild.
+  preview_cancel();
   apply_direction();
 }
 
 static void release(void) {
+  bool was_moving = s_dir != 0;
   s_dir = 0;
   apply_direction();
+  if (was_moving) {
+    preview_request_delayed(800);
+  }
 }
 
 // --- Tasten ---------------------------------------------------------------
@@ -87,6 +94,18 @@ static void click_config(void *ctx) {
 
 // --- Zeichnen -------------------------------------------------------------
 
+// Schmaler Balken am unteren Rand des Felds, solange ein Bild unterwegs ist.
+static void draw_preview_progress(GContext *ctx, GRect field) {
+  if (!preview_is_loading()) return;
+  int16_t w = field.size.w - 8;
+  int16_t x = field.origin.x + 4;
+  int16_t y = field.origin.y + field.size.h - 6;
+  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
+  graphics_fill_rect(ctx, GRect(x, y, w, 3), 1, GCornersAll);
+  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorBlack));
+  graphics_fill_rect(ctx, GRect(x, y, w * preview_progress() / 100, 3), 1, GCornersAll);
+}
+
 static void draw(Layer *layer, GContext *ctx) {
   const GRect b = layer_get_bounds(layer);
   const PtzAxis axis = active_axis();
@@ -104,6 +123,12 @@ static void draw(Layer *layer, GContext *ctx) {
   const int16_t top = pad + header_h + 2;
   const int16_t field_h = b.size.h - top - foot_h - pad;
 
+  GRect field = GRect(pad + 2, top, b.size.w - 2 * pad - 4, field_h);
+  bool image = preview_has_image();
+  if (image) {
+    preview_draw(ctx, field);
+  }
+
   GaugeState g = {
     .pan  = axis == PTZ_AXIS_PAN  ? (int8_t)(s_dir * 100) : 0,
     .tilt = axis == PTZ_AXIS_TILT ? (int8_t)(s_dir * 100) : 0,
@@ -111,8 +136,10 @@ static void draw(Layer *layer, GContext *ctx) {
     .active = s_dir != 0,
     .pan_locked = false,
     .tilt_locked = false,
+    .over_image = image,
   };
-  gauge_draw(ctx, GRect(pad + 2, top, b.size.w - 2 * pad - 4, field_h), &g);
+  gauge_draw(ctx, field, &g);
+  draw_preview_progress(ctx, field);
 
   // Fusszeile: gewaehlte Achse, Geschwindigkeitsstufe, Tastenhinweis
   char line[48];
@@ -128,7 +155,10 @@ static void draw(Layer *layer, GContext *ctx) {
                      GRect(pad, b.size.h - foot_h, b.size.w - 2 * pad, 28),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
-  const char *hint = (comm_get_status() == PTZ_STATUS_NOCONFIG)
+  // Eine Stoerung gehoert auf den Schirm, nicht ins Protokoll: wer im
+  // Dunkeln am Pult steht, soll sehen, warum nichts passiert.
+  const PtzStatus st = comm_get_status();
+  const char *hint = (st == PTZ_STATUS_NOCONFIG || st == PTZ_STATUS_ERROR)
       ? comm_get_message()
       : "SEL Achse · LANG Menü";
   graphics_draw_text(ctx, hint, fonts_get_system_font(FONT_KEY_GOTHIC_14),
@@ -137,6 +167,11 @@ static void draw(Layer *layer, GContext *ctx) {
 }
 
 static void on_comm_update(void) {
+  // Die Vorschau-Einstellung kommt erst vom Telefon. Sobald sie da ist und
+  // die Vorschau an ist, holt die App von sich aus das erste Bild.
+  if (preview_enabled() && !preview_has_image() && !preview_is_loading()) {
+    preview_request_delayed(400);
+  }
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 

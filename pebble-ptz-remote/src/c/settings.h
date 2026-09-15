@@ -15,6 +15,8 @@ typedef struct {
   uint8_t gyro_axes;      // Startwert fuer die Neigungssteuerung
   uint8_t active_cam;     // zuletzt gewaehlte Kamera
   uint8_t active_axis;    // zuletzt gewaehlte Achse der Tastenansicht
+  bool    preview_on;     // Vorschaubild ein oder aus
+  uint8_t preview_size;   // 0 = klein, 1 = mittel, 2 = gross
 } PtzSettings;
 
 void settings_load(void);

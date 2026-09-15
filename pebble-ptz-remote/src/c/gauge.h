@@ -9,6 +9,7 @@ typedef struct {
   bool   active;        // Kamera faehrt gerade
   bool   pan_locked;    // Achse in diesem Modus gesperrt
   bool   tilt_locked;
+  bool   over_image;    // liegt auf dem Vorschaubild
 } GaugeState;
 
 void gauge_draw(GContext *ctx, GRect frame, const GaugeState *state);

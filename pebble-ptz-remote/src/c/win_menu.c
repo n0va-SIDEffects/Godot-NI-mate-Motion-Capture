@@ -2,6 +2,7 @@
 #include "win_gyro.h"
 #include "comm.h"
 #include "settings.h"
+#include "preview.h"
 
 // ===========================================================================
 // Bestaetigung vor dem Ueberschreiben eines Presets
@@ -75,6 +76,8 @@ static void preset_draw(GContext *ctx, const Layer *cell, MenuIndex *idx, void *
 
 static void preset_select(MenuLayer *menu, MenuIndex *idx, void *ctx) {
   comm_send_command(PTZ_CMD_PRESET_RECALL, idx->row);
+  // Zwei Sekunden reichen den meisten Kameras fuer eine Preset-Fahrt.
+  preview_request_delayed(2000);
   window_stack_pop(true);
 }
 
@@ -145,6 +148,8 @@ static void cam_select(MenuLayer *menu, MenuIndex *idx, void *ctx) {
   // unbeaufsichtigt weiterlaeuft.
   comm_stop_all();
   comm_send_command(PTZ_CMD_SELECT_CAM, idx->row);
+  preview_cancel();
+  preview_request_delayed(600);
   window_stack_pop(true);
 }
 
@@ -183,7 +188,7 @@ static void cam_push(void) {
 
 static Window          *s_menu_window;
 static SimpleMenuLayer *s_menu_layer;
-static SimpleMenuItem   s_items[6];
+static SimpleMenuItem   s_items[7];
 static SimpleMenuSection s_sections[1];
 
 static char s_sub_gyro[24];
@@ -191,6 +196,7 @@ static char s_sub_cam[PTZ_NAME_LEN + 1];
 static char s_sub_speed[24];
 static char s_sub_focus[24];
 static char s_sub_status[64];
+static char s_sub_preview[32];
 static bool s_autofocus = true;
 
 static void refresh_subtitles(void) {
@@ -199,6 +205,13 @@ static void refresh_subtitles(void) {
   snprintf(s_sub_speed, sizeof(s_sub_speed), "Stufe %d von 5", settings_get()->speed);
   snprintf(s_sub_focus, sizeof(s_sub_focus), "%s", s_autofocus ? "automatisch" : "manuell");
   snprintf(s_sub_status, sizeof(s_sub_status), "%s", comm_get_message());
+  if (preview_enabled()) {
+    static const char *groessen[] = { "klein", "mittel", "gross" };
+    snprintf(s_sub_preview, sizeof(s_sub_preview), "an, %s",
+             groessen[settings_get()->preview_size % 3]);
+  } else {
+    snprintf(s_sub_preview, sizeof(s_sub_preview), "aus");
+  }
   if (s_menu_layer) {
     layer_mark_dirty(simple_menu_layer_get_layer(s_menu_layer));
   }
@@ -218,6 +231,15 @@ static void item_speed(int index, void *ctx) {
 static void item_focus(int index, void *ctx) {
   s_autofocus = !s_autofocus;
   comm_send_command(PTZ_CMD_AUTOFOCUS, s_autofocus ? 1 : 0);
+  refresh_subtitles();
+}
+
+static void item_preview(int index, void *ctx) {
+  bool on = !preview_enabled();
+  preview_set_enabled(on);
+  if (on) {
+    preview_request();
+  }
   refresh_subtitles();
 }
 
@@ -242,6 +264,8 @@ static void menu_load(Window *window) {
   s_items[4] = (SimpleMenuItem) {
     .title = "Fokus", .subtitle = s_sub_focus, .callback = item_focus };
   s_items[5] = (SimpleMenuItem) {
+    .title = "Vorschau", .subtitle = s_sub_preview, .callback = item_preview };
+  s_items[6] = (SimpleMenuItem) {
     .title = "Status", .subtitle = s_sub_status, .callback = item_status };
 
   s_sections[0] = (SimpleMenuSection) {

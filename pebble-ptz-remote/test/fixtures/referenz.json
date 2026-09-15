@@ -1,0 +1,50 @@
+{
+ "420": {
+  "file": "420.jpg",
+  "ref": "420.ref",
+  "width": 640,
+  "height": 360,
+  "dcWidth": 80,
+  "dcHeight": 45
+ },
+ "422": {
+  "file": "422.jpg",
+  "ref": "422.ref",
+  "width": 640,
+  "height": 360,
+  "dcWidth": 80,
+  "dcHeight": 45
+ },
+ "444": {
+  "file": "444.jpg",
+  "ref": "444.ref",
+  "width": 640,
+  "height": 360,
+  "dcWidth": 80,
+  "dcHeight": 45
+ },
+ "restart": {
+  "file": "restart.jpg",
+  "ref": "restart.ref",
+  "width": 640,
+  "height": 360,
+  "dcWidth": 80,
+  "dcHeight": 45
+ },
+ "odd": {
+  "file": "odd.jpg",
+  "ref": "odd.ref",
+  "width": 317,
+  "height": 181,
+  "dcWidth": 40,
+  "dcHeight": 23
+ },
+ "grau": {
+  "file": "grau.jpg",
+  "ref": "grau.ref",
+  "width": 320,
+  "height": 180,
+  "dcWidth": 40,
+  "dcHeight": 23
+ }
+}

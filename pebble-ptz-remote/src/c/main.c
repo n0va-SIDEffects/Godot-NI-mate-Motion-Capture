@@ -2,10 +2,12 @@
 #include "ptz.h"
 #include "settings.h"
 #include "comm.h"
+#include "preview.h"
 #include "win_remote.h"
 
 static void init(void) {
   settings_load();
+  preview_init();
   comm_init();
   win_remote_push();
 }
@@ -15,6 +17,7 @@ static void deinit(void) {
   // weil jemand die App geschlossen hat, waere das schlechteste Ergebnis
   // dieser App.
   comm_deinit();
+  preview_deinit();
   settings_save();
 }
 

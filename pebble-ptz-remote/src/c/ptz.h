@@ -26,6 +26,7 @@ typedef enum {
   PTZ_CMD_SELECT_CAM    = 7,  // VALUE: Index der Kamera
   PTZ_CMD_HELLO         = 8,  // Zustand nach dem Start abfragen
   PTZ_CMD_STOP_ALL      = 9,  // Not-Stopp, alle Achsen
+  PTZ_CMD_PREVIEW       = 10, // VALUE: 1 = Bild holen, 0 = abbrechen
 } PtzCommand;
 
 // Verbindungszustand, kommt vom Telefon zurueck

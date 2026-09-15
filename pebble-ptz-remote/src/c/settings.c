@@ -16,6 +16,8 @@ static void set_defaults(void) {
   s_settings.gyro_axes    = GYRO_AXES_PAN_TILT;
   s_settings.active_cam   = 0;
   s_settings.active_axis  = PTZ_AXIS_TILT;
+  s_settings.preview_on   = false;   // erst einschalten, dann Funk belegen
+  s_settings.preview_size = 1;
 }
 
 static uint8_t clamp_u8(int32_t v, uint8_t lo, uint8_t hi) {
@@ -39,6 +41,7 @@ void settings_load(void) {
       s_settings.gyro_axes    = clamp_u8(s_settings.gyro_axes, 0, GYRO_AXES_COUNT - 1);
       s_settings.active_cam   = clamp_u8(s_settings.active_cam, 0, PTZ_MAX_CAMERAS - 1);
       s_settings.active_axis  = clamp_u8(s_settings.active_axis, 0, PTZ_AXIS_COUNT - 1);
+      s_settings.preview_size = clamp_u8(s_settings.preview_size, 0, 2);
     }
   }
 }
@@ -81,6 +84,14 @@ bool settings_apply_message(DictionaryIterator *iter) {
   }
   if ((t = dict_find(iter, MESSAGE_KEY_cfgPresetCount))) {
     s_settings.preset_count = clamp_u8(t->value->int32, 1, PTZ_MAX_PRESETS);
+    changed = true;
+  }
+  if ((t = dict_find(iter, MESSAGE_KEY_cfgPreview))) {
+    s_settings.preview_on = t->value->int32 != 0;
+    changed = true;
+  }
+  if ((t = dict_find(iter, MESSAGE_KEY_cfgPreviewSize))) {
+    s_settings.preview_size = clamp_u8(t->value->int32, 0, 2);
     changed = true;
   }
   if ((t = dict_find(iter, MESSAGE_KEY_cfgGyroLock))) {

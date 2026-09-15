@@ -1,5 +1,6 @@
 #include "comm.h"
 #include "settings.h"
+#include "preview.h"
 
 #define TICK_MS          120   // Taktung der Sendeschleife
 #define REPEAT_MS        400   // Wiederholung, solange eine Achse laeuft
@@ -129,6 +130,11 @@ static bool send_queued(void) {
   dict_write_uint8(out, MESSAGE_KEY_CMD,   (uint8_t)q->cmd);
   dict_write_int32(out, MESSAGE_KEY_VALUE, q->value);
   dict_write_uint8(out, MESSAGE_KEY_CAM,   settings_get()->active_cam);
+  if (q->cmd == PTZ_CMD_HELLO) {
+    // Wie gross ein Haeppchen sein darf, weiss nur die Uhr. Das Telefon
+    // richtet seine Bilduebertragung danach.
+    dict_write_uint32(out, MESSAGE_KEY_MAXRX, app_message_inbox_size_maximum());
+  }
 
   if (app_message_outbox_send() != APP_MSG_OK) {
     return false;
@@ -191,6 +197,13 @@ static void outbox_failed(DictionaryIterator *iter, AppMessageResult reason, voi
 static void inbox_received(DictionaryIterator *iter, void *ctx) {
   bool changed = false;
   Tuple *t;
+
+  // Bilddaten machen den Grossteil des Verkehrs aus und haben mit dem
+  // uebrigen Zustand nichts zu tun.
+  if (preview_handle_message(iter)) {
+    notify_update();
+    return;
+  }
 
   if (settings_apply_message(iter)) {
     changed = true;
@@ -256,7 +269,8 @@ void comm_init(void) {
   app_message_register_inbox_dropped(inbox_dropped);
   app_message_register_outbox_sent(outbox_sent);
   app_message_register_outbox_failed(outbox_failed);
-  app_message_open(512, 128);
+  // Die Eingangsseite so gross wie moeglich: durch sie kommen die Bilder.
+  app_message_open(app_message_inbox_size_maximum(), 256);
 
   mark_sent();
   queue_push(PTZ_CMD_HELLO, 0);

@@ -3,6 +3,7 @@
 #include "settings.h"
 #include "motion.h"
 #include "gauge.h"
+#include "preview.h"
 
 #define FRAME_MS   100
 #define ARM_MS     250   // Anlaufsperre nach dem Druck auf den Schalter
@@ -59,6 +60,7 @@ static void hold_down(ClickRecognizerRef rec, void *ctx) {
   motion_set_reference();
   time_ms(&s_arm_s, &s_arm_ms);
   s_held = true;
+  preview_cancel();
   layer_mark_dirty(s_canvas);
 }
 
@@ -66,6 +68,8 @@ static void hold_up(ClickRecognizerRef rec, void *ctx) {
   s_held = false;
   comm_stop_all();
   s_zoom_dir = 0;
+  // Erst wenn die Kamera steht, lohnt sich ein frisches Bild.
+  preview_request_delayed(800);
   layer_mark_dirty(s_canvas);
 }
 
@@ -117,6 +121,7 @@ static void draw(Layer *layer, GContext *ctx) {
 
   // Ohne gedrueckten Schalter zeigt die Anzeige die Neigung trotzdem an.
   // So laesst sich vor der ersten Fahrt pruefen, ob die Richtungen stimmen.
+  bool image = preview_has_image();
   GaugeState g = {
     .pan  = dx,
     .tilt = dy,
@@ -124,6 +129,7 @@ static void draw(Layer *layer, GContext *ctx) {
     .active = running,
     .pan_locked  = (mode == GYRO_AXES_TILT_ONLY),
     .tilt_locked = (mode == GYRO_AXES_PAN_ZOOM),
+    .over_image = image,
   };
   if (mode == GYRO_AXES_PAN_ZOOM) {
     g.zoom = dy;
@@ -134,7 +140,21 @@ static void draw(Layer *layer, GContext *ctx) {
   if (settings_get()->invert_pan)  g.pan  = (int8_t)-g.pan;
   if (settings_get()->invert_tilt) { g.tilt = (int8_t)-g.tilt; g.zoom = (int8_t)-g.zoom; }
 
-  gauge_draw(ctx, GRect(pad + 2, top, b.size.w - 2 * pad - 4, field_h), &g);
+  GRect field = GRect(pad + 2, top, b.size.w - 2 * pad - 4, field_h);
+  if (image) {
+    preview_draw(ctx, field);
+  }
+  gauge_draw(ctx, field, &g);
+
+  if (preview_is_loading()) {
+    int16_t bw = field.size.w - 8;
+    int16_t bx = field.origin.x + 4;
+    int16_t by = field.origin.y + field.size.h - 6;
+    graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
+    graphics_fill_rect(ctx, GRect(bx, by, bw, 3), 1, GCornersAll);
+    graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorBlack));
+    graphics_fill_rect(ctx, GRect(bx, by, bw * preview_progress() / 100, 3), 1, GCornersAll);
+  }
 
   graphics_context_set_text_color(ctx, GColorBlack);
   const char *state_text = running ? "FÄHRT" : (s_held ? "BEREIT" : "HALTEN");
@@ -167,6 +187,9 @@ static void window_appear(Window *window) {
   motion_start();
   motion_update();
   motion_set_reference();
+  if (!preview_has_image()) {
+    preview_request_delayed(200);
+  }
   if (!s_timer) {
     s_timer = app_timer_register(FRAME_MS, frame, NULL);
   }

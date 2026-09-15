@@ -50,7 +50,16 @@
       "cfgInvertTilt",
       "cfgVibrate",
       "cfgPresetCount",
-      "cfgGyroLock"
+      "cfgGyroLock",
+      "IMG_W",
+      "IMG_H",
+      "IMG_LEN",
+      "IMG_PAL",
+      "IMG_OFF",
+      "IMG_DATA",
+      "MAXRX",
+      "cfgPreview",
+      "cfgPreviewSize"
     ],
     "resources": {
       "media": [

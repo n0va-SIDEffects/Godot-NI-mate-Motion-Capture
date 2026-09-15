@@ -23,24 +23,28 @@ void gauge_draw(GContext *ctx, GRect frame, const GaugeState *state) {
   GRect field = GRect(frame.origin.x, frame.origin.y,
                       frame.size.w - ZOOM_BAR_W - ZOOM_GAP, frame.size.h);
 
-  // Feldrahmen
-  graphics_context_set_stroke_color(ctx, active ? color_active() : color_idle());
-  graphics_context_set_stroke_width(ctx, active ? 3 : 1);
-  graphics_draw_round_rect(ctx, field, 4);
+  // Feldrahmen. Ueber einem Bild bleibt er weg, solange nichts faehrt -
+  // das Bild soll die Flaeche haben, nicht die Rahmenlinie.
+  if (!state->over_image || active) {
+    graphics_context_set_stroke_color(ctx, active ? color_active() : color_idle());
+    graphics_context_set_stroke_width(ctx, active ? 3 : 1);
+    graphics_draw_round_rect(ctx, field, 4);
+  }
 
   const GPoint center = GPoint(field.origin.x + field.size.w / 2,
                                field.origin.y + field.size.h / 2);
   const int16_t half_w = field.size.w / 2 - 6;
   const int16_t half_h = field.size.h / 2 - 6;
 
-  // Achsenkreuz, gesperrte Achsen nur angedeutet
+  // Achsenkreuz, gesperrte Achsen nur angedeutet. Auf einem Bild wuerde es
+  // nur stoeren, dort zeigt allein der Punkt die Auslenkung.
   graphics_context_set_stroke_width(ctx, 1);
   graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
-  if (!state->pan_locked) {
+  if (!state->over_image && !state->pan_locked) {
     graphics_draw_line(ctx, GPoint(center.x - half_w, center.y),
                             GPoint(center.x + half_w, center.y));
   }
-  if (!state->tilt_locked) {
+  if (!state->over_image && !state->tilt_locked) {
     graphics_draw_line(ctx, GPoint(center.x, center.y - half_h),
                             GPoint(center.x, center.y + half_h));
   }
@@ -57,6 +61,12 @@ void gauge_draw(GContext *ctx, GRect frame, const GaugeState *state) {
   graphics_context_set_stroke_color(ctx, active ? color_active() : color_idle());
   graphics_draw_line(ctx, center, GPoint(px, py));
 
+  if (state->over_image) {
+    // Ein heller Saum, damit der Punkt auch auf einem dunklen Buehnenbild
+    // zu sehen ist.
+    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_fill_circle(ctx, GPoint(px, py), active ? 9 : 7);
+  }
   graphics_context_set_fill_color(ctx, active ? color_active()
                                               : PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack));
   graphics_fill_circle(ctx, GPoint(px, py), active ? 7 : 5);
