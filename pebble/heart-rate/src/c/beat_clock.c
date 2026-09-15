@@ -73,6 +73,24 @@ bool beat_clock_interval_plausible(uint32_t interval_ms, uint32_t reference_ms,
   return interval_ms >= low && interval_ms <= high;
 }
 
+#define SECOND_MS     1000
+#define TOLERANCE_MS  40
+
+uint32_t beat_clock_filter_time(uint32_t raw_ms, uint32_t previous_raw, uint32_t previous_out,
+                                uint32_t step_ms) {
+  const int32_t offset = (int32_t)(previous_out - previous_raw);
+  const int32_t step = (int32_t)(raw_ms - previous_raw);
+  const int32_t slack = (int32_t)step_ms + TOLERANCE_MS;
+
+  int32_t correction = 0;
+  if (step > SECOND_MS - slack && step < SECOND_MS + slack) {
+    correction = -SECOND_MS;
+  } else if (step < -(SECOND_MS - slack) && step > -(SECOND_MS + slack)) {
+    correction = SECOND_MS;
+  }
+  return raw_ms + (uint32_t)(offset + correction);
+}
+
 uint32_t beat_clock_median3(uint32_t a, uint32_t b, uint32_t c) {
   if (a > b) { const uint32_t t = a; a = b; b = t; }
   if (b > c) { b = c; }

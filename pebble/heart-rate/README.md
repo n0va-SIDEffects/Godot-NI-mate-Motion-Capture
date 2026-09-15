@@ -56,6 +56,10 @@ dehnen noch Schläge verschlucken, und der Abstand auf dem Display entspricht ex
 Intervall. Die Kurve läuft mit 50 px/s, das Bild wird 30-mal pro Sekunde aktualisiert, und der
 Messwert wird 5-mal pro Sekunde nachgeführt.
 
+Die Uhr der Firmware meldet um Sekundengrenzen herum gelegentlich einen Wert, der genau eine
+Sekunde danebenliegt. Ungefiltert bliebe die Kurve eine Sekunde stehen und raste dann hinterher.
+`src/c/app_clock.c` korrigiert genau diese eine Signatur und lässt eine echte Pause durch.
+
 Diese Taktlogik steckt in `src/c/beat_clock.c` und hängt an keiner Pebble-Funktion, damit sie sich
 direkt auf dem Rechner prüfen lässt:
 
@@ -94,7 +98,6 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 | --- | --- |
 | Piep bei jedem Schlag | an/aus |
 | Lautstärke | 0 bis 100, Schritte von 5 |
-| Wiedergabe | einzelne Töne oder durchgehend |
 | Tonhöhe | tief 660 Hz, Monitor 880 Hz, hoch 1046 Hz |
 | Vibration bei jedem Schlag | an/aus |
 | Länge der Vibration | kurz 15 ms, normal 25 ms, kräftig 40 ms |
@@ -105,27 +108,27 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 
 Alles wird auf der Uhr gespeichert und gilt sofort, ohne die App neu zu starten.
 
-### Warum es zwei Wiedergabearten gibt
+### Wie die Einstellungen auf die Uhr kommen
 
-Bei **einzelnen Tönen**, der Voreinstellung, bekommt der Lautsprecher pro Schlag ein Sample und
-wird danach wieder freigegeben. Auf der Core Time 2 knackt er dabei gelegentlich, hörbar etwa 100
-bis 200 ms nach dem Piep, also genau dann, wenn der Verstärker abschaltet.
+Die Seite schickt ihre Werte nur in dem Moment, in dem sie geschlossen wird. Wer sie bedient,
+während die App auf der Uhr nicht läuft, dessen Nachricht erreicht niemanden: Sie wird nirgends
+zwischengespeichert. Deshalb fragt die Uhr beim Start selbst nach, und das Handy antwortet mit dem,
+was Clay zuletzt gespeichert hat.
 
-**Durchgehend** hält stattdessen einen PCM-Strom über die ganze Sitzung offen und schreibt zwischen
-den Schlägen Stille hinein, sodass der Verstärker gar nicht erst abschaltet. Der Strom wird 70 ms
-im Voraus gefüllt und alle 10 ms nachgefüllt: weit genug, dass eine verspätete Runde ihn nicht
-leerlaufen lässt, kurz genug, dass der Piep bei seiner Zacke bleibt.
+Clay schickt Auswahlfelder als Text, sobald deren Werte in `config.js` in Anführungszeichen stehen.
+Die Uhr nimmt darum beides an, Zahl und Text. Beide Eigenschaften prüft
+`tools/check_config_page.js` mit.
 
-Diese Variante ist als Versuch gekennzeichnet und nicht voreingestellt. Auf einem Rechner lässt
-sich kein Ton prüfen, deshalb bleibt die bewährte Art die Vorgabe, bis jemand die andere auf einer
-echten Uhr gehört hat.
+### Zum Ton
 
-Nebenbei aus dem Emulator gelernt: Solange der Lautsprecher noch spielt, lehnt er einen zweiten
-Abspielbefehl ab, statt ihn zu übernehmen. Ein Schlag, der zu kurz nach dem vorigen kommt, bleibt
-also stumm. Deshalb die Sperre von 260 ms zwischen zwei Schlägen weiter oben.
+Der Lautsprecher bekommt pro Schlag ein Sample. Einen PCM-Strom über die Schläge hinweg offen zu
+halten, damit der Verstärker dazwischen nicht abschaltet, war schlechter: Der Verstärker rauscht,
+solange ein Strom offen ist, und diese App zeichnet oft genug, um den Strom leerlaufen zu lassen,
+was stottert.
 
-Der Vibrationsmotor klickt bei jedem Schlag hörbar mit. Wer einen reinen Monitor-Ton will, schaltet
-die Vibration aus, entweder in den Einstellungen oder mit der Auswahltaste.
+Der Vibrationsmotor ist im Lautsprecher der Uhr hörbar, nicht nur am Handgelenk spürbar. Wer einen
+reinen Monitor-Ton will, schaltet die Vibration aus, entweder in den Einstellungen oder mit der
+Auswahltaste.
 
 Unten auf der Seite sitzt ein Knopf „Buy me a coffee“. Die Adresse steht als `DONATION_URL` oben in
 `src/pkjs/config.js`; ist sie leer, fällt der ganze Abschnitt weg.
@@ -197,7 +200,8 @@ im Emulator: `pebble emu-button --emulator diorite push down`, kurz warten, `...
 | `src/c/main.c` | Anzeige, Sensor, Bedienung |
 | `src/c/beat_clock.c` | Takt: legt die Schläge auf die Uhrzeit und prüft die Messwerte, ohne Pebble-Abhängigkeiten |
 | `src/c/settings.c` | Einstellungen: Vorgaben, Speichern, Auswerten der Handy-Nachricht |
-| `src/c/beep.c` | Ton: PCM-Strom, Tonhöhe, Rückfall auf einzelne Töne |
+| `src/c/beep.c` | Ton: Sample pro Schlag, Tonhöhe |
+| `src/c/app_clock.c` | Uhrzeit, um den Sekundensprung der Firmware bereinigt |
 | `src/c/beep_sample.h` | erzeugtes PCM-Sample des Pieps, nicht von Hand bearbeiten |
 | `src/pkjs/config.js` | Aufbau der Einstellungsseite |
 | `tools/make_beep_sample.py` | erzeugt dieses Sample (braucht nur numpy) |

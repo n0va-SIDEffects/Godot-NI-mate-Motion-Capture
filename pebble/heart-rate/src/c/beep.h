@@ -1,14 +1,10 @@
 /*
  * The per-beat beep, on watches that have a speaker. Does nothing on the others.
  *
- * Two ways of playing it, chosen in the settings:
- *
- *   BeepModeSingle    hands the sample to the speaker once per beat and lets it close again.
- *                     The default, and what the watch has always done. Each close is a chance for
- *                     the amplifier to click on its way out.
- *   BeepModeStream    keeps a PCM stream open for the whole session and writes silence between
- *                     the beats, so the amplifier never powers down. Untried on real hardware:
- *                     none of this can be heard from a build machine.
+ * The sample is handed to the speaker once per beat. Holding a PCM stream open across the beats
+ * was tried instead, to stop the amplifier powering down between them, and was worse on both
+ * counts: the amplifier hisses for as long as a stream is open, and this app redraws often enough
+ * to starve the stream, which stutters. A short beep per beat is what the speaker is good at.
  */
 #pragma once
 
@@ -21,9 +17,6 @@ void beep_setup(const Settings *settings);
 
 //! Sound one beat.
 void beep_play(void);
-
-//! Keep the stream fed. Driven by its own timer; exposed so a beat can top it up straight away.
-void beep_pump(void);
 
 //! Release the speaker.
 void beep_teardown(void);

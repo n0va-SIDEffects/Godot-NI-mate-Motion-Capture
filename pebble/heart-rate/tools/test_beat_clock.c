@@ -292,6 +292,27 @@ int main(void) {
           detail);
   }
 
+  // The watch clock sometimes reports a whole second beside the truth around second boundaries.
+  {
+    const uint32_t base = 1000000;
+    // A normal step passes through untouched.
+    check_eq((long)beat_clock_filter_time(base + 33, base, base, 40) - (long)base, 33,
+             "a normal step is left alone");
+    // A reading a second ahead is pulled back to where it belongs.
+    check_eq((long)beat_clock_filter_time(base + 1033, base, base, 40) - (long)base, 33,
+             "a reading a second early is corrected");
+    // And one a second behind.
+    check_eq((long)beat_clock_filter_time(base - 967, base, base, 40) - (long)base, 33,
+             "a reading a second late is corrected");
+    // The correction carries forward, so time keeps running smoothly after a hiccup.
+    const uint32_t corrected = beat_clock_filter_time(base + 1033, base, base, 40);
+    check_eq((long)beat_clock_filter_time(base + 1066, base + 1033, corrected, 40) - (long)base, 66,
+             "time keeps running after a corrected hiccup");
+    // A real stall of several seconds is a stall, not a hiccup, and must be seen as one.
+    check_eq((long)beat_clock_filter_time(base + 5000, base, base, 40) - (long)base, 5000,
+             "a long stall is not mistaken for a hiccup");
+  }
+
   printf("\n%s\n", s_failures ? "FAILURES" : "all checks passed");
   return s_failures ? 1 : 0;
 }

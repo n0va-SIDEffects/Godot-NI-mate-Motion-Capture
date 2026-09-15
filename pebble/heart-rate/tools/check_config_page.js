@@ -37,7 +37,11 @@ if (!process.env.PULSMONITOR_STUB) {
 
 // Clay reaches for browser storage while building the page; it copes without, but stub it so the
 // check's output stays clean.
-global.localStorage = {getItem: function () { return null; }, setItem: function () {}};
+var storage = {};
+global.localStorage = {
+  getItem: function (key) { return Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null; },
+  setItem: function (key, value) { storage[key] = String(value); }
+};
 
 global.Pebble = {
   addEventListener: function () {},
@@ -52,6 +56,33 @@ function check(ok, what, detail) {
   if (!ok) {
     failures++;
   }
+}
+
+// What the phone sends when the watch asks at startup. index.js registers the handler on load,
+// so a stand-in Pebble collects it, and stored settings stand in for a page that was saved while
+// the watchapp was not running.
+var handlers = {};
+var sent = null;
+global.Pebble.addEventListener = function (name, fn) { handlers[name] = fn; };
+global.Pebble.sendAppMessage = function (message) { sent = message; };
+global.localStorage.setItem('clay-settings', JSON.stringify({
+  SOUND_ON: false, VOLUME: 40, PITCH: '76', VIBE_ON: true, VIBE_MS: '15',
+  BACKLIGHT: '2', SWEEP_MS: 40, TRACE_COLOR: '1', DEMO: false
+}));
+require(path.join(root, 'src/pkjs/index.js'));
+check(typeof handlers.appmessage === 'function', 'the phone listens for the watch asking');
+if (typeof handlers.appmessage === 'function') {
+  handlers.appmessage({});
+  var values = sent || {};
+  var names = Object.keys(values);
+  check(names.length === 9, 'every stored setting is answered', names.length + ' of 9');
+  var wrong = names.filter(function (k) { return typeof values[k] !== 'number'; });
+  check(wrong.length === 0, 'every value is sent as a number, never as text',
+        wrong.length ? wrong.join(', ') : 'all numbers');
+  check(values.SOUND_ON === 0 && values.VIBE_ON === 1, 'switches are sent as 0 and 1',
+        'SOUND_ON=' + values.SOUND_ON + ' VIBE_ON=' + values.VIBE_ON);
+  check(values.BACKLIGHT === 2 && values.PITCH === 76, 'dropdowns keep their value',
+        'BACKLIGHT=' + values.BACKLIGHT + ' PITCH=' + values.PITCH);
 }
 
 var Clay = require(path.join(root, 'src/pkjs/vendor/clay.js'));
@@ -77,7 +108,11 @@ var ids = [];
 })(config);
 
 var missing = keys.filter(function (k) { return declared.indexOf(k) < 0; });
-var unused = declared.filter(function (k) { return keys.indexOf(k) < 0; });
+// REQUEST_SETTINGS travels the other way, from the watch to the phone, so it has no page item.
+var watchToPhone = ['REQUEST_SETTINGS'];
+var unused = declared.filter(function (k) {
+  return keys.indexOf(k) < 0 && watchToPhone.indexOf(k) < 0;
+});
 check(missing.length === 0, 'every key on the page is declared in package.json',
       missing.join(', ') || 'none missing');
 check(unused.length === 0, 'every declared key appears on the page',

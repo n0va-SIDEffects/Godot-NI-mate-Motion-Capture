@@ -29,13 +29,13 @@
       "SOUND_ON",
       "VOLUME",
       "PITCH",
-      "SOUND_MODE",
       "VIBE_ON",
       "VIBE_MS",
       "BACKLIGHT",
       "SWEEP_MS",
       "TRACE_COLOR",
-      "DEMO"
+      "DEMO",
+      "REQUEST_SETTINGS"
     ],
     "resources": {
       "media": []

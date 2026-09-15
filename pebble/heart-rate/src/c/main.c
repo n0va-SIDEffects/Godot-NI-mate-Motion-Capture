@@ -18,6 +18,7 @@
  */
 #include <pebble.h>
 
+#include "app_clock.h"
 #include "beat_clock.h"
 #include "beep.h"
 #include "settings.h"
@@ -100,12 +101,7 @@ static uint32_t s_last_ppi_ms;             // wall clock of the last believed re
 static uint32_t s_ppi_recent[3];           // the last believed readings, newest first
 static uint8_t s_ppi_have;                 // how many of them are filled
 
-static uint32_t now_ms(void) {
-  time_t seconds;
-  uint16_t millis;
-  time_ms(&seconds, &millis);
-  return (uint32_t)seconds * 1000u + millis;   // wraps every ~49 days, differences stay valid
-}
+#define now_ms() clock_ms()
 
 // ---------- Beat playback ----------
 
@@ -550,6 +546,32 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   apply_settings();
 }
 
+//! Ask the phone for the stored settings.
+//!
+//! The settings page only sends them the moment it is closed. Save them while the app is not
+//! running and that message reaches nobody, so without this the watch would keep whatever it had
+//! until the page happened to be closed with the app open.
+static void request_settings(void *context) {
+  static int attempts_left = 5;
+  if (attempts_left <= 0) {
+    return;
+  }
+  attempts_left--;
+  DictionaryIterator *out;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK) {
+    app_timer_register(2000, request_settings, NULL);
+    return;
+  }
+  dict_write_uint8(out, MESSAGE_KEY_REQUEST_SETTINGS, 1);
+  dict_write_end(out);
+  app_message_outbox_send();
+}
+
+static void outbox_failed_handler(DictionaryIterator *iter, AppMessageResult reason, void *ctx) {
+  // Usually the phone is not connected yet; try again in a moment.
+  app_timer_register(2000, request_settings, NULL);
+}
+
 static void init(void) {
   settings_load(&s_settings);
 
@@ -565,9 +587,11 @@ static void init(void) {
   beat_clock_init(&s_clock, now_ms(), PX_MS, CATCHUP_PX, BEAT_AUDIBLE_MS, BEAT_MIN_GAP_MS);
   apply_settings();
   app_message_register_inbox_received(inbox_received_handler);
+  app_message_register_outbox_failed(outbox_failed_handler);
   // The settings page sends every key in one message: ten numbers, so a few hundred bytes. Asking
   // for the largest possible inbox instead would claim 8 KB of heap for nothing.
   app_message_open(512, 64);
+  request_settings(NULL);
   init_sensor();
   s_frame_timer = app_timer_register(FRAME_MS, on_frame, NULL);
   s_poll_timer = app_timer_register(HR_POLL_MS, on_poll, NULL);

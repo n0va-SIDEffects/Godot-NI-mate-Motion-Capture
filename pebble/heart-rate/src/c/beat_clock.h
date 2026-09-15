@@ -60,6 +60,16 @@ bool beat_clock_step(BeatClock *clock, bool *audible);
 bool beat_clock_interval_plausible(uint32_t interval_ms, uint32_t reference_ms,
                                    uint32_t tolerance_pct);
 
+//! The watch clock reports a value a whole second away from the truth now and then, around second
+//! boundaries. Left alone it freezes the trace for a second and then races to catch up. This
+//! corrects only that signature: a step within a few milliseconds of exactly one second where a
+//! short one was expected.
+//!
+//! previous_raw and previous_out are the last reading and what was returned for it; step_ms is how
+//! far apart readings are normally taken.
+uint32_t beat_clock_filter_time(uint32_t raw_ms, uint32_t previous_raw, uint32_t previous_out,
+                                uint32_t step_ms);
+
 //! Middle of three values. Used on consecutive measured intervals so that a single reading which
 //! passed the plausibility check but still sits well off the others cannot pull the rhythm along.
 uint32_t beat_clock_median3(uint32_t a, uint32_t b, uint32_t c);
