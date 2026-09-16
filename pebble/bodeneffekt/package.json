@@ -1,0 +1,26 @@
+{
+  "name": "bodeneffekt",
+  "author": "SIDE effect's",
+  "version": "0.1.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Bodeneffekt P1",
+    "uuid": "0af23489-5d4f-4cf0-9a5f-74ecd4b12c71",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "dummy"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}

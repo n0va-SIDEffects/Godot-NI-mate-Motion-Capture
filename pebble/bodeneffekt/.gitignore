@@ -1,0 +1,5 @@
+build/
+node_modules/
+*.pbw
+.lock-waf*
+__pycache__/
