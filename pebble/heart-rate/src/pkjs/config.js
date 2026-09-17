@@ -78,21 +78,21 @@ var config = [
         type: 'select',
         messageKey: 'BACKLIGHT',
         label: 'Beleuchtung',
-        description: 'Dauerhaft an zieht spürbar Akku und ist für kurzes Zuschauen gedacht.',
-        defaultValue: 0,
+        description: 'Gedimmt pulsierend lässt das Licht an und hebt es bei jedem Schlag kurz an. Dauerhaft an zieht spürbar Akku und ist für kurzes Zuschauen gedacht.',
+        defaultValue: 3,
         options: [
-          { label: 'Wie sonst auch', value: 0 },
-          { label: 'Bei jedem Schlag kurz', value: 1 },
           { label: 'Gedimmt pulsierend', value: 3 },
-          { label: 'Dauerhaft an', value: 2 }
+          { label: 'Bei jedem Schlag kurz', value: 1 },
+          { label: 'Dauerhaft an', value: 2 },
+          { label: 'Wie sonst auch', value: 0 }
         ]
       },
       {
         type: 'color',
         messageKey: 'LIGHT_COLOR',
         label: 'Farbe der Beleuchtung',
-        description: 'Nur Uhren mit farbiger Beleuchtung, also die Pebble Time 2.',
-        defaultValue: 0xffffff,
+        description: 'Nur Uhren mit farbiger Beleuchtung, also die Pebble Time 2. Uhren ohne sie leuchten weiß und können nicht gedimmt werden, dort bleibt die Beleuchtung deshalb bei der Einstellung der Uhr.',
+        defaultValue: 0xff0000,
         allowGray: true
       },
       {

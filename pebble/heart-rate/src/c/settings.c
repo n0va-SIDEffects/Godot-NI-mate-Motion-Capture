@@ -7,7 +7,7 @@
 
 
 #define SETTINGS_KEY     10
-#define SETTINGS_VERSION 6
+#define SETTINGS_VERSION 7
 
 #if defined(PBL_COLOR)
 // Kept in the same order as the settings page offers them.
@@ -43,10 +43,17 @@ void settings_load(Settings *settings) {
     .pitch_note = 81,          // the sample's own pitch, 880 Hz
     .vibe_on = true,
     .vibe_ms = 25,
+#if defined(PBL_RGB_BACKLIGHT)
+    // A watch that can dim its backlight glows red between the beats and swells with each one.
+    .backlight = BacklightPulse,
+#else
+    // One that cannot would simply sit at full brightness, which is not what "dimmed" means and
+    // would quietly cost battery, so it is left to the watch.
     .backlight = BacklightAuto,
+#endif
     .px_ms = 20,               // 50 pixels a second
     .trace_color = 0,          // green
-    .light_color = 0xFFFFFF,   // white
+    .light_color = 0xFF0000,   // red, the colour of the heart on screen
     .light_floor = 15,
     .demo = false,
   };

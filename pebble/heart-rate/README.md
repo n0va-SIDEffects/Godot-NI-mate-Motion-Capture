@@ -101,8 +101,8 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 | Tonhöhe | tief 660 Hz, Monitor 880 Hz, hoch 1046 Hz |
 | Vibration bei jedem Schlag | an/aus |
 | Länge der Vibration | kurz 15 ms, normal 25 ms, kräftig 40 ms |
-| Beleuchtung | wie sonst auch, bei jedem Schlag kurz (90 ms), gedimmt pulsierend, dauerhaft an |
-| Farbe der Beleuchtung | frei wählbar (nur Pebble Time 2) |
+| Beleuchtung | gedimmt pulsierend (Vorgabe), bei jedem Schlag kurz (90 ms), dauerhaft an, wie sonst auch |
+| Farbe der Beleuchtung | frei wählbar, Vorgabe rot (nur Pebble Time 2) |
 | Grundhelligkeit beim Pulsieren | 0 bis 100 |
 | Kurvengeschwindigkeit | langsam 25 px/s, normal 50 px/s, schnell 75 px/s |
 | Kurvenfarbe | grün, rot, weiß, gelb, türkis (nur Farbdisplays) |
@@ -138,7 +138,12 @@ pulsierend** nutzt das: Das Licht bleibt an und steht zwischen den Schlägen auf
 Grundhelligkeit, bei jedem Schlag geht es auf volle Helligkeit und fällt dann weich zurück. Die
 Farbe gilt für alle Beleuchtungsarten außer „wie sonst auch".
 
-Die Helligkeit wird nur dann an die Uhr geschickt, wenn sie sich tatsächlich geändert hat.
+Das ist die Voreinstellung, in Rot, passend zum Herz auf dem Bildschirm. Die Helligkeit wird nur
+dann an die Uhr geschickt, wenn sie sich tatsächlich geändert hat.
+
+Uhren ohne farbige Beleuchtung können nicht dimmen. Dort stünde das Licht dauerhaft auf voller
+Helligkeit, was weder gedimmt aussieht noch dem Akku guttut, also bleibt es bei diesen Uhren
+voreingestellt bei der Einstellung der Uhr.
 
 ### Zum Ton
 
