@@ -4,8 +4,13 @@ gezeichneten Pebble.
 
 Layout: dunkler Grund, App-Icon und Text links, rechts die leicht gekippte
 Uhr, Armbänder laufen oben und unten aus dem Bild, SIDE effect's Logo unten
-links. Die Uhr ist gezeichnet, nicht fotografiert; nichts muss lizenziert
-werden. Der Store ist einsprachig, deshalb nur die englische Fassung.
+links. Der Store ist einsprachig, deshalb nur die englische Fassung.
+
+Die Uhr ist gezeichnet, nicht fotografiert (der Skill liefert kein Foto, und
+ein lizenziertes bräuchte Rechte), bekommt hier aber einen Fotolook:
+Metallverlauf auf Kante und Korpus, Verlauf auf den Armbändern, Spiegelung
+auf dem Deckglas, weicherer Schlagschatten. `--flat` schaltet das ab und
+liefert die flachen Flächen der Skill-Vorlage.
 
 Ohne Argumente baut das Skript das fertige Banner des Projekts:
 
@@ -18,7 +23,7 @@ Ergebnis immer ansehen, bevor es in den Store geht.
 """
 import argparse
 import os
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 W, H, SS = 720, 320, 3          # SS: Supersampling, sonst zacken die Rundungen
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -43,7 +48,68 @@ def font(size, bold=False):
         return ImageFont.load_default()
 
 
-def watch(shot_path, screen_w=150, strap_len=145, round_display=False):
+def _mix(c0, c1, t):
+    return tuple(int(round(a + (b - a) * t)) for a, b in zip(c0, c1))
+
+
+def _grad(size, tl, br):
+    """Weicher diagonaler Verlauf: 2x2-Miniatur bikubisch hochskaliert."""
+    small = Image.new('RGB', (2, 2))
+    mid = _mix(tl, br, 0.5)
+    small.putpixel((0, 0), tl)
+    small.putpixel((1, 0), mid)
+    small.putpixel((0, 1), mid)
+    small.putpixel((1, 1), br)
+    return small.resize((max(size[0], 1), max(size[1], 1)), Image.BICUBIC)
+
+
+def _shade(img, box, tl, br, radius=None, ellipse=False, poly=None, outline=None):
+    """Füllt eine Form mit einem Verlauf statt mit einer flachen Farbe:
+    aus dem gezeichneten Gehäuse wird so gebürstetes Metall. Mit `outline`
+    wird nur der Rand gefüllt, das ergibt die Fase am Gehäuse."""
+    x0, y0, x1, y1 = [int(v) for v in box]
+    w, h = x1 - x0, y1 - y0
+    if w <= 0 or h <= 0:
+        return
+    mask = Image.new('L', (w, h), 0)
+    md = ImageDraw.Draw(mask)
+    if poly is not None:
+        md.polygon([(px - x0, py - y0) for px, py in poly], fill=255)
+    elif ellipse:
+        if outline:
+            md.ellipse((0, 0, w - 1, h - 1), outline=255, width=int(outline))
+        else:
+            md.ellipse((0, 0, w - 1, h - 1), fill=255)
+    elif outline:
+        md.rounded_rectangle((0, 0, w - 1, h - 1), radius=int(radius),
+                             outline=255, width=int(outline))
+    else:
+        md.rounded_rectangle((0, 0, w - 1, h - 1), radius=int(radius), fill=255)
+    img.paste(_grad((w, h), tl, br), (x0, y0), mask)
+
+
+def _glass(img, box, radius, ellipse=False):
+    """Spiegelung auf dem Deckglas: breite Lichtbahn über die obere linke
+    Hälfte, dazu ein schmaler heller Streifen an der Kante."""
+    x0, y0, x1, y1 = [int(v) for v in box]
+    w, h = x1 - x0, y1 - y0
+    shape = Image.new('L', img.size, 0)
+    sd = ImageDraw.Draw(shape)
+    if ellipse:
+        sd.ellipse((x0, y0, x1, y1), fill=255)
+    else:
+        sd.rounded_rectangle((x0, y0, x1, y1), radius=int(radius), fill=255)
+    light = Image.new('L', img.size, 0)
+    ld = ImageDraw.Draw(light)
+    # dezent halten: der Screenshot ist das Produkt und muss knackig bleiben
+    ld.polygon([(x0, y0), (x0 + w * 0.70, y0), (x0, y0 + h * 0.76)], fill=13)
+    ld.polygon([(x0, y0 + h * 0.10), (x0 + w * 0.30, y0),
+                (x0 + w * 0.46, y0), (x0, y0 + h * 0.28)], fill=40)
+    light = light.filter(ImageFilter.GaussianBlur(4 * SS))
+    img.paste((255, 255, 255), (0, 0), ImageChops.multiply(light, shape))
+
+
+def watch(shot_path, screen_w=150, strap_len=145, round_display=False, photo=True):
     """Screenshot in einem gezeichneten Uhrengehäuse (RGBA, SS-Maßstab).
 
     screen_w ist die Displaybreite in Bannereinheiten (emery 200x228,
@@ -81,6 +147,11 @@ def watch(shot_path, screen_w=150, strap_len=145, round_display=False):
             y0, y1 = oy + (body_h - 40) * SS, img.height
             poly = [(x0, y0), (x1, y0), (x1 - taper, y1), (x0 + taper, y1)]
         d.polygon(poly, fill=(52, 58, 72, 255))
+        if photo:                                # Silikon: links Licht, rechts Schatten
+            xs = [pt[0] for pt in poly]
+            ys = [pt[1] for pt in poly]
+            _shade(img, (min(xs), min(ys), max(xs), max(ys)),
+                   (72, 79, 96), (30, 34, 43), poly=poly)
         d.line([poly[0], poly[-1]], fill=(60, 67, 80, 255), width=2 * SS)
         d.line([poly[1], poly[2]], fill=(14, 17, 22, 255), width=2 * SS)
 
@@ -89,10 +160,11 @@ def watch(shot_path, screen_w=150, strap_len=145, round_display=False):
     sd = ImageDraw.Draw(shadow)
     box = (ox + 4 * SS, oy + 8 * SS, ox + body_w * SS + 4 * SS, oy + body_h * SS + 10 * SS)
     if round_display:
-        sd.ellipse([int(v) for v in box], fill=(0, 0, 0, 150))
+        sd.ellipse([int(v) for v in box], fill=(0, 0, 0, 170 if photo else 150))
     else:
-        sd.rounded_rectangle([int(v) for v in box], radius=int(26 * SS), fill=(0, 0, 0, 150))
-    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(9 * SS)))
+        sd.rounded_rectangle([int(v) for v in box], radius=int(26 * SS),
+                             fill=(0, 0, 0, 170 if photo else 150))
+    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur((11 if photo else 9) * SS)))
 
     # Tasten: eine links (Back), drei rechts (Up, Select, Down)
     btn = (96, 102, 115, 255)
@@ -117,6 +189,28 @@ def watch(shot_path, screen_w=150, strap_len=145, round_display=False):
         rr(outer, 26 * SS, fill=(120, 128, 142, 255))
         rr(inner, 24 * SS, fill=(26, 29, 36, 255))
         rr(recess, 8 * SS, fill=(8, 9, 12, 255))
+    if photo:                                    # Licht von oben links
+        _shade(img, outer, (182, 190, 204), (56, 62, 74),
+               radius=26 * SS, ellipse=round_display)
+        _shade(img, inner, (50, 55, 67), (11, 13, 18),
+               radius=24 * SS, ellipse=round_display)
+        # Fase: heller Grat oben links, dunkel nach unten rechts
+        _shade(img, inner, (158, 166, 180), (16, 18, 24), radius=24 * SS,
+               ellipse=round_display, outline=3 * SS)
+        rr(recess, 8 * SS, fill=(8, 9, 12, 255))
+        # Glanz auf dem Gehäuse, damit die Kante nicht wie Papier wirkt
+        gloss = Image.new('L', img.size, 0)
+        gd = ImageDraw.Draw(gloss)
+        gd.polygon([(ox, oy + body_h * 0.34 * SS), (ox + body_w * 0.42 * SS, oy),
+                    (ox + body_w * 0.66 * SS, oy), (ox, oy + body_h * 0.60 * SS)], fill=46)
+        shape = Image.new('L', img.size, 0)
+        sh_d = ImageDraw.Draw(shape)
+        if round_display:
+            sh_d.ellipse([int(v) for v in outer], fill=255)
+        else:
+            sh_d.rounded_rectangle([int(v) for v in outer], radius=int(26 * SS), fill=255)
+        gloss = gloss.filter(ImageFilter.GaussianBlur(7 * SS))
+        img.paste((255, 255, 255), (0, 0), ImageChops.multiply(gloss, shape))
 
     disp = s.resize((sw * SS, sh * SS), Image.LANCZOS).convert('RGBA')
     if round_display:                            # rundes Display beschneiden
@@ -124,6 +218,10 @@ def watch(shot_path, screen_w=150, strap_len=145, round_display=False):
         ImageDraw.Draw(mask).ellipse((0, 0, disp.width, disp.height), fill=255)
         disp.putalpha(mask)
     img.alpha_composite(disp, (int(ox + bx * SS), int(oy + bt * SS)))
+    if photo:
+        _glass(img, (ox + bx * SS, oy + bt * SS,
+                     ox + (bx + sw) * SS, oy + (bt + sh) * SS),
+               6 * SS, ellipse=round_display)
     return img
 
 
@@ -172,6 +270,8 @@ def main():
     ap.add_argument('--screen-w', type=int, default=150, help='Displaybreite in Bannereinheiten')
     ap.add_argument('--watch-x', type=int, default=605, help='Mitte der Uhr auf der x-Achse')
     ap.add_argument('--round', action='store_true', help='rundes Display (chalk, gabbro)')
+    ap.add_argument('--flat', action='store_true',
+                    help='ohne Fotolook: flache Flächen wie in der Skill-Vorlage')
     a = ap.parse_args()
     if a.line is None:
         a.line = ['Start and stop recording and',
@@ -194,7 +294,7 @@ def main():
         d.text(((x + 2) * SS, (128 + 22 * i + (4 if i == len(a.line) - 1 else 0)) * SS),
                line, font=font(15), fill=col)
 
-    w = watch(a.shot, screen_w=a.screen_w, round_display=a.round)
+    w = watch(a.shot, screen_w=a.screen_w, round_display=a.round, photo=not a.flat)
     if a.tilt:
         w = w.rotate(a.tilt, resample=Image.BICUBIC, expand=True)
     ban.alpha_composite(w, (a.watch_x * SS - w.width // 2, H * SS // 2 - w.height // 2))
