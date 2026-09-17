@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Store banner 720x320: dark ground, app icon, title, slogan, the emery
-screenshot inside a drawn Pebble Time 2, SIDE effect's logo bottom left.
+screenshot inside a drawn, slightly tilted Pebble Time 2, SIDE effect's logo
+bottom left.
 Usage: python3 make_banner.py  (needs Pillow; run make_icons.py first)"""
 import os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -14,9 +15,10 @@ FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 FONTB = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 SCREENSHOT = os.path.join(HERE, '..', 'screenshots_en', '1_status.png')
-WATCH_SCREEN_W = 158            # display width in banner units (emery is 200x228)
-WATCH_CENTRE_X = 588
-STRAP_LEN = 140                 # straps run out of the top and bottom edges
+WATCH_SCREEN_W = 150            # display width in banner units (emery is 200x228)
+WATCH_CENTRE_X = 590
+STRAP_LEN = 145                 # straps run out of the top and bottom edges
+WATCH_TILT = 9                  # degrees; a tilted watch looks worn, not shelved
 
 
 def font(size, bold=False):
@@ -124,7 +126,7 @@ d.text((168 * SS, 128 * SS), 'Start, stop and switch your', font=font(15), fill=
 d.text((168 * SS, 150 * SS), 'Toggl Track timers from the wrist.', font=font(15), fill=(200, 208, 220))
 d.text((168 * SS, 176 * SS), 'Favourites · Dictation · Reminders', font=font(15), fill=PINK)
 
-w = watch()
+w = watch().rotate(WATCH_TILT, resample=Image.BICUBIC, expand=True)
 ban.alpha_composite(w, (WATCH_CENTRE_X * SS - w.width // 2, H * SS // 2 - w.height // 2))
 
 lg = logo()
