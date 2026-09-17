@@ -456,7 +456,7 @@ static const char *status_text(char *buf, size_t len) {
   const char *mode = s_settings.demo ? "Demo" : (s_live ? "Live" : NULL);
   // Whether the stream ever ran dry decides where a click came from, the buffer or the
   // amplifier, and only the app can count it. Appended, so it never costs the normal line.
-  char dropouts[10] = "";
+  char dropouts[16] = "";
   if (beep_underruns() > 0) {
     snprintf(dropouts, sizeof(dropouts), "  |  !%u", (unsigned)beep_underruns());
   }
