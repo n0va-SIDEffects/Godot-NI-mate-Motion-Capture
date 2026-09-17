@@ -15,7 +15,7 @@ python3 store/banner/make_banner.py --watch drawn   # gezeichnetes Gehaeuse stat
 | `icon/icon_*_transparent.png` | Reserve mit Alphakanal |
 | `icon/icon_master_1024.png` | Master, Quelle für alle Größen |
 | `icon/konzepte_uebersicht.png` | die vier Icon-Konzepte (rec, signal, cards, ring) in 160/80/25 px |
-| `banner/banner_720x320_en.png` | Kopfbild der Listung: Icon und Text links, rechts der Emery-Screenshot im Display einer freigestellten Aufnahme der Pebble Time 2, Logo aus `banner/logo.png` unten links |
+| `banner/banner_720x320_en.png` | Kopfbild der Listung: Icon und Text links, rechts der Emery-Screenshot im Display einer freigestellten Aufnahme der Pebble Time 2, Logo aus `banner/logo.png` unten links. Hinter dem schwarzen Gehäuse liegt ein weicher heller Saum (`--saum`, Standard 105), sonst verschwindet es auf dem dunklen Grund |
 | `banner/assets/` | die freigestellte Uhr (`pebble_time_2.png`) und ihre Displaymaße (`uhren.json`) aus dem Skill `pebble-publish`, hier abgelegt, damit das Banner ohne den Skill baubar bleibt |
 | `../resources/images/menu_icon.png` | Launcher-Icon der Uhr (25 px), wird von `make_icons.py` mitgeschrieben |
 

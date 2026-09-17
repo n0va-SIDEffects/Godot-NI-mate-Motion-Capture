@@ -202,15 +202,16 @@ def main():
     p.add_argument("--tilt", type=float, default=9)
     p.add_argument("--watch", default="pebble_time_2",
                    help="pebble_time_2 (Standard), pebble_time_steel oder drawn")
-    p.add_argument("--watch-h", type=int, default=460,
-                   help="Hoehe der freigestellten Uhr; 460 statt 340, damit der "
+    p.add_argument("--watch-h", type=int, default=380,
+                   help="Hoehe der freigestellten Uhr; 380 statt 340, damit der "
                         "Screenshot im Display lesbar bleibt")
     p.add_argument("--round", action="store_true",
                    help="rundes Gehaeuse, nur mit --watch drawn")
     p.add_argument("--screen-w", type=int, default=150)
-    p.add_argument("--watch-x", type=int, default=578,
-                   help="Mitte der Uhr; bei 460 px Hoehe passt das Gehaeuse so "
-                        "vollstaendig ins Bild")
+    p.add_argument("--watch-x", type=int, default=590)
+    p.add_argument("--saum", type=int, default=105,
+                   help="Deckkraft des hellen Saums hinter der Uhr (0 = aus); "
+                        "hebt das schwarze Gehaeuse vom dunklen Grund ab")
     p.add_argument("--assets", help="Ordner mit uhren.json und den Uhrenbildern")
     p.add_argument("--out", default=im_projekt("store/banner/banner_720x320_en.png"))
     a = p.parse_args()
@@ -271,6 +272,18 @@ def main():
     if a.tilt:
         # Gerade wirkt wie im Schaufenster, gekippt wie getragen.
         uhr = uhr.rotate(a.tilt, resample=Image.BICUBIC, expand=True)
+
+    # Saum: die Silhouette etwas aufgeweitet, weich gezeichnet und hell
+    # hinter die Uhr gelegt. Der breite Schein oben nimmt dem Gehaeuse nur
+    # die Tarnung, die Kante bekommt es hierdurch.
+    if a.saum > 0:
+        kontur = uhr.split()[-1].filter(ImageFilter.MaxFilter(5))
+        schein = Image.new("RGBA", uhr.size, (0, 0, 0, 0))
+        schein.paste((178, 198, 226, a.saum), (0, 0), kontur)
+        saum = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        saum.alpha_composite(schein, (a.watch_x - uhr.width // 2,
+                                      (H - uhr.height) // 2))
+        img.alpha_composite(saum.filter(ImageFilter.GaussianBlur(7)))
     ux, uy = a.watch_x - uhr.width // 2, (H - uhr.height) // 2
     if uy < 0:
         uhr = uhr.crop((0, -uy, uhr.width, -uy + H))
