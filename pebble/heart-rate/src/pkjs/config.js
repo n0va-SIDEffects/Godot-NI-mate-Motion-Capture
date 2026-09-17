@@ -6,7 +6,7 @@ var DONATION_URL = 'https://buymeacoffee.com/SIDEffects';
 var config = [
   {
     type: 'heading',
-    defaultValue: 'Pulsmonitor'
+    defaultValue: 'Heart Rate FX'
   },
   {
     type: 'text',

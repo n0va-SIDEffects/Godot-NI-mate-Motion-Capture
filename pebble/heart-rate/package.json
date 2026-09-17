@@ -1,5 +1,5 @@
 {
-  "name": "pulsmonitor",
+  "name": "heart-rate-fx",
   "author": "Mike Heissen",
   "version": "1.0.0",
   "keywords": [
@@ -8,7 +8,7 @@
   "private": true,
   "dependencies": {},
   "pebble": {
-    "displayName": "Pulsmonitor",
+    "displayName": "Heart Rate FX",
     "uuid": "72901d59-fab9-449d-b3cd-43926085b2fc",
     "sdkVersion": "3",
     "enableMultiJS": true,

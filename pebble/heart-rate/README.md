@@ -1,4 +1,4 @@
-# Pulsmonitor für Pebble 2
+# Heart Rate FX
 
 Eine kleine Watchapp, die den Herzschlag der Pebble 2 (und der neuen Core-Devices-Uhren)
 **grafisch** und **akustisch** darstellt.
@@ -92,7 +92,7 @@ Visualisierung, kein medizinisches EKG.
 
 ## Einstellungen
 
-In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
+In der Pebble-App auf dem Handy über das Zahnrad neben Heart Rate FX:
 
 | Einstellung | Auswahl |
 | --- | --- |
@@ -109,6 +109,10 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 | Puls simulieren | an/aus, derselbe Demo-Modus wie der lange Druck auf DOWN |
 
 Alles wird auf der Uhr gespeichert und gilt sofort, ohne die App neu zu starten.
+
+Jede Taste sagt für knapp zwei Sekunden in der Statuszeile, was sie getan hat, und danach steht
+dort wieder der gewohnte Text. Uhren ohne dimmbare Beleuchtung lassen den Puls-Eintrag aus, weil er
+dort nichts anderes wäre als „dauerhaft an".
 
 ### Wie die Einstellungen auf die Uhr kommen
 
@@ -197,6 +201,7 @@ pebble build && node tools/check_config_page.js
 | --- | --- |
 | SELECT | Vibrations-Klick an/aus |
 | UP | Piep an/aus (nur Uhren mit Lautsprecher) |
+| DOWN | Beleuchtung durchschalten: Puls, Blitz, an, normal |
 | DOWN lang | Demo-Modus an/aus (simulierter Puls 58–112 BPM, z. B. für den Emulator) |
 | BACK | Beenden |
 

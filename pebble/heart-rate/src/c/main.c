@@ -1,5 +1,5 @@
 /*
- * Pulsmonitor - a heart rate monitor for Pebble 2 (and newer Core Devices watches).
+ * Heart Rate FX - a heart rate monitor for Pebble 2 (and newer Core Devices watches).
  *
  * Reads the watch's optical heart rate sensor through the Health service and shows the pulse
  *   - graphically:   a sweeping ECG-style trace plus a heart icon that pumps on every beat
@@ -14,6 +14,7 @@
  * Buttons
  *   SELECT       toggle the vibration click
  *   UP           toggle the beep (speaker watches only)
+ *   DOWN         step through what the backlight does
  *   DOWN (long)  toggle demo mode (simulated pulse, useful in the emulator)
  */
 #include <pebble.h>
@@ -31,6 +32,7 @@
 #define BEAT_MIN_GAP_MS    260    // closest two beats may fall: 230 bpm, and longer than a beep
 #define LIGHT_FLASH_MS     90     // how long the backlight stays on for a beat
 #define LIGHT_DECAY        14     // how fast the pulsing backlight falls back, per trace pixel
+#define NOTICE_MS          1800   // how long a button's answer stays in the status line
 #define HR_POLL_MS         200    // fallback polling of the heart rate metric
 #define HR_SAMPLE_SEC      1      // requested sensor sampling period
 #define HR_STALE_SEC       15     // no fresh reading for this long -> show "--"
@@ -98,6 +100,8 @@ static int s_demo_dir = 1;
 static AppTimer *s_frame_timer;
 static AppTimer *s_poll_timer;
 static AppTimer *s_light_timer;
+static char s_notice[24];                  // what a button just did, shown briefly
+static uint32_t s_notice_until_ms;
 static uint8_t s_light_level;              // current brightness of the pulsing backlight, 0 to 255
 static uint32_t s_light_shown;             // what was last handed to the backlight, plus one
 static BeatClock s_clock;                  // places the beats on the wall clock
@@ -109,6 +113,34 @@ static uint8_t s_ppi_have;                 // how many of them are filled
 #define now_ms() clock_ms()
 
 // ---------- Beat playback ----------
+
+// The order the down button walks through. A watch that cannot dim its backlight would show the
+// pulsing mode as plain "always on", so it is left out there.
+static const uint8_t s_light_cycle[] = {
+#if defined(PBL_RGB_BACKLIGHT)
+  BacklightPulse,
+#endif
+  BacklightOnBeat,
+  BacklightAlwaysOn,
+  BacklightAuto,
+};
+#define LIGHT_CYCLE_LEN ((uint8_t)(sizeof(s_light_cycle) / sizeof(s_light_cycle[0])))
+
+static const char *light_mode_name(uint8_t mode) {
+  switch (mode) {
+    case BacklightPulse:    return "Licht: Puls";
+    case BacklightOnBeat:   return "Licht: Blitz";
+    case BacklightAlwaysOn: return "Licht: an";
+    default:                return "Licht: normal";
+  }
+}
+
+//! Say what a button just did, for a moment, rather than crowding the status line for good.
+static void show_notice(const char *text) {
+  snprintf(s_notice, sizeof(s_notice), "%s", text);
+  s_notice_until_ms = now_ms() + NOTICE_MS;
+  layer_mark_dirty(s_status_layer);
+}
 
 static void light_off(void *context) {
   s_light_timer = NULL;
@@ -363,6 +395,10 @@ static void on_poll(void *context) {
       update_beat_rate();   // lets the measured interval time out on its own
     }
   }
+  if (s_notice[0] != '\0' && (int32_t)(s_notice_until_ms - now_ms()) <= 0) {
+    s_notice[0] = '\0';
+    layer_mark_dirty(s_status_layer);
+  }
   beep_tick();
   s_poll_timer = app_timer_register(HR_POLL_MS, on_poll, NULL);
 }
@@ -444,6 +480,9 @@ static void trace_update_proc(Layer *layer, GContext *ctx) {
 }
 
 static const char *status_text(char *buf, size_t len) {
+  if (s_notice[0] != '\0') {
+    return s_notice;
+  }
   switch (s_sensor) {
     case SensorUnsupported:
       if (!s_settings.demo) return "Kein Pulssensor (DOWN lang: Demo)";
@@ -523,6 +562,7 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   s_settings.vibe_on = !s_settings.vibe_on;
   settings_save(&s_settings);
   apply_settings();
+  show_notice(s_settings.vibe_on ? "Vibration an" : "Vibration aus");
 }
 
 static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -530,7 +570,22 @@ static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
   s_settings.sound_on = !s_settings.sound_on;
   settings_save(&s_settings);
   apply_settings();
+  show_notice(s_settings.sound_on ? "Ton an" : "Ton aus");
 #endif
+}
+
+static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  uint8_t next = 0;
+  for (uint8_t i = 0; i < LIGHT_CYCLE_LEN; i++) {
+    if (s_light_cycle[i] == s_settings.backlight) {
+      next = (uint8_t)((i + 1) % LIGHT_CYCLE_LEN);
+      break;
+    }
+  }
+  s_settings.backlight = s_light_cycle[next];
+  settings_save(&s_settings);
+  apply_settings();
+  show_notice(light_mode_name(s_settings.backlight));
 }
 
 static void down_long_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -548,6 +603,7 @@ static void down_long_click_handler(ClickRecognizerRef recognizer, void *context
 static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
   window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
   window_long_click_subscribe(BUTTON_ID_DOWN, 700, down_long_click_handler, NULL);
 }
 
