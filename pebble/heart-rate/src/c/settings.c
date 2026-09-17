@@ -7,7 +7,7 @@
 
 
 #define SETTINGS_KEY     10
-#define SETTINGS_VERSION 5
+#define SETTINGS_VERSION 6
 
 #if defined(PBL_COLOR)
 // Kept in the same order as the settings page offers them.
@@ -41,7 +41,6 @@ void settings_load(Settings *settings) {
     .sound_on = true,
     .volume = 65,
     .pitch_note = 81,          // the sample's own pitch, 880 Hz
-    .sound_mode = BeepModeSingle,
     .vibe_on = true,
     .vibe_ms = 25,
     .backlight = BacklightAuto,
@@ -102,8 +101,6 @@ void settings_read_dict(Settings *settings, DictionaryIterator *iter) {
   settings->sound_on = dict_int(iter, MESSAGE_KEY_SOUND_ON, settings->sound_on) != 0;
   settings->volume = clamp_u8(dict_int(iter, MESSAGE_KEY_VOLUME, settings->volume), 0, 100);
   settings->pitch_note = clamp_u8(dict_int(iter, MESSAGE_KEY_PITCH, settings->pitch_note), 48, 108);
-  settings->sound_mode = clamp_u8(dict_int(iter, MESSAGE_KEY_SOUND_MODE, settings->sound_mode),
-                                  BeepModeSingle, BeepModeStream);
   settings->vibe_on = dict_int(iter, MESSAGE_KEY_VIBE_ON, settings->vibe_on) != 0;
   settings->vibe_ms = clamp_u8(dict_int(iter, MESSAGE_KEY_VIBE_MS, settings->vibe_ms), 10, 80);
   settings->backlight = clamp_u8(dict_int(iter, MESSAGE_KEY_BACKLIGHT, settings->backlight),

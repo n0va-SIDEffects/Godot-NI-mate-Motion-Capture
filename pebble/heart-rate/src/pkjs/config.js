@@ -35,17 +35,6 @@ var config = [
       },
       {
         type: 'select',
-        messageKey: 'SOUND_MODE',
-        label: 'Wiedergabe',
-        description: 'Einzeln gibt dem Lautsprecher pro Schlag einen Ton und lässt ihn danach los; dabei knackt sein Verstärker gelegentlich beim Abschalten. Durchgehend hält ihn zwischen den Schlägen offen, das vermeidet das Knacken, rauscht dafür leise und der Piep liegt etwa eine Zehntelsekunde hinter seiner Zacke.',
-        defaultValue: 0,
-        options: [
-          { label: 'Einzeln', value: 0 },
-          { label: 'Durchgehend', value: 1 }
-        ]
-      },
-      {
-        type: 'select',
         messageKey: 'PITCH',
         label: 'Tonhöhe',
         defaultValue: 81,

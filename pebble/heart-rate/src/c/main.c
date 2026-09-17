@@ -454,23 +454,21 @@ static const char *status_text(char *buf, size_t len) {
       break;
   }
   const char *mode = s_settings.demo ? "Demo" : (s_live ? "Live" : NULL);
-  // While the speaker runs from a stream, say so when it ever ran dry: that number decides
-  // whether a click came from the buffer or from the amplifier, and only the app can count it.
-  const uint16_t dropouts = beep_underruns();
-  if (dropouts > 0) {
-    snprintf(buf, len, "%s%sAussetzer %u", mode ? mode : "", mode ? "  |  " : "",
-             (unsigned)dropouts);
-    return buf;
+  // Whether the stream ever ran dry decides where a click came from, the buffer or the
+  // amplifier, and only the app can count it. Appended, so it never costs the normal line.
+  char dropouts[10] = "";
+  if (beep_underruns() > 0) {
+    snprintf(dropouts, sizeof(dropouts), "  |  !%u", (unsigned)beep_underruns());
   }
 #if defined(PBL_SPEAKER)
-  snprintf(buf, len, "%s%sVib %s  |  Ton %s",
+  snprintf(buf, len, "%s%sVib %s  |  Ton %s%s",
            mode ? mode : "", mode ? "  |  " : "",
            s_settings.vibe_on ? "an" : "aus",
-           s_settings.sound_on ? "an" : "aus");
+           s_settings.sound_on ? "an" : "aus", dropouts);
 #else
-  snprintf(buf, len, "%s%sVibration %s",
+  snprintf(buf, len, "%s%sVibration %s%s",
            mode ? mode : "", mode ? "  |  " : "",
-           s_settings.vibe_on ? "an" : "aus");
+           s_settings.vibe_on ? "an" : "aus", dropouts);
 #endif
   return buf;
 }

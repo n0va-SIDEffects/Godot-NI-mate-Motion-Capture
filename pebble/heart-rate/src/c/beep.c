@@ -11,14 +11,6 @@
 //! than any plausible beat interval, so it stays open while a pulse is being followed.
 #define GATE_MS       2500
 
-static const SpeakerSample s_sample = {
-  .data = s_beep_pcm,
-  .num_bytes = sizeof(s_beep_pcm),
-  .format = SpeakerPcmFormat_16kHz_16bit,
-  .base_midi_note = BEEP_MIDI_NOTE,
-  .loop = false,
-};
-
 static const Settings *s_settings;   // owned by the app, read afresh at every beat
 static uint32_t s_pos_q16;           // position in the sample, 16.16; past the end means silent
 static uint32_t s_step_q16;          // how far to advance per output sample: the pitch
@@ -80,10 +72,10 @@ void beep_setup(const Settings *settings) {
   s_settings = settings;
   s_step_q16 = pitch_step_q16(settings->pitch_note);
   if (audio_pump_is_running()) {
-    if (s_settings->sound_mode != BeepModeStream || !sound_wanted()) {
-      audio_pump_stop();
-    } else {
+    if (sound_wanted()) {
       audio_pump_set_volume(s_settings->volume);
+    } else {
+      audio_pump_stop();
     }
   }
 }
@@ -94,29 +86,14 @@ void beep_play(void) {
   }
   s_last_beat_ms = now_ms();
 
-  if (s_settings->sound_mode == BeepModeStream) {
-    if (!audio_pump_is_running()) {
-      s_pos_q16 = BEEP_SAMPLES << 16;   // start silent, the beep follows below
-      if (!audio_pump_start(render, s_settings->volume)) {
-        return;   // speaker busy or absent; the next beat tries again
-      }
+  if (!audio_pump_is_running()) {
+    s_pos_q16 = BEEP_SAMPLES << 16;   // open silent; the beep is queued right after
+    audio_pump_reset_stats();   // the count belongs to this stream, not to every past one
+    if (!audio_pump_start(render, s_settings->volume)) {
+      return;   // the speaker is busy with something else; the next beat tries again
     }
-    s_pos_q16 = 0;
-    return;
   }
-
-  // One sample per beat. The speaker refuses a second call while it is still busy with the last
-  // beep; nothing useful can be done about that here, so just ask and let it decide.
-  const SpeakerNote note = {
-    .midi_note = s_settings->pitch_note,
-    .waveform = SpeakerWaveformSine,   // ignored while a sample is attached
-    // Exactly as long as the sample. Asking for more left the speaker to invent the remainder.
-    .duration_ms = BEEP_LEN_MS,
-    .velocity = 0,
-    .reserved = 0,
-  };
-  const SpeakerTrack track = {.notes = &note, .num_notes = 1, .sample = &s_sample};
-  speaker_play_tracks(&track, 1, s_settings->volume);
+  s_pos_q16 = 0;
 }
 
 void beep_tick(void) {

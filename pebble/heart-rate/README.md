@@ -101,7 +101,6 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 | Tonhöhe | tief 660 Hz, Monitor 880 Hz, hoch 1046 Hz |
 | Vibration bei jedem Schlag | an/aus |
 | Länge der Vibration | kurz 15 ms, normal 25 ms, kräftig 40 ms |
-| Wiedergabe | einzeln oder durchgehend |
 | Beleuchtung | wie sonst auch, bei jedem Schlag kurz (90 ms), gedimmt pulsierend, dauerhaft an |
 | Farbe der Beleuchtung | frei wählbar (nur Pebble Time 2) |
 | Grundhelligkeit beim Pulsieren | 0 bis 100 |
@@ -143,22 +142,23 @@ Die Helligkeit wird nur dann an die Uhr geschickt, wenn sie sich tatsächlich ge
 
 ### Zum Ton
 
-Das Sample ist 90 ms lang: 50 ms Ton und 40 ms Stille dahinter. Die Note ist genau so lang wie das
-Sample. Vorher war sie 5 ms länger, und was der Lautsprecher in dieser Zeit ausgab, stand nirgends
-fest.
+Der Lautsprecher bekommt seinen Ton über einen PCM-Strom, der offen bleibt, solange ein Puls
+verfolgt wird, und zwischen den Schlägen Stille geschrieben bekommt. Der Verstärker schaltet damit
+nicht mitten im Puls ab, und genau dieses Abschalten war die Quelle des Knackens.
 
-Es gibt zwei Wege zum Lautsprecher:
+Zwei Eigenschaften gehören zur Wahrheit dazu. Der Verstärker rauscht leise, solange der Strom offen
+ist; zweieinhalb Sekunden ohne Schlag schließen ihn wieder. Und der Piep liegt rund eine
+Zehntelsekunde hinter seiner Zacke, weil der Strom so weit vor der Wiedergabe herläuft.
 
-- **Einzeln**: ein Ton pro Schlag, die Uhr öffnet und schließt die Tonausgabe jedes Mal. Dazwischen
-  ist es still, aber der Verstärker knackt beim Abschalten gelegentlich.
-- **Durchgehend**: solange ein Puls verfolgt wird, bleibt ein PCM-Strom offen und bekommt zwischen
-  den Schlägen Stille. Der Verstärker schaltet damit nicht mitten im Puls ab. Dafür rauscht er
-  leise, solange der Strom offen ist, und der Piep liegt rund eine Zehntelsekunde hinter seiner
-  Zacke, weil der Strom so weit vorausläuft. Zweieinhalb Sekunden ohne Schlag schließen ihn wieder.
+Das Sample ist 50 ms lang und endet bei null. Eine Stille dahinter braucht es nicht: Der Strom
+läuft von sich aus mit Stille weiter.
 
 Den Strom füllt `src/c/audio_pump.c` aus dem Skill „pebble-audio", auf echter Hardware gemessen.
-Läuft er je leer, zeigt die Statuszeile „Aussetzer" mit der Anzahl. Bleibt diese Zahl bei null und
-knackt es trotzdem, kommt das Knacken nicht aus dem Puffer, sondern aus dem Verstärker. Einen PCM-Strom über die Schläge hinweg offen zu
+Läuft er je leer, hängt die Statuszeile ein Ausrufezeichen mit der Anzahl an, etwa `!3`. Bleibt
+diese Zahl bei null und knackt es trotzdem, kommt das Knacken nicht aus dem Puffer.
+
+Im Emulator zählt diese Zahl ununterbrochen hoch. Dort nimmt kein Audiogerät die Daten ab, der
+Puffer gilt also immer als leer. Aussagekräftig ist sie nur auf der Uhr. Einen PCM-Strom über die Schläge hinweg offen zu
 halten, damit der Verstärker dazwischen nicht abschaltet, war schlechter: Der Verstärker rauscht,
 solange ein Strom offen ist, und diese App zeichnet oft genug, um den Strom leerlaufen zu lassen,
 was stottert.

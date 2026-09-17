@@ -1,17 +1,14 @@
 /*
  * The per-beat beep, on watches that have a speaker. Does nothing on the others.
  *
- * Two ways of getting the beep out, chosen in the settings:
+ * A PCM stream is held open while a pulse is being followed, with silence written between the
+ * beats, so the amplifier never switches off mid-pulse and cannot click on its way out. The stream
+ * is fed by the pump from the pebble-audio skill, which was measured on real hardware.
  *
- *   BeepModeSingle  hands the sample to the speaker once per beat and lets it close the session
- *                   again. Simple, silent between beats, but each close is a chance for the
- *                   amplifier to click on its way out, which is what the watch does occasionally.
- *   BeepModeStream  keeps a PCM stream open while a pulse is being followed, writing silence
- *                   between the beats, so the amplifier never switches off mid-pulse. The stream
- *                   is fed by the pump from the pebble-audio skill, which was measured on real
- *                   hardware. The cost is a faint hiss while the stream is open, and the beep
- *                   lands about a tenth of a second behind its spike, because that is how far the
- *                   stream runs ahead of the speaker.
+ * Handing the speaker one sample per beat instead, and letting it close each time, was the earlier
+ * way and is gone: that close is exactly where the clicking came from. What remains of its cost is
+ * a faint hiss while the stream is open, and a beep that lands about a tenth of a second behind
+ * its spike, because that is how far the stream runs ahead of the speaker.
  */
 #pragma once
 

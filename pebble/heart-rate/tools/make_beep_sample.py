@@ -22,10 +22,11 @@ parser.add_argument("--release-ms", type=float, default=10.0, help="fade out, ms
 parser.add_argument("--harmonics", default="1.0,0.55,0.22",
                     help="comma separated amplitudes of the 1st, 2nd, ... harmonic")
 parser.add_argument("--peak", type=float, default=0.92, help="peak level, 0..1 (default 0.92)")
-parser.add_argument("--tail-ms", type=float, default=40.0,
-                    help="silence appended after the tone, ms (default 40). It keeps the speaker "
-                         "at zero for a while before the watch closes the session, so the end of "
-                         "the sound and the end of the session are not the same moment.")
+parser.add_argument("--tail-ms", type=float, default=0.0,
+                    help="silence appended after the tone, ms (default 0). The app plays the "
+                         "sample into a stream that carries on with silence by itself, so none is "
+                         "needed here; it was useful when the watch closed the speaker after "
+                         "every beep.")
 args = parser.parse_args()
 
 sr = args.rate

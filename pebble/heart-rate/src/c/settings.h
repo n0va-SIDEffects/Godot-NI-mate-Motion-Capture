@@ -5,12 +5,6 @@
 
 #include <pebble.h>
 
-//! How the beep reaches the speaker.
-typedef enum {
-  BeepModeSingle = 0,   //! one sample per beat, speaker session opened and closed each time
-  BeepModeStream = 1,   //! a stream held open while a pulse is being followed
-} BeepMode;
-
 //! What the backlight does while the app is open.
 typedef enum {
   BacklightAuto = 0,      //! leave it to the watch
@@ -23,7 +17,6 @@ typedef struct {
   bool sound_on;         //! play the beep (only watches with a speaker have one)
   uint8_t volume;        //! 0 to 100
   uint8_t pitch_note;    //! MIDI note the beep is played at; 81 is the sample's own 880 Hz
-  uint8_t sound_mode;    //! a BeepMode
   bool vibe_on;          //! buzz on every beat
   uint8_t vibe_ms;       //! length of that buzz
   uint8_t backlight;     //! a BacklightMode
