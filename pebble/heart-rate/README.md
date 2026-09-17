@@ -1,5 +1,9 @@
 # Heart Rate FX
 
+> **Umgezogen.** Die App liegt jetzt in ihrem eigenen Repository:
+> https://github.com/n0va-SIDEffects/pebble-Heart-Rate-FX
+> Dort steht auch alles für den Appstore, unter `store/`. Diese Kopie wird nicht mehr gepflegt.
+
 Eine kleine Watchapp, die den Herzschlag der Pebble 2 (und der neuen Core-Devices-Uhren)
 **grafisch** und **akustisch** darstellt.
 
