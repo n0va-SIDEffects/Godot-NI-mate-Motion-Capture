@@ -35,6 +35,17 @@ var config = [
       },
       {
         type: 'select',
+        messageKey: 'SOUND_MODE',
+        label: 'Wiedergabe',
+        description: 'Einzeln gibt dem Lautsprecher pro Schlag einen Ton und lässt ihn danach los; dabei knackt sein Verstärker gelegentlich beim Abschalten. Durchgehend hält ihn zwischen den Schlägen offen, das vermeidet das Knacken, rauscht dafür leise und der Piep liegt etwa eine Zehntelsekunde hinter seiner Zacke.',
+        defaultValue: 0,
+        options: [
+          { label: 'Einzeln', value: 0 },
+          { label: 'Durchgehend', value: 1 }
+        ]
+      },
+      {
+        type: 'select',
         messageKey: 'PITCH',
         label: 'Tonhöhe',
         defaultValue: 81,
@@ -83,8 +94,27 @@ var config = [
         options: [
           { label: 'Wie sonst auch', value: 0 },
           { label: 'Bei jedem Schlag kurz', value: 1 },
+          { label: 'Gedimmt pulsierend', value: 3 },
           { label: 'Dauerhaft an', value: 2 }
         ]
+      },
+      {
+        type: 'color',
+        messageKey: 'LIGHT_COLOR',
+        label: 'Farbe der Beleuchtung',
+        description: 'Nur Uhren mit farbiger Beleuchtung, also die Pebble Time 2.',
+        defaultValue: 0xffffff,
+        allowGray: true
+      },
+      {
+        type: 'slider',
+        messageKey: 'LIGHT_FLOOR',
+        label: 'Grundhelligkeit beim Pulsieren',
+        description: 'Wie hell die Beleuchtung zwischen zwei Schlägen stehen bleibt. Bei 0 geht sie ganz aus.',
+        defaultValue: 15,
+        min: 0,
+        max: 100,
+        step: 5
       },
       {
         type: 'select',

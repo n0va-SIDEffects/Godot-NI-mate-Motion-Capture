@@ -101,7 +101,10 @@ In der Pebble-App auf dem Handy über das Zahnrad neben dem Pulsmonitor:
 | Tonhöhe | tief 660 Hz, Monitor 880 Hz, hoch 1046 Hz |
 | Vibration bei jedem Schlag | an/aus |
 | Länge der Vibration | kurz 15 ms, normal 25 ms, kräftig 40 ms |
-| Beleuchtung | wie sonst auch, bei jedem Schlag kurz (90 ms), dauerhaft an |
+| Wiedergabe | einzeln oder durchgehend |
+| Beleuchtung | wie sonst auch, bei jedem Schlag kurz (90 ms), gedimmt pulsierend, dauerhaft an |
+| Farbe der Beleuchtung | frei wählbar (nur Pebble Time 2) |
+| Grundhelligkeit beim Pulsieren | 0 bis 100 |
 | Kurvengeschwindigkeit | langsam 25 px/s, normal 50 px/s, schnell 75 px/s |
 | Kurvenfarbe | grün, rot, weiß, gelb, türkis (nur Farbdisplays) |
 | Puls simulieren | an/aus, derselbe Demo-Modus wie der lange Druck auf DOWN |
@@ -129,11 +132,33 @@ Einstellungen der App direkt, sodass eine Kopie gar nicht erst veralten kann.
 Aus demselben Grund läuft jede Änderung, egal ob von der Seite oder von einer Taste, durch
 dieselbe Funktion `apply_settings()`.
 
+### Die Beleuchtung
+
+Die Pebble Time 2 hat eine farbige Beleuchtung, die sich stufenlos ansteuern lässt. **Gedimmt
+pulsierend** nutzt das: Das Licht bleibt an und steht zwischen den Schlägen auf der eingestellten
+Grundhelligkeit, bei jedem Schlag geht es auf volle Helligkeit und fällt dann weich zurück. Die
+Farbe gilt für alle Beleuchtungsarten außer „wie sonst auch".
+
+Die Helligkeit wird nur dann an die Uhr geschickt, wenn sie sich tatsächlich geändert hat.
+
 ### Zum Ton
 
-Der Lautsprecher bekommt pro Schlag ein Sample. Es ist 90 ms lang: 50 ms Ton und 40 ms Stille
-dahinter. Die Note ist genau so lang wie das Sample. Vorher war sie 5 ms länger, und was der
-Lautsprecher in dieser Zeit ausgab, stand nirgends fest. Einen PCM-Strom über die Schläge hinweg offen zu
+Das Sample ist 90 ms lang: 50 ms Ton und 40 ms Stille dahinter. Die Note ist genau so lang wie das
+Sample. Vorher war sie 5 ms länger, und was der Lautsprecher in dieser Zeit ausgab, stand nirgends
+fest.
+
+Es gibt zwei Wege zum Lautsprecher:
+
+- **Einzeln**: ein Ton pro Schlag, die Uhr öffnet und schließt die Tonausgabe jedes Mal. Dazwischen
+  ist es still, aber der Verstärker knackt beim Abschalten gelegentlich.
+- **Durchgehend**: solange ein Puls verfolgt wird, bleibt ein PCM-Strom offen und bekommt zwischen
+  den Schlägen Stille. Der Verstärker schaltet damit nicht mitten im Puls ab. Dafür rauscht er
+  leise, solange der Strom offen ist, und der Piep liegt rund eine Zehntelsekunde hinter seiner
+  Zacke, weil der Strom so weit vorausläuft. Zweieinhalb Sekunden ohne Schlag schließen ihn wieder.
+
+Den Strom füllt `src/c/audio_pump.c` aus dem Skill „pebble-audio", auf echter Hardware gemessen.
+Läuft er je leer, zeigt die Statuszeile „Aussetzer" mit der Anzahl. Bleibt diese Zahl bei null und
+knackt es trotzdem, kommt das Knacken nicht aus dem Puffer, sondern aus dem Verstärker. Einen PCM-Strom über die Schläge hinweg offen zu
 halten, damit der Verstärker dazwischen nicht abschaltet, war schlechter: Der Verstärker rauscht,
 solange ein Strom offen ist, und diese App zeichnet oft genug, um den Strom leerlaufen zu lassen,
 was stottert.
@@ -212,7 +237,8 @@ im Emulator: `pebble emu-button --emulator diorite push down`, kurz warten, `...
 | `src/c/main.c` | Anzeige, Sensor, Bedienung |
 | `src/c/beat_clock.c` | Takt: legt die Schläge auf die Uhrzeit und prüft die Messwerte, ohne Pebble-Abhängigkeiten |
 | `src/c/settings.c` | Einstellungen: Vorgaben, Speichern, Auswerten der Handy-Nachricht |
-| `src/c/beep.c` | Ton: Sample pro Schlag, Tonhöhe |
+| `src/c/beep.c` | Ton: Sample pro Schlag oder über den Strom, Tonhöhe |
+| `src/c/audio_pump.c` | hält den Tonstrom gefüllt, aus dem Skill „pebble-audio" |
 | `src/c/app_clock.c` | Uhrzeit, um den Sekundensprung der Firmware bereinigt |
 | `src/c/beep_sample.h` | erzeugtes PCM-Sample des Pieps, nicht von Hand bearbeiten |
 | `src/pkjs/config.js` | Aufbau der Einstellungsseite |

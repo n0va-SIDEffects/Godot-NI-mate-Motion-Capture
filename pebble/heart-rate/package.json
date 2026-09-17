@@ -35,6 +35,9 @@
       "SWEEP_MS",
       "TRACE_COLOR",
       "DEMO",
+      "SOUND_MODE",
+      "LIGHT_COLOR",
+      "LIGHT_FLOOR",
       "REQUEST_SETTINGS"
     ],
     "resources": {

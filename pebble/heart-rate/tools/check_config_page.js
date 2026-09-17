@@ -66,8 +66,9 @@ var sent = null;
 global.Pebble.addEventListener = function (name, fn) { handlers[name] = fn; };
 global.Pebble.sendAppMessage = function (message) { sent = message; };
 global.localStorage.setItem('clay-settings', JSON.stringify({
-  SOUND_ON: false, VOLUME: 40, PITCH: '76', VIBE_ON: true, VIBE_MS: '15',
-  BACKLIGHT: '2', SWEEP_MS: 40, TRACE_COLOR: '1', DEMO: false
+  SOUND_ON: false, VOLUME: 40, SOUND_MODE: 1, PITCH: '76', VIBE_ON: true, VIBE_MS: '15',
+  BACKLIGHT: '3', LIGHT_COLOR: 0xff0000, LIGHT_FLOOR: 20, SWEEP_MS: 40, TRACE_COLOR: '1',
+  DEMO: false
 }));
 require(path.join(root, 'src/pkjs/index.js'));
 check(typeof handlers.appmessage === 'function', 'the phone listens for the watch asking');
@@ -75,14 +76,16 @@ if (typeof handlers.appmessage === 'function') {
   handlers.appmessage({});
   var values = sent || {};
   var names = Object.keys(values);
-  check(names.length === 9, 'every stored setting is answered', names.length + ' of 9');
+  check(names.length === 12, 'every stored setting is answered', names.length + ' of 12');
   var wrong = names.filter(function (k) { return typeof values[k] !== 'number'; });
   check(wrong.length === 0, 'every value is sent as a number, never as text',
         wrong.length ? wrong.join(', ') : 'all numbers');
   check(values.SOUND_ON === 0 && values.VIBE_ON === 1, 'switches are sent as 0 and 1',
         'SOUND_ON=' + values.SOUND_ON + ' VIBE_ON=' + values.VIBE_ON);
-  check(values.BACKLIGHT === 2 && values.PITCH === 76, 'dropdowns keep their value',
+  check(values.BACKLIGHT === 3 && values.PITCH === 76, 'dropdowns keep their value',
         'BACKLIGHT=' + values.BACKLIGHT + ' PITCH=' + values.PITCH);
+  check(values.LIGHT_COLOR === 0xff0000, 'the backlight colour survives as a number',
+        '0x' + (values.LIGHT_COLOR || 0).toString(16));
 }
 
 var Clay = require(path.join(root, 'src/pkjs/vendor/clay.js'));

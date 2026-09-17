@@ -30,6 +30,7 @@
 #define BEAT_AUDIBLE_MS    120    // a beat older than this is only drawn, not sounded
 #define BEAT_MIN_GAP_MS    260    // closest two beats may fall: 230 bpm, and longer than a beep
 #define LIGHT_FLASH_MS     90     // how long the backlight stays on for a beat
+#define LIGHT_DECAY        14     // how fast the pulsing backlight falls back, per trace pixel
 #define HR_POLL_MS         200    // fallback polling of the heart rate metric
 #define HR_SAMPLE_SEC      1      // requested sensor sampling period
 #define HR_STALE_SEC       15     // no fresh reading for this long -> show "--"
@@ -97,6 +98,8 @@ static int s_demo_dir = 1;
 static AppTimer *s_frame_timer;
 static AppTimer *s_poll_timer;
 static AppTimer *s_light_timer;
+static uint8_t s_light_level;              // current brightness of the pulsing backlight, 0 to 255
+static uint32_t s_light_shown;             // what was last handed to the backlight, plus one
 static BeatClock s_clock;                  // places the beats on the wall clock
 static uint32_t s_ppi_ms;                  // measured interval now driving the beats, 0 if none
 static uint32_t s_last_ppi_ms;             // wall clock of the last believed reading
@@ -112,13 +115,35 @@ static void light_off(void *context) {
   light_enable(false);   // back to the watch's own control
 }
 
+//! Hand the current brightness to the backlight, but only when it actually changed: the LED is
+//! written over a bus, and the beep does not want the app held up for it.
+static void light_show(uint8_t brightness) {
+  const uint32_t rgb = settings_light_rgb(&s_settings, brightness);
+  if (s_light_shown == rgb + 1) {
+    return;
+  }
+  s_light_shown = rgb + 1;
+  (void)rgb;
+#if defined(PBL_RGB_BACKLIGHT)
+  light_set_color_rgb888(rgb);
+#endif
+}
+
+//! The floor the pulsing backlight falls back to, as a brightness of 0 to 255.
+static uint8_t light_floor_level(void) {
+  return (uint8_t)((uint32_t)s_settings.light_floor * 255u / 100u);
+}
+
 static void beat_feedback(void) {
   if (s_settings.vibe_on) {
     const uint32_t segments[] = {s_settings.vibe_ms};
     vibes_enqueue_custom_pattern((VibePattern){.durations = segments, .num_segments = 1});
   }
   beep_play();
-  if (s_settings.backlight == BacklightOnBeat) {
+  if (s_settings.backlight == BacklightPulse) {
+    s_light_level = 255;
+    light_show(s_light_level);
+  } else if (s_settings.backlight == BacklightOnBeat) {
     // light_enable_interaction() holds the backlight for the watch's own timeout, several
     // seconds, so at any normal pulse it would simply never go out again. Switch it on and off
     // instead, which is what a flash per beat actually looks like.
@@ -168,6 +193,14 @@ static void animation_step(void) {
       s_heart_scale = 100;
     }
     layer_mark_dirty(s_head_layer);
+  }
+
+  if (s_settings.backlight == BacklightPulse) {
+    const uint8_t floor = light_floor_level();
+    if (s_light_level > floor) {
+      s_light_level = (s_light_level - floor > LIGHT_DECAY) ? s_light_level - LIGHT_DECAY : floor;
+      light_show(s_light_level);
+    }
   }
 }
 
@@ -330,6 +363,7 @@ static void on_poll(void *context) {
       update_beat_rate();   // lets the measured interval time out on its own
     }
   }
+  beep_tick();
   s_poll_timer = app_timer_register(HR_POLL_MS, on_poll, NULL);
 }
 
@@ -420,6 +454,14 @@ static const char *status_text(char *buf, size_t len) {
       break;
   }
   const char *mode = s_settings.demo ? "Demo" : (s_live ? "Live" : NULL);
+  // While the speaker runs from a stream, say so when it ever ran dry: that number decides
+  // whether a click came from the buffer or from the amplifier, and only the app can count it.
+  const uint16_t dropouts = beep_underruns();
+  if (dropouts > 0) {
+    snprintf(buf, len, "%s%sAussetzer %u", mode ? mode : "", mode ? "  |  " : "",
+             (unsigned)dropouts);
+    return buf;
+  }
 #if defined(PBL_SPEAKER)
   snprintf(buf, len, "%s%sVib %s  |  Ton %s",
            mode ? mode : "", mode ? "  |  " : "",
@@ -447,7 +489,25 @@ static void status_update_proc(Layer *layer, GContext *ctx) {
 static void apply_settings(void) {
   s_clock.px_ms = s_settings.px_ms;
   beep_setup(&s_settings);
-  light_enable(s_settings.backlight == BacklightAlwaysOn);
+  if (s_light_timer) {
+    app_timer_cancel(s_light_timer);
+    s_light_timer = NULL;
+  }
+  // The pulsing backlight is simply the light left on, with its brightness following the beats.
+  const bool lit = (s_settings.backlight == BacklightAlwaysOn) ||
+                   (s_settings.backlight == BacklightPulse);
+  light_enable(lit);
+  s_light_shown = 0;
+  if (s_settings.backlight == BacklightPulse) {
+    s_light_level = light_floor_level();
+    light_show(s_light_level);
+  } else if (lit) {
+    light_show(255);
+  } else {
+#if defined(PBL_RGB_BACKLIGHT)
+    light_set_system_color();   // hand the tint back when the app is not driving it
+#endif
+  }
   if (s_settings.demo) {
     s_ppi_ms = 0;
     s_ppi_have = 0;
@@ -613,6 +673,9 @@ static void init(void) {
 
 static void deinit(void) {
   if (s_light_timer) app_timer_cancel(s_light_timer);
+#if defined(PBL_RGB_BACKLIGHT)
+  light_set_system_color();
+#endif
   beep_teardown();
   light_enable(false);   // hand the backlight back to the watch
   if (s_frame_timer) app_timer_cancel(s_frame_timer);
