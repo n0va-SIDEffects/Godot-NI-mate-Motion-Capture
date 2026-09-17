@@ -1,0 +1,19 @@
+{
+  "_hinweis": "Freigestellte Uhren fuer das Banner. 'display' ist die aktive Bildschirmflaeche in Pixeln der jeweiligen Datei: links, oben, rechts, unten. Dort hinein gehoert der Screenshot (siehe scripts/make_banner.py).",
+  "pebble_time_2": {
+    "datei": "pebble_time_2.png",
+    "groesse": [534, 1009],
+    "display": [97, 302, 436, 704],
+    "eckradius": 26,
+    "gehaeuse": "schwarz",
+    "hinweis": "Schwarze Uhr - auf dunklem Grund einen weichen hellen Schein dahinterlegen, sonst verschwindet sie. Display automatisch nicht auffindbar (Gehaeuse und Display gleich dunkel), Werte von Hand ausgemessen."
+  },
+  "pebble_time_steel": {
+    "datei": "pebble_time_steel.png",
+    "groesse": [336, 581],
+    "display": [34, 138, 299, 449],
+    "eckradius": 20,
+    "gehaeuse": "grau",
+    "hinweis": "Heller Metallrahmen - hier findet freistellen.py die Displayflaeche von allein."
+  }
+}

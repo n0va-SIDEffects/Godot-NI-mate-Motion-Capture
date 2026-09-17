@@ -4,8 +4,8 @@ Alles hier wird per Skript erzeugt, damit Änderungen reproduzierbar bleiben.
 
 ```bash
 python3 store/icon/make_icons.py cards    # Icons (144/80/48, RGB + transparent) + Launcher-Icon 25 px
-python3 store/banner/make_banner.py       # Banner 720x320, Englisch (Screenshot in gezeichneter Uhr)
-python3 store/banner/make_banner.py --flat   # dieselbe Uhr ohne Fotolook
+python3 store/banner/make_banner.py                 # Banner 720x320, Englisch (Foto-Uhr)
+python3 store/banner/make_banner.py --watch drawn   # gezeichnetes Gehaeuse statt der Aufnahme
 ```
 
 | Datei | Zweck |
@@ -15,7 +15,8 @@ python3 store/banner/make_banner.py --flat   # dieselbe Uhr ohne Fotolook
 | `icon/icon_*_transparent.png` | Reserve mit Alphakanal |
 | `icon/icon_master_1024.png` | Master, Quelle für alle Größen |
 | `icon/konzepte_uebersicht.png` | die vier Icon-Konzepte (rec, signal, cards, ring) in 160/80/25 px |
-| `banner/banner_720x320_en.png` | Kopfbild der Listung: Icon und Text links, rechts der Emery-Screenshot in einer gezeichneten Uhr mit Fotolook (Metallverlauf, Fase, Glanz, Glasspiegelung, weicher Schatten), Logo aus `banner/logo.png` unten links |
+| `banner/banner_720x320_en.png` | Kopfbild der Listung: Icon und Text links, rechts der Emery-Screenshot im Display einer freigestellten Aufnahme der Pebble Time 2, Logo aus `banner/logo.png` unten links |
+| `banner/assets/` | die freigestellte Uhr (`pebble_time_2.png`) und ihre Displaymaße (`uhren.json`) aus dem Skill `pebble-publish`, hier abgelegt, damit das Banner ohne den Skill baubar bleibt |
 | `../resources/images/menu_icon.png` | Launcher-Icon der Uhr (25 px), wird von `make_icons.py` mitgeschrieben |
 
 Anderes Konzept wählen: `make_icons.py rec|signal|cards|ring`, danach `pebble build`.
