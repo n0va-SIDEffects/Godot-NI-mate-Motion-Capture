@@ -4,7 +4,7 @@ Alles hier wird per Skript erzeugt, damit Änderungen reproduzierbar bleiben.
 
 ```bash
 python3 store/icon/make_icons.py cards    # Icons (144/80/48, RGB + transparent) + Launcher-Icon 25 px
-python3 store/banner/make_banner.py       # Banner 720x320, Englisch
+python3 store/banner/make_banner.py       # Banner 720x320, Englisch (Screenshot in gezeichneter Uhr)
 ```
 
 | Datei | Zweck |
@@ -14,7 +14,7 @@ python3 store/banner/make_banner.py       # Banner 720x320, Englisch
 | `icon/icon_*_transparent.png` | Reserve mit Alphakanal |
 | `icon/icon_master_1024.png` | Master, Quelle für alle Größen |
 | `icon/konzepte_uebersicht.png` | die vier Icon-Konzepte (rec, signal, cards, ring) in 160/80/25 px |
-| `banner/banner_720x320_en.png` | Kopfbild der Listung, Logo aus `banner/logo.png` |
+| `banner/banner_720x320_en.png` | Kopfbild der Listung: Icon und Text links, rechts der Emery-Screenshot in einer gezeichneten Uhr, Logo aus `banner/logo.png` unten links |
 | `../resources/images/menu_icon.png` | Launcher-Icon der Uhr (25 px), wird von `make_icons.py` mitgeschrieben |
 
 Anderes Konzept wählen: `make_icons.py rec|signal|cards|ring`, danach `pebble build`.

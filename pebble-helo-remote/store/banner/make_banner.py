@@ -1,92 +1,211 @@
 #!/usr/bin/env python3
-"""Store-Banner 720x320 für HELO Remote (Englisch, der Store ist einsprachig).
+"""Store-Banner 720x320 für HELO Remote: der Screenshot steckt in einer
+gezeichneten Pebble.
 
-Aufruf: python3 make_banner.py
-Liest store/icon/icon_master_1024.png und screenshots_emery/04_recording_streaming.png.
-Das SIDE effect's Logo (store/banner/logo.png) kommt 185 px breit unten links hinein:
-weißer Hintergrund wird transparent, Pulslinie/Schriftzug werden auf dem dunklen Grund
-aufgehellt, der Pac-Man samt schwarzem X bleibt unverändert.
+Layout: dunkler Grund, App-Icon und Text links, rechts die leicht gekippte
+Uhr, Armbänder laufen oben und unten aus dem Bild, SIDE effect's Logo unten
+links. Die Uhr ist gezeichnet, nicht fotografiert; nichts muss lizenziert
+werden. Der Store ist einsprachig, deshalb nur die englische Fassung.
+
+Ohne Argumente baut das Skript das fertige Banner des Projekts:
+
+    python3 store/banner/make_banner.py        # -> store/banner/banner_720x320_en.png
+
+Einzelne Angaben lassen sich überschreiben (`--shot`, `--title`, `--accent`,
+`--tilt 0` für eine gerade Uhr, `--round` für runde Displays). Vorlage und
+Maße stammen aus dem Skill `pebble-publish` (references/assets.md).
+Ergebnis immer ansehen, bevor es in den Store geht.
 """
+import argparse
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, '..', '..')
-W, H, SS = 720, 320, 3
-BG = (22, 30, 42)
-RED = (226, 44, 44)
-BLUE = (41, 121, 209)
-FONT_B = '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'
-FONT_R = '/usr/share/fonts/truetype/freefont/FreeSans.ttf'
-
-TEXTS = {
-    'en': dict(sub='Control your AJA HELO from your wrist',
-               l1='Start and stop recording and streaming, see run time,',
-               l2='free media and temperature at a glance.'),
-}
+W, H, SS = 720, 320, 3          # SS: Supersampling, sonst zacken die Rundungen
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def background():
-    """Dunkler Grund mit großen Stream-Bögen rechts der Mitte (3-fach überabgetastet)."""
-    im = Image.new('RGB', (W * SS, H * SS), BG)
-    d = ImageDraw.Draw(im)
-    cx, cy = 560 * SS, 330 * SS
-    for r, col, w in ((330, (34, 44, 60), 46), (250, (40, 52, 70), 40), (170, (46, 60, 82), 34)):
-        d.arc([cx - r * SS, cy - r * SS, cx + r * SS, cy + r * SS], 180, 360, fill=col, width=w * SS)
-    return im.resize((W, H), Image.LANCZOS)
+def rel(path):
+    """Pfad relativ zum Projektordner, damit der Aufruf von überall klappt."""
+    return os.path.join(ROOT, path)
+FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+FONTB = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 
-def prepare_logo(path, width=185):
-    logo = Image.open(path).convert('RGBA')
-    px = logo.load()
-    for yy in range(logo.height):                      # weißen Hintergrund transparent
-        for xx in range(logo.width):
-            r, g, b, a = px[xx, yy]
+def hex_rgb(s):
+    s = s.lstrip('#')
+    return tuple(int(s[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def font(size, bold=False):
+    try:
+        return ImageFont.truetype(FONTB if bold else FONT, size * SS)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def watch(shot_path, screen_w=150, strap_len=145, round_display=False):
+    """Screenshot in einem gezeichneten Uhrengehäuse (RGBA, SS-Maßstab).
+
+    screen_w ist die Displaybreite in Bannereinheiten (emery 200x228,
+    basalt 144x168, chalk 180x180 rund). Die Höhe folgt dem Screenshot.
+    """
+    s = Image.open(shot_path).convert('RGB')
+    if round_display and s.width != s.height:     # runde Displays sind quadratisch
+        side = min(s.width, s.height)
+        s = s.crop(((s.width - side) // 2, (s.height - side) // 2,
+                    (s.width + side) // 2, (s.height + side) // 2))
+    sw = screen_w
+    sh = int(round(sw * s.height / s.width))
+    bx, bt, bb = 15, 25, 29                      # Rand links/rechts, oben, unten
+    if round_display:
+        bx = bt = bb = 16
+    body_w, body_h = sw + 2 * bx, sh + bt + bb
+    strap_w = int(body_w * 0.56)
+    pad = 12                                     # Platz für die seitlichen Tasten
+    img = Image.new('RGBA', ((body_w + 2 * pad) * SS, (body_h + 2 * strap_len) * SS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    ox, oy = pad * SS, strap_len * SS
+
+    def rr(box, radius, **kw):
+        d.rounded_rectangle([int(v) for v in box], radius=int(radius), **kw)
+
+    # Armbänder, leicht verjüngt; der Bannerrand schneidet sie ab
+    for top in (True, False):
+        x0 = ox + (body_w - strap_w) / 2 * SS
+        x1 = x0 + strap_w * SS
+        taper = strap_w * 0.09 * SS
+        if top:
+            y0, y1 = 0, oy + 40 * SS
+            poly = [(x0 + taper, y0), (x1 - taper, y0), (x1, y1), (x0, y1)]
+        else:
+            y0, y1 = oy + (body_h - 40) * SS, img.height
+            poly = [(x0, y0), (x1, y0), (x1 - taper, y1), (x0 + taper, y1)]
+        d.polygon(poly, fill=(52, 58, 72, 255))
+        d.line([poly[0], poly[-1]], fill=(60, 67, 80, 255), width=2 * SS)
+        d.line([poly[1], poly[2]], fill=(14, 17, 22, 255), width=2 * SS)
+
+    # weicher Schatten, damit sich das Gehäuse vom Grund abhebt
+    shadow = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    box = (ox + 4 * SS, oy + 8 * SS, ox + body_w * SS + 4 * SS, oy + body_h * SS + 10 * SS)
+    if round_display:
+        sd.ellipse([int(v) for v in box], fill=(0, 0, 0, 150))
+    else:
+        sd.rounded_rectangle([int(v) for v in box], radius=int(26 * SS), fill=(0, 0, 0, 150))
+    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(9 * SS)))
+
+    # Tasten: eine links (Back), drei rechts (Up, Select, Down)
+    btn = (96, 102, 115, 255)
+    bh, bw = 22 * SS, 8 * SS
+    cy = oy + body_h / 2 * SS
+    rr((ox - bw + 2 * SS, cy - bh / 2, ox + 10 * SS, cy + bh / 2), 4 * SS, fill=btn)
+    for dy in (-58, 0, 58):
+        y = cy + dy * SS
+        rr((ox + (body_w - 10) * SS, y - bh / 2, ox + body_w * SS + bw - 2 * SS, y + bh / 2),
+           4 * SS, fill=btn)
+
+    # Gehäuse: dünne helle Kante, dunkler Korpus, vertieftes Display
+    outer = (ox, oy, ox + body_w * SS, oy + body_h * SS)
+    inner = (ox + 2 * SS, oy + 2 * SS, ox + (body_w - 2) * SS, oy + (body_h - 2) * SS)
+    recess = (ox + (bx - 4) * SS, oy + (bt - 5) * SS,
+              ox + (bx + sw + 4) * SS, oy + (bt + sh + 5) * SS)
+    if round_display:
+        d.ellipse([int(v) for v in outer], fill=(120, 128, 142, 255))
+        d.ellipse([int(v) for v in inner], fill=(26, 29, 36, 255))
+        d.ellipse([int(v) for v in recess], fill=(8, 9, 12, 255))
+    else:
+        rr(outer, 26 * SS, fill=(120, 128, 142, 255))
+        rr(inner, 24 * SS, fill=(26, 29, 36, 255))
+        rr(recess, 8 * SS, fill=(8, 9, 12, 255))
+
+    disp = s.resize((sw * SS, sh * SS), Image.LANCZOS).convert('RGBA')
+    if round_display:                            # rundes Display beschneiden
+        mask = Image.new('L', disp.size, 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, disp.width, disp.height), fill=255)
+        disp.putalpha(mask)
+    img.alpha_composite(disp, (int(ox + bx * SS), int(oy + bt * SS)))
+    return img
+
+
+def prepare_logo(path, width=185, split=0.42):
+    """Firmenlogo für dunklen Grund: Weiß transparent, rechter Teil
+    (Schriftzug) aufgehellt, das Bildzeichen links bleibt unverändert."""
+    im = Image.open(path).convert('RGBA')
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
             if r > 235 and g > 235 and b > 235:
-                px[xx, yy] = (r, g, b, 0)
-    logo = logo.crop(logo.getbbox())
-    logo = logo.resize((width, int(logo.height * width / logo.width)), Image.LANCZOS)
-    px = logo.load(); split = int(logo.width * 0.42)   # rechter Teil: Schwarz -> Hellgrau
-    for yy in range(logo.height):
-        for xx in range(split, logo.width):
-            r, g, b, a = px[xx, yy]
+                px[x, y] = (r, g, b, 0)
+    im = im.crop(im.getbbox())
+    lw = width * SS
+    im = im.resize((lw, int(im.height * lw / im.width)), Image.LANCZOS)
+    px = im.load()
+    cut = int(im.width * split)
+    for y in range(im.height):
+        for x in range(cut, im.width):
+            r, g, b, a = px[x, y]
             if a > 0 and r < 90 and g < 90 and b < 90:
-                px[xx, yy] = (225, 232, 240, a)
-    return logo
+                px[x, y] = (225, 232, 240, a)
+    return im
 
 
-def make(lang):
-    t = TEXTS[lang]
-    im = background()
-    d = ImageDraw.Draw(im)
-    icon = Image.open(os.path.join(ROOT, 'store', 'icon', 'icon_master_1024.png')).convert('RGBA').resize((120, 120), Image.LANCZOS)
-    im.paste(icon, (32, 28), icon)
-    f_title = ImageFont.truetype(FONT_B, 46)
-    f_sub = ImageFont.truetype(FONT_R, 19)
-    f_line = ImageFont.truetype(FONT_R, 15)
-    d.text((170, 38), 'HELO Remote', font=f_title, fill=(255, 255, 255))
-    d.text((172, 100), t['sub'], font=f_sub, fill=(200, 210, 225))
-    d.text((34, 160), t['l1'], font=f_line, fill=(170, 180, 195))
-    d.text((34, 182), t['l2'], font=f_line, fill=(170, 180, 195))
-    # kleine Legende REC / STREAM
-    d.ellipse([34, 210, 48, 224], fill=RED); d.text((56, 208), 'REC', font=f_line, fill=(230, 230, 230))
-    d.rounded_rectangle([104, 210, 118, 224], radius=3, fill=BLUE); d.text((126, 208), 'STREAM', font=f_line, fill=(230, 230, 230))
-    # Screenshot rechts, 5-px-Rahmen, vertikal zentriert
-    shot = Image.open(os.path.join(ROOT, 'store', 'screenshots_emery', '04_recording_streaming.png')).convert('RGB')
-    shot = shot.resize((180, 205), Image.LANCZOS)
-    fw, fh = shot.width + 10, shot.height + 10
-    x, y = W - fw - 30, (H - fh) // 2
-    d.rounded_rectangle([x, y, x + fw, y + fh], radius=8, fill=(240, 240, 240))
-    im.paste(shot, (x + 5, y + 5))
-    # SIDE effect's Logo unten links (Aufbereitung wie beim Theremin-Banner)
-    logo_path = os.path.join(HERE, 'logo.png')
-    if os.path.exists(logo_path):
-        logo = prepare_logo(logo_path)
-        im.paste(logo, (30, H - logo.height - 8), logo)
-    out = os.path.join(HERE, f'banner_720x320_{lang}.png')
-    im.save(out); print(out, im.size)
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--shot', default=rel('store/screenshots_emery/04_recording_streaming.png'),
+                    help='Screenshot in nativer Auflösung')
+    ap.add_argument('--out', default=rel('store/banner/banner_720x320_en.png'))
+    ap.add_argument('--icon', default=rel('store/icon/icon_master_1024.png'),
+                    help='App-Icon mit Alpha')
+    ap.add_argument('--logo', default=rel('store/banner/logo.png'),
+                    help='Firmenlogo, wird unten links gesetzt')
+    ap.add_argument('--title', default='HELO Remote')
+    ap.add_argument('--subtitle', default='for the AJA HELO')
+    ap.add_argument('--line', action='append', default=None,
+                    help='Slogan-Zeile; mehrfach angeben, letzte Zeile bekommt die Akzentfarbe')
+    ap.add_argument('--bg', default='#161e2a')
+    ap.add_argument('--accent', default='#ff5f5f')
+    ap.add_argument('--title-size', type=int, default=38,
+                    help='Titelgröße; der Titel darf die Uhr nicht berühren')
+    ap.add_argument('--tilt', type=float, default=9.0, help='Neigung der Uhr in Grad (0 = gerade)')
+    ap.add_argument('--screen-w', type=int, default=150, help='Displaybreite in Bannereinheiten')
+    ap.add_argument('--watch-x', type=int, default=605, help='Mitte der Uhr auf der x-Achse')
+    ap.add_argument('--round', action='store_true', help='rundes Display (chalk, gabbro)')
+    a = ap.parse_args()
+    if a.line is None:
+        a.line = ['Start and stop recording and',
+                  'streaming, see the live status.',
+                  '7 languages · Timeline pins']
+
+    bg, accent = hex_rgb(a.bg), hex_rgb(a.accent)
+    ban = Image.new('RGBA', (W * SS, H * SS), bg + (255,))
+    d = ImageDraw.Draw(ban)
+
+    if a.icon:
+        ic = Image.open(a.icon).convert('RGBA').resize((110 * SS, 110 * SS), Image.LANCZOS)
+        ban.alpha_composite(ic, (34 * SS, 34 * SS))
+    x = 166 if a.icon else 40
+    d.text((x * SS, (40 + (42 - a.title_size) // 2) * SS), a.title,
+           font=font(a.title_size, True), fill='white')
+    d.text(((x + 2) * SS, 94 * SS), a.subtitle, font=font(20), fill=accent)
+    for i, line in enumerate(a.line):
+        col = accent if i == len(a.line) - 1 and len(a.line) > 1 else (200, 208, 220)
+        d.text(((x + 2) * SS, (128 + 22 * i + (4 if i == len(a.line) - 1 else 0)) * SS),
+               line, font=font(15), fill=col)
+
+    w = watch(a.shot, screen_w=a.screen_w, round_display=a.round)
+    if a.tilt:
+        w = w.rotate(a.tilt, resample=Image.BICUBIC, expand=True)
+    ban.alpha_composite(w, (a.watch_x * SS - w.width // 2, H * SS // 2 - w.height // 2))
+
+    if a.logo:
+        lg = prepare_logo(a.logo)
+        ban.alpha_composite(lg, (30 * SS, H * SS - lg.height - 8 * SS))
+
+    ban.resize((W, H), Image.LANCZOS).convert('RGB').save(a.out)
+    print(os.path.basename(a.out), 'geschrieben')
 
 
 if __name__ == '__main__':
-    for lang in TEXTS:
-        make(lang)
+    main()
