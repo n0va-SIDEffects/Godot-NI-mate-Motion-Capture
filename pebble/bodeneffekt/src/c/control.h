@@ -1,23 +1,21 @@
 #pragma once
 #include <pebble.h>
 #include "config.h"
+#include "setup.h"
 
-// Zwei Steuerprofile, die sich jederzeit gegeneinander tauschen lassen.
-// Das ist Absicht: die Jury haelt den Fingerstick fuer schwaecher als den
-// Tastenmodus, und diese Frage soll sich am Handgelenk entscheiden lassen,
-// nicht am Schreibtisch.
+// Vier Steuerprofile, jederzeit tauschbar, alle vom DUELL messbar. Welches
+// gewinnt, entscheidet die Messung und nicht der Geschmack: der Fingerstick im
+// unteren Bilddrittel hat auf der Uhr 77 Prozent Verdeckung des Bodenschattens
+// erreicht, und die Umkehr der Nicklage hat daran nichts geaendert.
 //
-// Profil A "Fingerstick": Finger irgendwo im Cockpitband aufsetzen, der
-//   Versatz zum Aufsetzpunkt ist die Eingabe (x = Roll, y = Hoehe).
-//   Dead Zone 6 px, Saettigung bei 40 px, quadratische Kurve.
-//   Select gehalten = Praezisionsmodus, Up/Down trimmen die Hoehe.
-// Profil B "Tasten" mit Flappy-Hoehenmodell: Up/Down = Roll, Select gehalten
-//   = Steigen, losgelassen = Sinken.
-typedef enum {
-  CtrlFinger = 0,
-  CtrlButton = 1,
-} CtrlProfile;
-
+//   ProfFingerUnten  Cockpitband unten, Versatz zum Aufsetzpunkt ist die
+//                    Eingabe (x = Roll, y = Hoehe). Der gemessene Stand.
+//   ProfFingerRand   dasselbe, aber nur ein schmaler Streifen am Bildrand
+//                    nimmt den Finger an; die Bildmitte bleibt frei.
+//   ProfTilt         Neigungssensor, gar keine Hand auf dem Glas.
+//   ProfTasten       Up/Down Roll, Select halten steigen (Flappy-Hoehenmodell).
+//
+// Das Profil steht in setup.h und wird dort auch im Flash gehalten.
 typedef struct {
   int32_t roll_cmd;          // -256..256, Rollkommando
   int32_t climb_cmd;         // -256..256, Steigkommando (Profil A)
@@ -41,9 +39,13 @@ void control_init(Window *window);
 void control_deinit(void);
 void control_tick(uint32_t now_ms);
 
-void control_set_profile(CtrlProfile p);
-CtrlProfile control_profile(void);
+void control_set_profile(uint8_t p);
+uint8_t control_profile(void);
 void control_toggle_profile(void);
+// Neutrallage des Neigungssensors auf die aktuelle Haltung setzen. Wird beim
+// Betreten des Flugs und beim Start eines Duell-Laufs gerufen, damit niemand
+// eine Kalibriertaste suchen muss.
+void control_tilt_kalibrieren(void);
 
 // Die Kritik der Jury: beim Steigen zieht die Fingerkuppe aus dem Cockpitband
 // bis an die Horizontlinie und verdeckt den Bodenschatten. Umgekehrtes
@@ -58,4 +60,5 @@ void control_trim(int32_t delta8);
 int32_t control_trim8(void);
 
 const CtrlOut *control_out(void);
+bool control_touch_in_zone(int16_t x);   // liegt x in der aktiven Touch-Zone?
 const CtrlStats *control_stats(void);

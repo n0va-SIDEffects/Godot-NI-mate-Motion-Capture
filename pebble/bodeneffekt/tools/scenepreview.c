@@ -7,6 +7,7 @@
 //   /tmp/sp --agl 6 --yaw 0 > /tmp/szene.ppm
 #include "voxel.h"
 #include "world.h"
+#include "setup.h"
 #include <stdlib.h>
 
 uint32_t bclock_now_ms(void) { return 0; }
@@ -30,6 +31,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(k, "--rays")) rays = (int)v;
     else if (!strcmp(k, "--sight")) sight = (int)v;
   }
+  setup_init();
   world_generate(seed, (sun_deg * TRIG_MAX_ANGLE) / 360);
   voxel_init(NULL);
   voxel_set_rays((uint16_t)rays);
@@ -40,7 +42,7 @@ int main(int argc, char **argv) {
   const int32_t yaw = (yaw_deg * TRIG_MAX_ANGLE) / 360;
   const int32_t ground8 = world_height_at(gx16, gy16);
   const int32_t gh8 = ground8 + (agl << 8);
-  const int32_t back16 = CAM_BACK_CELLS << 16;
+  const int32_t back16 = setup_cam_back_cells() << 16;
   Camera cam;
   cam.x16 = gx16 - (int32_t)(((int64_t)sin_lookup(yaw) * back16) >> 16);
   cam.y16 = gy16 - (int32_t)(((int64_t)cos_lookup(yaw) * back16) >> 16);

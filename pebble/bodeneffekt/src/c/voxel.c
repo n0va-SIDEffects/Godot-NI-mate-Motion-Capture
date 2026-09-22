@@ -1,6 +1,7 @@
 #include "voxel.h"
 #include "world.h"
 #include "bclock.h"
+#include "setup.h"
 
 // ---------------------------------------------------------------- Zustand
 static Layer *s_layer;
@@ -14,6 +15,7 @@ static uint32_t s_last_start_ms;
 static uint8_t s_flash;
 static int32_t s_agl8;
 static int s_shadow_row = -1;
+static int s_shadow_hw;
 static char s_hud1[48];
 static char s_hud2[48];
 static char s_text[VOX_TEXT_LINES][32];
@@ -309,12 +311,13 @@ static void prv_draw_shadow(uint8_t *fb, uint16_t stride) {
   if (agl8 <= 0) return;
   // Der Gleiter fliegt CAM_BACK_CELLS vor der Kamera; genau dort steht sein
   // Schatten, und zwar mit derselben Projektionsformel wie das Terrain.
-  const int32_t ahead = CAM_BACK_CELLS << 16;
+  const int back = setup_cam_back_cells();
+  const int32_t ahead = back << 16;
   const int32_t sx = sin_lookup(s_cam.yaw), sc = cos_lookup(s_cam.yaw);
   const int32_t wx = s_cam.x16 + (int32_t)(((int64_t)sx * ahead) >> 16);
   const int32_t wy = s_cam.y16 + (int32_t)(((int64_t)sc * ahead) >> 16);
   const int32_t gh8 = world_height_at(wx, wy);
-  const int32_t z8 = CAM_BACK_CELLS << 8;
+  const int32_t z8 = back << 8;
   const int32_t proj = (int32_t)(((uint32_t)SCALE_H << 16) / (uint32_t)z8);
   const int row = HORIZON_BASE + s_cam.pitch_px + (((s_cam.h8 - gh8) * proj) >> 16);
   if (row < 0 || row >= SCR_H) return;
@@ -323,6 +326,7 @@ static void prv_draw_shadow(uint8_t *fb, uint16_t stride) {
   // Schatten zum Hoehenmesser.
   int hw = 22 - (int)(agl8 >> 9);
   if (hw < 6) hw = 6;
+  s_shadow_hw = hw;
   int hh = 7 - (int)(agl8 >> 10);
   if (hh < 2) hh = 2;
   for (int dy = -hh; dy <= hh; dy++) {
@@ -345,7 +349,7 @@ static void prv_draw_shadow(uint8_t *fb, uint16_t stride) {
 // Der Gleiter: drei Rollposen als Spans, ohne Ressourcen. Der Rumpf rollt mit
 // doppeltem Winkel, damit die Lage auf 1,5 Zoll ablesbar bleibt.
 static void prv_draw_glider(uint8_t *fb, uint16_t stride) {
-  const int cy = GLIDER_ROW + s_cam.pitch_px;
+  const int cy = setup_glider_row() + s_cam.pitch_px;
   const int32_t tilt = s_cam.roll_deg8 * 2 / 256;        // Grad
   const uint8_t body = prv_argb(85, 85, 85);
   const uint8_t edge = prv_argb(255, 255, 255);
@@ -534,6 +538,8 @@ void voxel_set_flash(uint8_t frames) { s_flash = frames; }
 void voxel_set_agl8(int32_t agl8) { s_agl8 = agl8; }
 
 int voxel_shadow_row(void) { return s_shadow_row; }
+
+int voxel_shadow_halfwidth(void) { return s_shadow_hw; }
 
 void voxel_set_hud(const char *l1, const char *l2) {
   strncpy(s_hud1, l1, sizeof(s_hud1) - 1);

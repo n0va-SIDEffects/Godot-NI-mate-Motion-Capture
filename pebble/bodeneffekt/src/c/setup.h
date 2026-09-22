@@ -1,0 +1,47 @@
+#pragma once
+#include <pebble.h>
+#include "config.h"
+
+// Alles, was das Duell gegeneinander stellen soll, an einer Stelle und im
+// Flash. Die Messung hat gezeigt, dass der Fingerstick im unteren Bilddrittel
+// den Bodenschatten zu 77 Prozent der Zeit verdeckt; statt einen Nachfolger zu
+// raten, sind hier alle Kandidaten waehlbar und einzeln messbar.
+
+typedef enum {
+  ProfFingerUnten = 0,   // Cockpitband im unteren Drittel (der durchgefallene Stand)
+  ProfFingerRand  = 1,   // schmaler Streifen am Bildrand, Mitte bleibt frei
+  ProfTilt        = 2,   // Neigungssensor, gar keine Hand auf dem Glas
+  ProfTasten      = 3,   // Up/Down Roll, Select halten steigen (Flappy)
+  ProfAnzahl      = 4,
+} Profil;
+
+typedef enum {
+  SchattenNormal = 0,    // Kamera 32 Zellen zurueck, Schatten in Zeile 160..210
+  SchattenHoch   = 1,    // Kamera weiter zurueck, Schatten ueber dem Cockpitband
+  SchattenAnzahl = 2,
+} Schattenlage;
+
+typedef struct {
+  uint8_t profil;        // Profil
+  uint8_t schatten;      // Schattenlage
+  uint8_t invert;        // Nicklage umgekehrt (nur die Finger-Profile)
+  uint8_t rand_rechts;   // Randstreifen rechts statt links (nur ProfFingerRand)
+} Setup;
+
+void setup_init(void);
+void setup_save(void);
+const Setup *setup_get(void);
+
+// Eine Zeile des Einstellungsbildschirms weiterschalten (0..SETUP_ZEILEN-1).
+#define SETUP_ZEILEN 4
+void setup_naechster_wert(int zeile);
+void setup_text(int zeile, char *out, size_t n, bool markiert);
+
+const char *setup_profil_name(uint8_t p);      // kurz, fuer die Duell-Tabelle
+bool setup_profil_ist_touch(uint8_t p);
+
+// Aus der Schattenlage abgeleitete Geometrie. Beide Werte brauchen Renderer
+// und Flugmodell, und sie muessen zusammenpassen, sonst steht der Schatten
+// nicht mehr unter dem Gleiter.
+int setup_cam_back_cells(void);
+int setup_glider_row(void);

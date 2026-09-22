@@ -1,10 +1,14 @@
 #include "control.h"
 #include "bclock.h"
+#include "setup.h"
 
 static CtrlOut s_out;
 static CtrlStats s_st;
-static CtrlProfile s_profile = CtrlFinger;
+static uint8_t s_profile = ProfFingerUnten;
 static bool s_invert = true;        // Standard: ziehen = steigen, wie am Knueppel
+static int32_t s_tilt_x, s_tilt_y;         // geglaettet, in mg
+static int32_t s_tilt_null_x, s_tilt_null_y;
+static bool s_tilt_hat_null;
 
 static int16_t s_anchor_x, s_anchor_y;
 static bool s_down;
@@ -26,6 +30,14 @@ static int32_t prv_curve(int32_t px) {
   return px < 0 ? -out : out;
 }
 
+// Beim Randprofil nimmt nur ein schmaler Streifen den Finger an. Alles andere
+// wird ignoriert, damit die Bildmitte mit dem Bodenschatten frei bleibt.
+bool control_touch_in_zone(int16_t x) {
+  if (setup_get()->profil != ProfFingerRand) return true;
+  return setup_get()->rand_rechts ? (x >= SCR_W - RAND_BREITE_PX)
+                                  : (x < RAND_BREITE_PX);
+}
+
 static void prv_touch(const TouchEvent *e, void *ctx) {
   const uint32_t now = bclock_now_ms();
   s_st.events++;
@@ -37,6 +49,10 @@ static void prv_touch(const TouchEvent *e, void *ctx) {
   }
   s_last_ev_ms = now;
 
+  if (!control_touch_in_zone(e->x)) {
+    if (e->type == TouchEvent_Touchdown) return;   // ausserhalb der Zone: ignorieren
+    if (!s_down) return;
+  }
   switch (e->type) {
     case TouchEvent_Touchdown:
       s_down = true;
@@ -70,6 +86,38 @@ static void prv_touch(const TouchEvent *e, void *ctx) {
   s_st.down = s_down;
 }
 
+static void prv_accel(AccelData *data, uint32_t num) {
+  if (!num) return;
+  // Tiefpass ueber den Batch. Die Rohwerte am Handgelenk sind zu unruhig, um
+  // sie direkt als Knueppel zu nehmen.
+  for (uint32_t i = 0; i < num; i++) {
+    if (data[i].did_vibrate) continue;      // Aktor verfaelscht die Messung
+    s_tilt_x += ((int32_t)data[i].x - s_tilt_x) / TILT_GLAETTUNG;
+    s_tilt_y += ((int32_t)data[i].y - s_tilt_y) / TILT_GLAETTUNG;
+  }
+  if (!s_tilt_hat_null) {
+    s_tilt_null_x = s_tilt_x;
+    s_tilt_null_y = s_tilt_y;
+    s_tilt_hat_null = true;
+  }
+}
+
+void control_tilt_kalibrieren(void) {
+  s_tilt_hat_null = false;
+}
+
+// Dieselbe Kurve wie beim Finger, nur in Milli-g statt Pixeln.
+static int32_t prv_tilt_kurve(int32_t mg) {
+  int32_t a = mg < 0 ? -mg : mg;
+  if (a <= TILT_DEAD_MG) return 0;
+  a -= TILT_DEAD_MG;
+  const int32_t range = TILT_SAT_MG - TILT_DEAD_MG;
+  if (a > range) a = range;
+  const int32_t lin = (a * 256) / range;
+  const int32_t out = (lin * lin) >> 8;
+  return mg < 0 ? -out : out;
+}
+
 void control_init(Window *window) {
   s_out = (CtrlOut){ 0 };
   s_st = (CtrlStats){ 0 };
@@ -81,22 +129,27 @@ void control_init(Window *window) {
   s_btn_roll = 0;
   window_set_touch_bridge_disabled(window, true);
   touch_service_subscribe(prv_touch, NULL);
+  accel_data_service_subscribe(5, prv_accel);
+  accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
+  s_profile = setup_get()->profil;
+  s_invert = setup_get()->invert != 0;
   s_st.available = touch_service_is_enabled();
-  if (!s_st.available) {
-    s_profile = CtrlButton;      // Touch systemweit aus: Tasten uebernehmen
+  if (!s_st.available && setup_profil_ist_touch(s_profile)) {
+    s_profile = ProfTasten;      // Touch systemweit aus: Tasten uebernehmen
   }
 }
 
 void control_deinit(void) {
   touch_service_unsubscribe();
+  accel_data_service_unsubscribe();
 }
 
 void control_tick(uint32_t now) {
   // Das Steuerprofil wird bei jedem Tick geprueft, damit ein systemweites
   // Abschalten von Touch mitten im Lauf auffaengt statt den Flug einzufrieren.
   const bool avail = touch_service_is_enabled();
-  if (s_st.available && !avail && s_profile == CtrlFinger) {
-    s_profile = CtrlButton;
+  if (s_st.available && !avail && setup_profil_ist_touch(s_profile)) {
+    s_profile = ProfTasten;
   }
   s_st.available = avail;
 
@@ -107,7 +160,7 @@ void control_tick(uint32_t now) {
     s_rate_t0 = now;
   }
 
-  if (s_profile == CtrlFinger) {
+  if (setup_profil_ist_touch(s_profile)) {
     if (s_down) {
       s_out.roll_cmd = prv_curve(s_st.dx);
       int32_t c = prv_curve(s_st.dy);
@@ -124,6 +177,15 @@ void control_tick(uint32_t now) {
     }
     s_out.precision = s_btn_select;
     s_out.climb_held = false;
+  } else if (s_profile == ProfTilt) {
+    // x kippt nach links/rechts, y nach vorn/hinten. Der Nullpunkt ist die
+    // Haltung beim Betreten des Flugs, nicht die Waagerechte: am Handgelenk
+    // haelt niemand die Uhr eben.
+    s_out.roll_cmd = prv_tilt_kurve(s_tilt_x - s_tilt_null_x);
+    const int32_t c = prv_tilt_kurve(s_tilt_y - s_tilt_null_y);
+    s_out.climb_cmd = s_invert ? -c : c;
+    s_out.climb_held = false;
+    s_out.precision = s_btn_select;
   } else {
     // Tasten: Roll laeuft mit gedrueckter Taste auf, faellt sonst zur Mitte.
     if (s_btn_up && !s_btn_down) {
@@ -142,21 +204,24 @@ void control_tick(uint32_t now) {
   }
 }
 
-void control_set_profile(CtrlProfile p) {
-  s_profile = p;
+void control_set_profile(uint8_t p) {
+  s_profile = (uint8_t)(p % ProfAnzahl);
+  s_down = false;
+  s_tilt_hat_null = false;
   s_btn_roll = 0;
   s_out.roll_cmd = 0;
   s_out.climb_cmd = 0;
   s_out.climb_held = false;
 }
 
-CtrlProfile control_profile(void) { return s_profile; }
+uint8_t control_profile(void) { return s_profile; }
 
 void control_toggle_profile(void) {
-  control_set_profile(s_profile == CtrlFinger ? CtrlButton : CtrlFinger);
+  control_set_profile((uint8_t)(s_profile + 1));
 }
 
 void control_set_pitch_invert(bool on) { s_invert = on; }
+
 bool control_pitch_invert(void) { return s_invert; }
 
 void control_button_up(bool pressed) { s_btn_up = pressed; }

@@ -63,3 +63,8 @@ static inline AppTimer *app_timer_register(uint32_t ms, void (*cb)(void *), void
   (void)ms; (void)cb; (void)d; return 0;
 }
 static inline void app_timer_cancel(AppTimer *t) { (void)t; }
+
+// Persistenz gibt es auf dem Rechner nicht; die Vorschau nutzt die Standardwerte.
+static inline bool persist_exists(uint32_t key) { (void)key; return false; }
+static inline int persist_read_data(uint32_t k, void *b, size_t n) { (void)k; (void)b; (void)n; return 0; }
+static inline int persist_write_data(uint32_t k, const void *b, size_t n) { (void)k; (void)b; (void)n; return (int)n; }

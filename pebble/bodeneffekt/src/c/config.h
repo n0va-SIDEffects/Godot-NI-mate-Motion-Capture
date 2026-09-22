@@ -81,6 +81,22 @@
 #define CAM_UP_CELLS 8
 #define GLIDER_ROW (HORIZON_BASE + (CAM_UP_CELLS * SCALE_H) / CAM_BACK_CELLS)
 
+// Zweite Schattenlage: die Kamera weiter zurueck drueckt den Schatten Richtung
+// Horizont und damit aus dem Bereich, in dem die Hand liegt. Mit 72 Zellen
+// wandert er ueber das Bodeneffekt-Fenster durch die Zeilen 129 bis 154 statt
+// 160 bis 210. Der Preis steht im README: weniger Abstand zwischen Rumpf und
+// Schatten, also weniger Ablesbarkeit.
+#define CAM_BACK_HOCH 72
+
+// Randstreifen fuer ProfFingerRand: nur hier wird ein Touch als Stick
+// angenommen, die Bildmitte mit dem Schatten bleibt frei.
+#define RAND_BREITE_PX 52
+
+// Tilt: 50 Hz, Tiefpass, Nullpunkt beim Betreten des Flugs.
+#define TILT_GLAETTUNG 4              // gleitender Mittelwert, 1/4 neu
+#define TILT_SAT_MG 400               // volle Auslenkung bei 400 mg Neigung
+#define TILT_DEAD_MG 40
+
 // Sonne
 #define SUN_RADIUS 15
 #define SUN_GLOW_R 22

@@ -64,13 +64,13 @@ meldet nur `[Errno 111] Connection refused`; dann muss der Server auf
 
 | Taste | FLUG | MESSUNG |
 |---|---|---|
-| Back kurz | zu MESSUNG | zu DUELL (von dort zu FLUG) |
-| Back Doppelklick | Steuerprofil umschalten | Steuerprofil umschalten |
+| Back kurz | zu SETUP | weiter: SETUP, MESSUNG, DUELL, FLUG |
+| Back Doppelklick | Steuerprofil weiterschalten | Steuerprofil weiterschalten |
 | Back lang (900 ms) | App beenden | App beenden |
 | Select halten | steigen (Tasten) / Praezision (Finger) | — |
 | Select kurz | — | Test starten, Variante weiterschalten (DUELL: 60-s-Lauf) |
 | Select Doppelklick | — | Nicklage der Fingersteuerung umkehren |
-| Up / Down | Roll (Tasten) / Hoehentrimmung (Finger) | Strahlenzahl / Sichtweite |
+| Up / Down | Roll (Tasten) / Hoehentrimmung (sonst) | Strahlenzahl / Sichtweite (SETUP: Zeile) |
 
 ### Die beiden Steuerprofile, und warum sie beide drin sind
 
@@ -82,11 +82,14 @@ bessere Steuerung sein, was fuer ein Touch-Konzept ein schlechtes Zeichen ist.
 
 Diese Frage wird hier nicht entschieden, sondern messbar gemacht:
 
-- **Profil A, Fingerstick.** Finger irgendwo aufsetzen, der Versatz zum
+- **FingU, Fingerstick unten.** Finger irgendwo aufsetzen, der Versatz zum
   Aufsetzpunkt ist die Eingabe (x = Roll, y = Hoehe). Dead Zone 6 px,
   Saettigung bei 40 px, quadratische Kurve. Loslassen = Neutrallage.
-- **Profil B, Tasten.** Up/Down = Roll, Select gehalten = steigen, sonst
-  sinken (Flappy-Hoehenmodell).
+- **FingR, Fingerstick am Rand.** Dasselbe, aber nur ein 52 px schmaler
+  Streifen am Bildrand nimmt den Finger an.
+- **Tilt.** Neigungssensor statt Glas, Nullpunkt beim Betreten des Flugs.
+- **Tast, Tasten.** Up/Down = Roll, Select gehalten = steigen, sonst sinken
+  (Flappy-Hoehenmodell).
 - **Ein Doppelklick auf Back tauscht die Profile mitten im Flug**, ohne
   Neustart und ohne Menue. Nur so lassen sich zwei Laeufe hintereinander
   ehrlich vergleichen.
@@ -258,21 +261,48 @@ ist es strukturell. Schatten und Cockpitband belegen dieselben Bildzeilen, und
 das Bodeneffekt-Fenster reicht bis zwoelf Zellen.
 
 Damit ist die Frage aus dem Konzept beantwortet, und zwar gegen den
-Fingerstick in seiner jetzigen Form. Drei Wege fuehren weiter, und keiner ist
-umsonst:
+Fingerstick in seiner jetzigen Form.
 
-1. **Schatten nach oben holen** (Kamera weiter zurueck oder Horizont hoeher),
-   bis er ueber dem Cockpitband liegt. Loest die Geometrie, kostet aber den
-   Abstand zwischen Rumpf und Schatten, also gerade die Ablesbarkeit.
-2. **Touch an den Bildrand** statt ins untere Drittel: ein schmaler Streifen
-   als Stick, der Schatten bleibt mittig frei. Dann muss die Verdeckungsmessung
-   auch waagerecht pruefen.
-3. **Tilt statt Touch** (Profil B des Konzepts): keine Hand auf dem Glas. Das
-   Konzept haelt es beim Gehen selbst fuer unbrauchbar.
+### Die Auswege sind jetzt alle einstellbar
 
-Bis eine dieser Fragen entschieden ist, ist **Tasten das belastbarere Profil**,
-und das ist fuer ein Konzept, das Touch als Alleinstellungsmerkmal fuehrt, ein
-ernstes Ergebnis.
+![Setup](docs/setup.png)
+
+Statt einen Nachfolger zu raten, stehen alle Kandidaten im Bildschirm SETUP zur
+Wahl und werden einzeln vom Duell gemessen. Die Einstellungen liegen im Flash.
+
+| Zeile | Werte | worum es geht |
+|---|---|---|
+| Steuerung | FingU, FingR, Tilt, Tast | das Eingabeprofil |
+| Schatten | normal, hoch | wo der Schatten im Bild liegt |
+| Nicklage | umgekehrt, direkt | ziehen zum Steigen, oder druecken |
+| Randseite | links, rechts | welche Seite bei FingR den Stick traegt |
+
+**FingU** ist der gemessene, durchgefallene Stand: Cockpitband im unteren
+Drittel. **FingR** nimmt den Finger nur in einem 52 Pixel schmalen Streifen am
+Bildrand an und laesst die Bildmitte frei — genau die Zeilen, durch die der
+Schatten wandert. **Tilt** nimmt den Neigungssensor (50 Hz, Tiefpass,
+Vibrationsproben verworfen) und braucht gar keine Hand auf dem Glas; der
+Nullpunkt ist die Haltung beim Betreten des Flugs, nicht die Waagerechte, weil
+niemand die Uhr am Handgelenk eben haelt. **Tast** ist das Flappy-Modell.
+
+Die **Schattenlage** ist unabhaengig davon und wirkt auf jedes Profil:
+
+| Lage | Kamera zurueck | Gleiter | Schatten bei agl 2 / 6 / 11 | Abstand zum Rumpf |
+|---|---|---|---|---|
+| normal | 32 Zellen | Zeile 149 | 160 / 182 / 210 | 11 / 33 / 61 px |
+| hoch | 72 Zellen | Zeile 124 | 129 / 139 / 151 | 5 / 15 / 27 px |
+
+`hoch` holt den Schatten vollstaendig aus dem Bereich, in dem eine Hand liegen
+kann — und zahlt dafuer mit dem Abstand zum Rumpf, also mit genau der
+Ablesbarkeit, um die es geht. Welcher Preis kleiner ist, sagt das Duell.
+
+Die Verdeckungsmessung prueft seitdem auch **waagerecht**: verdeckt ist der
+Schatten nur, wenn der Finger auch nah genug an der Bildmitte liegt. Ohne das
+waere das Randprofil nicht fair zu messen.
+
+Bis eine Variante gewinnt, ist **Tasten das belastbarste Profil**, und das ist
+fuer ein Konzept, das Touch als Alleinstellungsmerkmal fuehrt, ein ernstes
+Ergebnis.
 
 ## Messung
 
@@ -388,9 +418,10 @@ Heightmap und Colormap sind statisch und werden nie freigegeben.
 ### Was auf der echten Uhr noch zu tun ist
 
 1. ~~Vollbildzeit messen und die Zielbildrate ableiten.~~ Erledigt, siehe oben.
-2. Der Bildschirm DUELL, drei Laeufe: Fingerstick mit umgekehrter Nicklage,
-   Fingerstick ohne, Tasten. Die Frage ist nicht, welches sich besser anfuehlt,
-   sondern was in der Spalte `Blind` steht.
+2. Der Bildschirm DUELL fuer die restlichen Kandidaten: FingR mit normaler und
+   mit hoher Schattenlage, Tilt, und FingU noch einmal mit hoher Schattenlage.
+   Die Frage ist nicht, welches sich besser anfuehlt, sondern was in der Spalte
+   `Blind` steht und ob `Sohle` an die 39 Prozent der Tasten herankommt.
 3. Die Touch-Abtastrate am Handgelenk ablesen (`touch=` und `ivl=` im Log, oder
    `pebble/schwebung`, Bildschirm STIMMEN). Davon haengt ab, ob der Fingerstick
    das Standardprofil bleibt.
@@ -428,7 +459,8 @@ angehoben werden musste.
 | `src/c/voxel.c` | Strahlen mit Y-Buffer, Nebel, Himmel, Sonne, Schatten, Gleiter, Panel-Test |
 | `src/c/control.c` | beide Steuerprofile, Touch-Rohevents, Profilwechsel im Flug |
 | `src/c/flight.c` | Roll, Kurs, Hoehe, Bodenkontakt, Bodeneffekt-Fenster, Verfolgerkamera |
-| `src/c/duell.c` | Vergleichslauf beider Steuerprofile, Verdeckungsmessung, persist |
+| `src/c/setup.c` | Steuerprofil, Schattenlage, Nicklage, Randseite; alles im Flash |
+| `src/c/duell.c` | Vergleichslauf aller Steuerprofile, Verdeckungsmessung, persist |
 | `src/c/main.c` | Fenster, Bildschirme, Tasten, Timer, Sekundenlog |
 | `tools/` | Host-Vorschau fuer Welt und Szene, PPM-Wandler |
 

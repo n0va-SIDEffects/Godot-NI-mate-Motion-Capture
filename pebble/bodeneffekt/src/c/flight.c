@@ -1,6 +1,7 @@
 #include "flight.h"
 #include "world.h"
 #include "control.h"
+#include "setup.h"
 
 static Flight s_f;
 
@@ -43,9 +44,9 @@ void flight_step(uint32_t dt_ms) {
   s_f.y16 += (int32_t)(((int64_t)cos_lookup(s_f.yaw) * dist16) >> 16);
 
   // Hoehe: zwei Modelle, damit sich beide Profile gegeneinander testen lassen.
-  if (control_profile() == CtrlFinger) {
-    // Der Versatz ist eine Steigrate, nicht eine Hoehe: der Gleiter haelt die
-    // Hoehe, sobald der Finger zur Mitte zurueckkommt.
+  if (control_profile() != ProfTasten) {
+    // Der Versatz (oder die Neigung) ist eine Steigrate, nicht eine Hoehe: der
+    // Gleiter haelt die Hoehe, sobald die Eingabe zur Mitte zurueckkommt.
     s_f.vz8 = (in->climb_cmd * STICK_CLIMB_CELLS_S * 256) / 256;
   } else {
     // Flappy: Select liegt = steigen, sonst sinken.
@@ -95,7 +96,7 @@ void flight_fill_camera(Camera *cam) {
   // als Objekt in der Szene und sein Schatten an der geometrisch richtigen
   // Stelle; eine Kamera am Gleiterort wuerde den Schatten weit unter den
   // Bildrand schieben, sobald man ein paar Zellen steigt.
-  const int32_t back16 = CAM_BACK_CELLS << 16;
+  const int32_t back16 = setup_cam_back_cells() << 16;
   cam->x16 = s_f.x16 - (int32_t)(((int64_t)sin_lookup(s_f.yaw) * back16) >> 16);
   cam->y16 = s_f.y16 - (int32_t)(((int64_t)cos_lookup(s_f.yaw) * back16) >> 16);
   cam->h8 = s_f.h8 + (CAM_UP_CELLS << 8);

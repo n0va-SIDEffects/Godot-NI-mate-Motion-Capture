@@ -6,14 +6,16 @@
 #include "control.h"
 #include "flight.h"
 #include "duell.h"
+#include "setup.h"
 
 // BODENEFFEKT, Phase 1. Zwei Bildschirme:
 //   FLUG    - der Voxel-Tiefflug, beide Steuerprofile jederzeit umschaltbar
+//   SETUP   - Steuerprofil, Schattenlage, Nicklage, Randseite
 //   MESSUNG - Vollbildzeit, Strahlenzahl, Sichtweite, Ergebnisse
 //   DUELL   - beide Steuerprofile auf derselben Strecke gegeneinander
 //
 // Tasten:
-//   Back  kurz        Bildschirm wechseln (FLUG -> MESSUNG -> DUELL -> FLUG)
+//   Back  kurz        Bildschirm wechseln (FLUG -> SETUP -> MESSUNG -> DUELL)
 //   Back  Doppelklick Steuerprofil umschalten (Fingerstick <-> Tasten)
 //   Back  lang 900 ms App beenden
 //   FLUG:    Select halten = steigen (Tasten) bzw. Praezision (Finger)
@@ -22,9 +24,10 @@
 //            Up     = Strahlenzahl 200 <-> 100 (2 px je Spalte)
 //            Down   = Sichtweite 200 / 160 / 120 Zellen
 //            Select Doppelklick = Nicklage der Fingersteuerung umkehren
+//   SETUP:   Up/Down = Zeile waehlen, Select = Wert weiterschalten
 //   DUELL:   Select = 60-Sekunden-Lauf mit dem aktuellen Profil starten
 
-typedef enum { ScrFlug = 0, ScrMessung = 1, ScrDuell = 2 } Screen;
+typedef enum { ScrFlug = 0, ScrSetup = 1, ScrMessung = 2, ScrDuell = 3, ScrAnzahl = 4 } Screen;
 
 static Window *s_window;
 static Layer *s_layer;
@@ -40,6 +43,7 @@ static uint32_t s_render_gap_max;
 static uint32_t s_last_render_ms;
 static uint8_t s_panel_variant;
 static uint32_t s_seed = 1;
+static int s_setup_zeile;
 
 static uint32_t s_sel_down_ms;
 static uint32_t s_sel_last_click_ms;
@@ -95,22 +99,30 @@ static void prv_zeile_lauf(char *out, size_t n, const DuellLauf *l, const char *
 }
 
 static void prv_refresh_duell(void) {
-  const DuellLauf *f = duell_ergebnis(CtrlFinger);
-  const DuellLauf *t = duell_ergebnis(CtrlButton);
-  snprintf(s_t[0], sizeof(s_t[0]), "DUELL  %s%s",
-           control_profile() == CtrlFinger ? "FINGER" : "TASTEN",
-           (control_profile() == CtrlFinger && control_pitch_invert()) ? " inv" : "");
-  snprintf(s_t[1], sizeof(s_t[0]), "    Sohle Bod Hoeh Blind");
-  prv_zeile_lauf(s_t[2], sizeof(s_t[0]), f, "Fing");
-  prv_zeile_lauf(s_t[3], sizeof(s_t[0]), t, "Tast");
-  // Der gespeicherte Lauf gilt nur fuer die Strecke, auf der er geflogen wurde.
+  snprintf(s_t[0], sizeof(s_t[0]), "DUELL %s%s", setup_profil_name(control_profile()),
+           setup_get()->schatten == SchattenHoch ? " Sh" : "");
+  snprintf(s_t[1], sizeof(s_t[0]), "     Sohl Bod Hoe Blind");
+  bool fremd = false;
   const uint32_t seed = world_info()->seed;
-  const bool fremd = (f->gueltig && f->seed != seed) || (t->gueltig && t->seed != seed);
-  snprintf(s_t[4], sizeof(s_t[0]), fremd ? "andere Strecke!" : "Strecke %lu",
+  for (int p = 0; p < ProfAnzahl; p++) {
+    const DuellLauf *l = duell_ergebnis((uint8_t)p);
+    prv_zeile_lauf(s_t[2 + p], sizeof(s_t[0]), l, setup_profil_name((uint8_t)p));
+    if (l->gueltig && l->seed != seed) fremd = true;
+  }
+  snprintf(s_t[6], sizeof(s_t[0]), fremd ? "andere Strecke!" : "Strecke %lu",
            (unsigned long)seed);
-  snprintf(s_t[5], sizeof(s_t[0]), "Sohle hoch, Blind tief");
-  snprintf(s_t[6], sizeof(s_t[0]), "ist besser.");
-  snprintf(s_t[7], sizeof(s_t[0]), "Sel=Lauf 60s BackBack=Prof");
+  snprintf(s_t[7], sizeof(s_t[0]), "Sel=Lauf 60s  Sohl hoch");
+  for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
+}
+
+static void prv_refresh_setup(void) {
+  snprintf(s_t[0], sizeof(s_t[0]), "SETUP");
+  for (int i = 0; i < SETUP_ZEILEN; i++) {
+    setup_text(i, s_t[1 + i], sizeof(s_t[0]), i == s_setup_zeile);
+  }
+  snprintf(s_t[5], sizeof(s_t[0]), "Schatten hoch haelt ihn");
+  snprintf(s_t[6], sizeof(s_t[0]), "aus der Handzone.");
+  snprintf(s_t[7], sizeof(s_t[0]), "UpDn=Zeile Sel=Wert");
   for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
 }
 
@@ -118,7 +130,7 @@ static void prv_refresh_hud(void) {
   const Flight *f = flight_state();
   const VoxelStats *vs = voxel_stats();
   snprintf(s_l1, sizeof(s_l1), "%s agl %ld.%ld%s trim%+ld",
-           control_profile() == CtrlFinger ? "FINGER" : "TASTEN",
+           setup_profil_name(control_profile()),
            (long)(f->agl8 >> 8), (long)(((f->agl8 & 255) * 10) >> 8),
            f->in_effect ? " *" : "", (long)(control_trim8() >> 8));
   if (duell_aktiv()) {
@@ -141,6 +153,8 @@ static void prv_set_screen(Screen s) {
   voxel_set_scene(s == ScrFlug);
   if (s == ScrMessung) prv_refresh_text();
   if (s == ScrDuell) prv_refresh_duell();
+  if (s == ScrSetup) prv_refresh_setup();
+  if (s == ScrFlug) control_tilt_kalibrieren();   // Neutrallage = jetzige Haltung
   layer_mark_dirty(s_layer);
 }
 
@@ -169,7 +183,7 @@ static void prv_game_tick(void *data) {
     // hoechstens ein Bild alt. Genauer geht es nicht, ohne die Projektion ein
     // zweites Mal zu rechnen, und fuer eine Sekundenstatistik reicht das.
     if (duell_tick(dt, f->agl8, f->hit, f->in_effect, voxel_shadow_row(),
-                   control_stats())) {
+                   voxel_shadow_halfwidth(), control_stats())) {
       prv_set_screen(ScrDuell);          // Lauf zu Ende, Ergebnis zeigen
     }
   }
@@ -203,7 +217,8 @@ static void prv_log_tick(void *data) {
   APP_LOG(APP_LOG_LEVEL_INFO,
           "[BE] %s fps=%lu.%lu rast=%lu.%lu/%lums voll=%lu.%lums heap=%lu",
           s_screen == ScrFlug ? (duell_aktiv() ? "DUEL" : "FLUG")
-                              : (s_screen == ScrMessung ? "MESS" : "ERGB"),
+                              : (s_screen == ScrMessung ? "MESS"
+                                 : (s_screen == ScrSetup ? "SETU" : "ERGB")),
           (unsigned long)(vs->fps_x10 / 10), (unsigned long)(vs->fps_x10 % 10),
           (unsigned long)(vs->render_ms_x10 / 10), (unsigned long)(vs->render_ms_x10 % 10),
           (unsigned long)vs->render_ms_max,
@@ -211,7 +226,7 @@ static void prv_log_tick(void *data) {
           (unsigned long)heap_bytes_free());
   APP_LOG(APP_LOG_LEVEL_INFO,
           "[BEt] prof=%s inv=%d touch=%lu.%lu/s ivl=%lums dx=%d dy=%d rays=%u sicht=%u",
-          control_profile() == CtrlFinger ? "F" : "T", control_pitch_invert() ? 1 : 0,
+          setup_profil_name(control_profile()), control_pitch_invert() ? 1 : 0,
           (unsigned long)(cs->ev_rate_x10 / 10), (unsigned long)(cs->ev_rate_x10 % 10),
           (unsigned long)cs->min_interval_ms, (int)cs->dx, (int)cs->dy,
           (unsigned)voxel_rays(), (unsigned)voxel_sight_cells());
@@ -236,15 +251,17 @@ static void prv_log_tick(void *data) {
 
 // ---------------------------------------------------------------- Tasten
 static void prv_back_click(ClickRecognizerRef r, void *ctx) {
-  prv_set_screen((Screen)((s_screen + 1) % 3));
+  prv_set_screen((Screen)((s_screen + 1) % ScrAnzahl));
 }
 
 static void prv_back_double(ClickRecognizerRef r, void *ctx) {
   control_toggle_profile();
+  while (setup_get()->profil != control_profile()) setup_naechster_wert(0);
   APP_LOG(APP_LOG_LEVEL_INFO, "[BE] Steuerprofil -> %s",
-          control_profile() == CtrlFinger ? "Fingerstick" : "Tasten");
+          setup_profil_name(control_profile()));
   if (s_screen == ScrMessung) prv_refresh_text();
   if (s_screen == ScrDuell) prv_refresh_duell();
+  if (s_screen == ScrSetup) prv_refresh_setup();
 }
 
 static void prv_back_long(ClickRecognizerRef r, void *ctx) {
@@ -260,9 +277,18 @@ static void prv_select_up(ClickRecognizerRef r, void *ctx) {
   control_button_select(false);
   const uint32_t now = bclock_now_ms();
   if ((now - s_sel_down_ms) > 400) return;         // gehalten, kein Klick
+  if (s_screen == ScrSetup) {
+    setup_naechster_wert(s_setup_zeile);
+    control_set_profile(setup_get()->profil);
+    control_set_pitch_invert(setup_get()->invert != 0);
+    prv_refresh_setup();
+    layer_mark_dirty(s_layer);
+    return;
+  }
   if (s_screen == ScrDuell) {
     // Ein Lauf beginnt immer an derselben Stelle, sonst vergleicht er nichts.
     flight_reset(64 << 16, 8 << 16);
+    control_tilt_kalibrieren();
     duell_start();
     prv_set_screen(ScrFlug);
     return;
@@ -283,6 +309,12 @@ static void prv_select_up(ClickRecognizerRef r, void *ctx) {
 }
 
 static void prv_up_down(ClickRecognizerRef r, void *ctx) {
+  if (s_screen == ScrSetup) {
+    s_setup_zeile = (s_setup_zeile + SETUP_ZEILEN - 1) % SETUP_ZEILEN;
+    prv_refresh_setup();
+    layer_mark_dirty(s_layer);
+    return;
+  }
   if (s_screen == ScrMessung) {
     voxel_set_rays(voxel_rays() == RAYS_FULL ? RAYS_HALF : RAYS_FULL);
     prv_refresh_text();
@@ -290,7 +322,7 @@ static void prv_up_down(ClickRecognizerRef r, void *ctx) {
     return;
   }
   control_button_up(true);
-  if (control_profile() == CtrlFinger) control_trim(TRIM_STEP);
+  if (control_profile() != ProfTasten) control_trim(TRIM_STEP);
 }
 
 static void prv_up_up(ClickRecognizerRef r, void *ctx) {
@@ -298,6 +330,12 @@ static void prv_up_up(ClickRecognizerRef r, void *ctx) {
 }
 
 static void prv_down_down(ClickRecognizerRef r, void *ctx) {
+  if (s_screen == ScrSetup) {
+    s_setup_zeile = (s_setup_zeile + 1) % SETUP_ZEILEN;
+    prv_refresh_setup();
+    layer_mark_dirty(s_layer);
+    return;
+  }
   if (s_screen == ScrMessung) {
     voxel_set_sight((uint8_t)(voxel_sight() + 1));
     prv_refresh_text();
@@ -305,7 +343,7 @@ static void prv_down_down(ClickRecognizerRef r, void *ctx) {
     return;
   }
   control_button_down(true);
-  if (control_profile() == CtrlFinger) control_trim(-TRIM_STEP);
+  if (control_profile() != ProfTasten) control_trim(-TRIM_STEP);
 }
 
 static void prv_down_up(ClickRecognizerRef r, void *ctx) {
@@ -368,6 +406,7 @@ static void prv_focus(bool in_focus) {
 
 static void prv_init(void) {
   bclock_init();
+  setup_init();
   duell_init();
   s_window = window_create();
   window_set_click_config_provider(s_window, prv_click_config);

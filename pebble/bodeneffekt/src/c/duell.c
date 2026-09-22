@@ -1,11 +1,12 @@
 #include "duell.h"
 #include "world.h"
+#include "setup.h"
 
 // Ein Lauf je Profil bleibt im Flash stehen, damit sich zwei Laeufe auch ueber
 // eine Pause hinweg vergleichen lassen.
 #define PERSIST_KEY_LAUF 100
 
-static DuellLauf s_laeufe[2];
+static DuellLauf s_laeufe[ProfAnzahl];
 static DuellLauf *s_aktiv;
 static uint32_t s_rest_ms;
 
@@ -19,12 +20,13 @@ void duell_init(void) {
 }
 
 void duell_start(void) {
-  const CtrlProfile p = control_profile();
-  s_aktiv = &s_laeufe[p == CtrlFinger ? 0 : 1];
+  const uint8_t p = control_profile();
+  s_aktiv = &s_laeufe[p % ProfAnzahl];
   memset(s_aktiv, 0, sizeof(*s_aktiv));
   s_aktiv->seed = world_info()->seed;
-  s_aktiv->profil = (uint8_t)p;
+  s_aktiv->profil = p;
   s_aktiv->invert = control_pitch_invert() ? 1 : 0;
+  s_aktiv->schatten = setup_get()->schatten;
   s_rest_ms = DUELL_DAUER_MS;
 }
 
@@ -37,7 +39,7 @@ bool duell_aktiv(void) { return s_aktiv != NULL; }
 uint32_t duell_rest_ms(void) { return s_rest_ms; }
 
 bool duell_tick(uint32_t dt_ms, int32_t agl8, bool kontakt, bool in_effekt,
-                int schatten_zeile, const CtrlStats *touch) {
+                int schatten_zeile, int schatten_hw, const CtrlStats *touch) {
   if (!s_aktiv) return false;
   if (dt_ms > 200) dt_ms = 200;          // nach einer Lastspitze nicht springen
 
@@ -49,15 +51,19 @@ bool duell_tick(uint32_t dt_ms, int32_t agl8, bool kontakt, bool in_effekt,
     s_aktiv->proben++;
   }
 
-  // Verdeckung. Die Annahme ist bewusst grosszuegig zugunsten der Kritik:
+  // Verdeckung. Senkrecht bleibt die Annahme grosszuegig zugunsten der Kritik:
   // Finger und Hand kommen von unten, also gilt alles ab FINGER_COVER_PX
-  // oberhalb der Beruehrung als verdeckt. Waagerecht wird nicht geprueft,
-  // weil die Handflaeche breit aufliegt und eine Spaltenrechnung hier
-  // scheingenau waere.
+  // oberhalb der Beruehrung als verdeckt. Waagerecht wird seit dem Randprofil
+  // mitgeprueft, denn genau darauf beruht dessen Idee: liegt der Finger am
+  // Rand und der Schatten in der Mitte, ist nichts verdeckt.
   if (schatten_zeile >= 0) {
     s_aktiv->schatten_ms += dt_ms;
     if (touch->down && schatten_zeile >= (int)touch->abs_y - FINGER_COVER_PX) {
-      s_aktiv->blind_ms += dt_ms;
+      const int dx = (int)touch->abs_x - SCR_CX;
+      const int abstand = dx < 0 ? -dx : dx;
+      if (abstand <= FINGER_COVER_PX + schatten_hw) {
+        s_aktiv->blind_ms += dt_ms;
+      }
     }
   }
 
@@ -72,6 +78,6 @@ bool duell_tick(uint32_t dt_ms, int32_t agl8, bool kontakt, bool in_effekt,
   return false;
 }
 
-const DuellLauf *duell_ergebnis(CtrlProfile p) {
-  return &s_laeufe[p == CtrlFinger ? 0 : 1];
+const DuellLauf *duell_ergebnis(uint8_t profil) {
+  return &s_laeufe[profil % ProfAnzahl];
 }

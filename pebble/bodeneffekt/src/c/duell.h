@@ -24,8 +24,9 @@ typedef struct {
   uint32_t agl_sum8;          // Summe der Hoehen ueber Grund (24.8) fuer den Mittelwert
   uint32_t proben;
   uint16_t kontakte;
-  uint8_t profil;             // CtrlFinger oder CtrlButton
-  uint8_t invert;             // Nicklage umgekehrt (nur Profil A)
+  uint8_t profil;             // Profil aus setup.h
+  uint8_t invert;             // Nicklage umgekehrt (nur die Finger- und Tilt-Profile)
+  uint8_t schatten;           // Schattenlage, mit der der Lauf geflogen wurde
   bool gueltig;
 } DuellLauf;
 
@@ -37,5 +38,5 @@ uint32_t duell_rest_ms(void);
 // Einmal je Spiel-Tick waehrend eines Laufs. Liefert true, wenn der Lauf in
 // diesem Tick zu Ende ging.
 bool duell_tick(uint32_t dt_ms, int32_t agl8, bool kontakt, bool in_effekt,
-                int schatten_zeile, const CtrlStats *touch);
-const DuellLauf *duell_ergebnis(CtrlProfile p);
+                int schatten_zeile, int schatten_hw, const CtrlStats *touch);
+const DuellLauf *duell_ergebnis(uint8_t profil);
