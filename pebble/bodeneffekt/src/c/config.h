@@ -148,6 +148,11 @@
 
 // Duell: beide Steuerprofile auf derselben Strecke gegeneinander.
 #define DUELL_DAUER_MS 60000          // ein Lauf, lang genug fuer eine Aussage
+// Vorlauf vor der Wertung. Ohne ihn setzt der Neigungssensor seinen Nullpunkt
+// in dem Moment, in dem der Daumen noch auf Select drueckt und die Uhr
+// wegkippt, und die ersten Sekunden jedes Laufs zaehlen, bevor die Hand ueber-
+// haupt in Flughaltung ist. Beides verfaelscht den Vergleich systematisch.
+#define DUELL_VORLAUF_MS 3000
 // Wie weit ueber dem Beruehrungspunkt die Fingerkuppe noch verdeckt. Bei
 // 202 ppi sind 10 mm rund 80 Pixel, also 40 Pixel Radius.
 #define FINGER_COVER_PX 40

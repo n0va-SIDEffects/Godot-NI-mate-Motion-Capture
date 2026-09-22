@@ -11,6 +11,10 @@ void flight_reset(int32_t x16, int32_t y16) {
   s_f.y16 = y16;
   s_f.ground8 = world_height_at(x16, y16);
   s_f.h8 = s_f.ground8 + (8 << 8);
+  // Hoehe ueber Grund gleich mitsetzen: sonst steht sie bis zum ersten
+  // flight_step auf null, das HUD zeigt agl 0.0 und der Bodenschatten fehlt -
+  // sichtbar waehrend des Countdowns, in dem nicht geflogen wird.
+  s_f.agl8 = s_f.h8 - s_f.ground8;
   s_f.yaw = 0;
 }
 

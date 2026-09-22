@@ -223,6 +223,44 @@ Handflaeche breit aufliegt und eine Spaltenrechnung scheingenau waere.
 Die gespeicherten Laeufe gelten fuer die Strecke, auf der sie geflogen wurden;
 wechselt der Tages-Seed, warnt der Bildschirm mit `andere Strecke!`.
 
+### Wie ein Lauf zu fliegen ist
+
+Ein Duell vergleicht nur dann Steuerungen, wenn alles andere gleich bleibt.
+Sonst misst es die Tagesform.
+
+**Die Aufgabe ist in jedem Lauf dieselbe: so tief wie moeglich fliegen, ohne
+aufzusetzen.** Nicht moeglichst lange ueberleben, nicht moeglichst weit kommen.
+Wer bei einem Profil vorsichtig fliegt und beim anderen mutig, misst seine
+Absicht und nicht die Steuerung. Die Spalte `Sohle` belohnt genau diese eine
+Aufgabe, `Bod` ist ihr Preis.
+
+Der Ablauf je Lauf:
+
+1. Auf SETUP das Profil einstellen, **Licht auf `dauernd an`** (sonst geht das
+   Bild mitten im Lauf aus und der Rest des Laufs ist Blindflug).
+2. Auf DUELL **Select** druecken. Es laeuft ein Countdown von drei Sekunden,
+   in dem nichts gewertet wird und der Gleiter stillsteht.
+3. **Waehrend des Countdowns die Hand in die Haltung bringen, in der geflogen
+   wird.** Bei Tilt ist das entscheidend: der Nullpunkt des Neigungssensors
+   wird am Ende des Countdowns gesetzt, nicht vorher. Wer die Uhr erst danach
+   aufrichtet, fliegt den ganzen Lauf mit schiefem Horizont.
+4. 60 Sekunden fliegen. Die HUD-Zeile zeigt Restzeit, Bodenkontakte und
+   Sohlenzeit mit.
+5. Die App springt von selbst zur Tabelle zurueck.
+
+Was den Vergleich sonst noch kaputt macht:
+
+- **Der erste Lauf mit einem neuen Profil ist Uebung**, kein Messwert. Einmal
+  einfliegen, dann den Wertungslauf. Es zaehlt immer nur der **letzte** Lauf
+  eines Profils; die Zeile `Nr` unten zeigt, der wievielte gerade in der
+  Tabelle steht.
+- **Alle Laeufe am selben Tag**, sonst wechselt der Seed und damit die Strecke.
+- **Immer gleich sitzen oder stehen.** Im Gehen ist Tilt bauartbedingt
+  unbrauchbar (Armschwung), und auch der Fingerstick wird unruhig.
+- **Nicht zwischendurch die Schattenlage aendern**, wenn zwei Profile
+  verglichen werden sollen — sie wirkt auf beide. Erst alle Profile mit
+  `normal`, dann bei Bedarf alle mit `hoch`.
+
 ### Ergebnis: der Fingerstick ist durchgefallen
 
 ![Duell auf der Uhr](docs/duell-hardware.jpg)

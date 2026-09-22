@@ -22,6 +22,8 @@ typedef struct {
 static DuellLauf s_laeufe[ProfAnzahl];
 static DuellLauf *s_aktiv;
 static uint32_t s_rest_ms;
+static uint32_t s_vorlauf_ms;
+static uint16_t s_nummer[ProfAnzahl];
 
 void duell_init(void) {
   memset(s_laeufe, 0, sizeof(s_laeufe));
@@ -49,21 +51,37 @@ void duell_start(void) {
   s_aktiv->profil = p;
   s_aktiv->invert = control_pitch_invert() ? 1 : 0;
   s_aktiv->schatten = setup_get()->schatten;
+  s_aktiv->nummer = ++s_nummer[p % ProfAnzahl];
   s_rest_ms = DUELL_DAUER_MS;
+  s_vorlauf_ms = DUELL_VORLAUF_MS;
 }
 
 void duell_abort(void) {
   s_aktiv = NULL;
   s_rest_ms = 0;
+  s_vorlauf_ms = 0;
 }
 
 bool duell_aktiv(void) { return s_aktiv != NULL; }
 uint32_t duell_rest_ms(void) { return s_rest_ms; }
+uint32_t duell_vorlauf_ms(void) { return s_vorlauf_ms; }
 
-bool duell_tick(uint32_t dt_ms, int32_t agl8, bool kontakt, bool in_effekt,
-                int schatten_zeile, int schatten_hw, const CtrlStats *touch) {
-  if (!s_aktiv) return false;
+DuellPhase duell_tick(uint32_t dt_ms, int32_t agl8, bool kontakt, bool in_effekt,
+                      int schatten_zeile, int schatten_hw, const CtrlStats *touch) {
+  if (!s_aktiv) return DuellAus;
   if (dt_ms > 200) dt_ms = 200;          // nach einer Lastspitze nicht springen
+
+  if (s_vorlauf_ms) {
+    // Countdown: es wird weder geflogen noch gewertet. Am Ende meldet die
+    // Phase DuellStart, und erst dann setzt der Neigungssensor seinen
+    // Nullpunkt - auf die Haltung, in der wirklich geflogen wird.
+    if (s_vorlauf_ms <= dt_ms) {
+      s_vorlauf_ms = 0;
+      return DuellStart;
+    }
+    s_vorlauf_ms -= dt_ms;
+    return DuellVorlauf;
+  }
 
   s_aktiv->dauer_ms += dt_ms;
   if (in_effekt) s_aktiv->sohle_ms += dt_ms;
@@ -99,10 +117,10 @@ bool duell_tick(uint32_t dt_ms, int32_t agl8, bool kontakt, bool in_effekt,
                               .slots = ProfAnzahl };
     memcpy(block.laeufe, s_laeufe, sizeof(s_laeufe));
     persist_write_data(PERSIST_KEY_LAUF, &block, sizeof(block));
-    return true;
+    return DuellZuende;
   }
   s_rest_ms -= dt_ms;
-  return false;
+  return DuellWertung;
 }
 
 const DuellLauf *duell_ergebnis(uint8_t profil) {

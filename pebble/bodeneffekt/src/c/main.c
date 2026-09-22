@@ -111,7 +111,11 @@ static void prv_refresh_duell(void) {
   }
   snprintf(s_t[6], sizeof(s_t[0]), fremd ? "andere Strecke!" : "Strecke %lu",
            (unsigned long)seed);
-  snprintf(s_t[7], sizeof(s_t[0]), "Sel=Lauf 60s  Sohl hoch");
+  // Jeder Lauf ueberschreibt den vorigen desselben Profils; die Nummer macht
+  // sichtbar, der wievielte gerade in der Tabelle steht.
+  const DuellLauf *akt = duell_ergebnis(control_profile());
+  snprintf(s_t[7], sizeof(s_t[0]), "Sel=Lauf 60s   Nr %u",
+           (unsigned)akt->nummer);
   for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
 }
 
@@ -132,7 +136,10 @@ static void prv_refresh_hud(void) {
            setup_profil_name(control_profile()),
            (long)(f->agl8 >> 8), (long)(((f->agl8 & 255) * 10) >> 8),
            f->in_effect ? " *" : "", (long)(control_trim8() >> 8));
-  if (duell_aktiv()) {
+  if (duell_vorlauf_ms()) {
+    snprintf(s_l2, sizeof(s_l2), "FERTIG MACHEN ... %lu",
+             (unsigned long)((duell_vorlauf_ms() + 999) / 1000));
+  } else if (duell_aktiv()) {
     snprintf(s_l2, sizeof(s_l2), "DUELL %lus  b%lu  sohle %lus",
              (unsigned long)((duell_rest_ms() + 999) / 1000), (unsigned long)f->contacts,
              (unsigned long)(f->effect_ms / 1000));
@@ -171,18 +178,28 @@ static void prv_game_tick(void *data) {
   }
   control_tick(now);
   if (s_screen == ScrFlug) {
-    flight_step(dt);
+    const Flight *f0 = flight_state();
+    // Die Schattenzeile stammt aus dem zuletzt gezeichneten Bild, ist also
+    // hoechstens ein Bild alt. Genauer geht es nicht, ohne die Projektion ein
+    // zweites Mal zu rechnen, und fuer eine Sekundenstatistik reicht das.
+    const DuellPhase ph = duell_tick(dt, f0->agl8, f0->hit, f0->in_effect,
+                                     voxel_shadow_row(), voxel_shadow_halfwidth(),
+                                     control_stats());
+    if (ph == DuellStart) {
+      // Jetzt liegt die Hand so, wie sie im Lauf liegen wird.
+      control_tilt_kalibrieren();
+      flight_reset(64 << 16, 8 << 16);
+    }
+    if (ph != DuellVorlauf && ph != DuellStart) {
+      flight_step(dt);
+    }
     const Flight *f = flight_state();
     if (f->hit) voxel_set_flash(3);
     voxel_set_agl8(f->agl8);
     Camera cam;
     flight_fill_camera(&cam);
     voxel_set_camera(&cam);
-    // Die Schattenzeile stammt aus dem zuletzt gezeichneten Bild, ist also
-    // hoechstens ein Bild alt. Genauer geht es nicht, ohne die Projektion ein
-    // zweites Mal zu rechnen, und fuer eine Sekundenstatistik reicht das.
-    if (duell_tick(dt, f->agl8, f->hit, f->in_effect, voxel_shadow_row(),
-                   voxel_shadow_halfwidth(), control_stats())) {
+    if (ph == DuellZuende) {
       prv_set_screen(ScrDuell);          // Lauf zu Ende, Ergebnis zeigen
     }
   }
