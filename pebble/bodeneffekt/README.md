@@ -64,11 +64,11 @@ meldet nur `[Errno 111] Connection refused`; dann muss der Server auf
 
 | Taste | FLUG | MESSUNG |
 |---|---|---|
-| Back kurz | zu MESSUNG | zu FLUG |
+| Back kurz | zu MESSUNG | zu DUELL (von dort zu FLUG) |
 | Back Doppelklick | Steuerprofil umschalten | Steuerprofil umschalten |
 | Back lang (900 ms) | App beenden | App beenden |
 | Select halten | steigen (Tasten) / Praezision (Finger) | — |
-| Select kurz | — | Test starten, Variante weiterschalten |
+| Select kurz | — | Test starten, Variante weiterschalten (DUELL: 60-s-Lauf) |
 | Select Doppelklick | — | Nicklage der Fingersteuerung umkehren |
 | Up / Down | Roll (Tasten) / Hoehentrimmung (Finger) | Strahlenzahl / Sichtweite |
 
@@ -90,6 +90,8 @@ Diese Frage wird hier nicht entschieden, sondern messbar gemacht:
 - **Ein Doppelklick auf Back tauscht die Profile mitten im Flug**, ohne
   Neustart und ohne Menue. Nur so lassen sich zwei Laeufe hintereinander
   ehrlich vergleichen.
+- **Der Bildschirm DUELL macht den Vergleich zur Messung** statt zur
+  Geschmacksfrage, siehe unten.
 - **Die Nicklage ist standardmaessig umgekehrt** (Doppelklick Select auf dem
   Messbildschirm schaltet um). Ziehen nach unten heisst steigen, wie an einem
   echten Knueppel. Damit wandert der Finger beim Steigen vom Horizont **weg**
@@ -186,6 +188,41 @@ Kamera das halbe Bild.
 
 Gezeichnet wird er halbtransparent, per Bayer-Schachbrett und einer
 `darkLUT`, weil der Framebuffer kein Blending kann.
+
+## Das Duell der Steuerprofile
+
+![Duell](docs/duell.png)
+
+Die Jury hat den Fingerstick mit einer konkreten, **pruefbaren** Behauptung
+abgewertet: der Finger verdeckt beim Steigen den Bodenschatten. Der Bildschirm
+DUELL macht daraus eine Zahl. **Select** startet einen Lauf von 60 Sekunden mit
+dem aktuellen Profil, immer an derselben Startstelle derselben Strecke; danach
+springt die App von selbst zurueck und traegt die Zeile ein. Beide Ergebnisse
+stehen im Flash und ueberleben das Beenden der App.
+
+Vier Werte je Lauf:
+
+| Spalte | Bedeutung | besser |
+|---|---|---|
+| Sohle | Anteil der Zeit im Bodeneffekt-Fenster (2 bis 12 Zellen) | hoch |
+| Bod | Bodenkontakte | tief |
+| Hoeh | mittlere Hoehe ueber Grund in Zellen | — |
+| Blind | Anteil der Zeit, in der der Schatten im Bild war, aber unter der Hand lag | tief |
+
+**Blind ist die eigentliche Antwort.** Bei den Tasten ist der Wert bauartbedingt
+null, es liegt ja kein Finger auf dem Glas. Beim Fingerstick zeigt er, wie oft
+die Steuerung genau die Information verdeckt, die sie steuern soll. Die
+Annahme dahinter ist bewusst grosszuegig zugunsten der Kritik: Finger und Hand
+kommen von unten, also gilt alles ab 40 Pixel (rund 5 mm bei 202 ppi) oberhalb
+des Beruehrungspunkts als verdeckt. Waagerecht wird nicht geprueft, weil die
+Handflaeche breit aufliegt und eine Spaltenrechnung scheingenau waere.
+
+Sinnvoll sind drei Laeufe: Fingerstick mit umgekehrter Nicklage (Standard),
+Fingerstick ohne Umkehr (Doppelklick Select auf MESSUNG), und Tasten. Erst
+dann steht in Zahlen, ob die Umkehr das Problem loest oder nur verschiebt.
+
+Die gespeicherten Laeufe gelten fuer die Strecke, auf der sie geflogen wurden;
+wechselt der Tages-Seed, warnt der Bildschirm mit `andere Strecke!`.
 
 ## Messung
 
@@ -301,9 +338,9 @@ Heightmap und Colormap sind statisch und werden nie freigegeben.
 ### Was auf der echten Uhr noch zu tun ist
 
 1. ~~Vollbildzeit messen und die Zielbildrate ableiten.~~ Erledigt, siehe oben.
-2. Beide Steuerprofile je zwei Laeufe gegeneinander, mit und ohne umgekehrte
-   Nicklage. Die Frage ist nicht, welches sich besser anfuehlt, sondern ob der
-   Finger den Bodenschatten verdeckt.
+2. Der Bildschirm DUELL, drei Laeufe: Fingerstick mit umgekehrter Nicklage,
+   Fingerstick ohne, Tasten. Die Frage ist nicht, welches sich besser anfuehlt,
+   sondern was in der Spalte `Blind` steht.
 3. Die Touch-Abtastrate am Handgelenk ablesen (`touch=` und `ivl=` im Log, oder
    `pebble/schwebung`, Bildschirm STIMMEN). Davon haengt ab, ob der Fingerstick
    das Standardprofil bleibt.
@@ -341,6 +378,7 @@ angehoben werden musste.
 | `src/c/voxel.c` | Strahlen mit Y-Buffer, Nebel, Himmel, Sonne, Schatten, Gleiter, Panel-Test |
 | `src/c/control.c` | beide Steuerprofile, Touch-Rohevents, Profilwechsel im Flug |
 | `src/c/flight.c` | Roll, Kurs, Hoehe, Bodenkontakt, Bodeneffekt-Fenster, Verfolgerkamera |
+| `src/c/duell.c` | Vergleichslauf beider Steuerprofile, Verdeckungsmessung, persist |
 | `src/c/main.c` | Fenster, Bildschirme, Tasten, Timer, Sekundenlog |
 | `tools/` | Host-Vorschau fuer Welt und Szene, PPM-Wandler |
 

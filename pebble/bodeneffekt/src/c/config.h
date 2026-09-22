@@ -129,4 +129,10 @@
 #define RENDER_TICK_MS 40             // 25 fps, aus der Messung auf der Uhr
 #define LOG_TICK_MS 1000
 #define PANEL_TEST_FRAMES 300
+
+// Duell: beide Steuerprofile auf derselben Strecke gegeneinander.
+#define DUELL_DAUER_MS 60000          // ein Lauf, lang genug fuer eine Aussage
+// Wie weit ueber dem Beruehrungspunkt die Fingerkuppe noch verdeckt. Bei
+// 202 ppi sind 10 mm rund 80 Pixel, also 40 Pixel Radius.
+#define FINGER_COVER_PX 40
 #define PANEL_VARIANTS 3              // 0 Vollbild, 1 zehn Zeilen, 2 echte Voxel-Szene

@@ -13,6 +13,7 @@ static uint32_t s_panel_render_sum;
 static uint32_t s_last_start_ms;
 static uint8_t s_flash;
 static int32_t s_agl8;
+static int s_shadow_row = -1;
 static char s_hud1[48];
 static char s_hud2[48];
 static char s_text[VOX_TEXT_LINES][32];
@@ -304,6 +305,7 @@ static void prv_draw_sun(uint8_t *fb, uint16_t stride) {
 // weil der Framebuffer kein Blending kann.
 static void prv_draw_shadow(uint8_t *fb, uint16_t stride) {
   const int32_t agl8 = s_agl8;
+  s_shadow_row = -1;
   if (agl8 <= 0) return;
   // Der Gleiter fliegt CAM_BACK_CELLS vor der Kamera; genau dort steht sein
   // Schatten, und zwar mit derselben Projektionsformel wie das Terrain.
@@ -316,6 +318,7 @@ static void prv_draw_shadow(uint8_t *fb, uint16_t stride) {
   const int32_t proj = (int32_t)(((uint32_t)SCALE_H << 16) / (uint32_t)z8);
   const int row = HORIZON_BASE + s_cam.pitch_px + (((s_cam.h8 - gh8) * proj) >> 16);
   if (row < 0 || row >= SCR_H) return;
+  s_shadow_row = row;
   // Breite und Hoehe schrumpfen mit der Hoehe ueber Grund: genau das macht den
   // Schatten zum Hoehenmesser.
   int hw = 22 - (int)(agl8 >> 9);
@@ -529,6 +532,8 @@ void voxel_deinit(void) {
 void voxel_set_camera(const Camera *cam) { s_cam = *cam; }
 void voxel_set_flash(uint8_t frames) { s_flash = frames; }
 void voxel_set_agl8(int32_t agl8) { s_agl8 = agl8; }
+
+int voxel_shadow_row(void) { return s_shadow_row; }
 
 void voxel_set_hud(const char *l1, const char *l2) {
   strncpy(s_hud1, l1, sizeof(s_hud1) - 1);

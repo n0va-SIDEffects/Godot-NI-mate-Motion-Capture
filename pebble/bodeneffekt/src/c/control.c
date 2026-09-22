@@ -45,6 +45,8 @@ static void prv_touch(const TouchEvent *e, void *ctx) {
       s_st.touchdowns++;
       s_st.dx = 0;
       s_st.dy = 0;
+      s_st.abs_x = e->x;
+      s_st.abs_y = e->y;
       break;
     case TouchEvent_Liftoff:
       s_down = false;
@@ -61,6 +63,8 @@ static void prv_touch(const TouchEvent *e, void *ctx) {
       }
       s_st.dx = (int16_t)(e->x - s_anchor_x);
       s_st.dy = (int16_t)(e->y - s_anchor_y);
+      s_st.abs_x = e->x;
+      s_st.abs_y = e->y;
       break;
   }
   s_st.down = s_down;

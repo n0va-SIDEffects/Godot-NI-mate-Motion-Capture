@@ -32,6 +32,7 @@ typedef struct {
   uint32_t ev_rate_x10;
   uint32_t min_interval_ms;
   int16_t dx, dy;            // aktueller Versatz zum Aufsetzpunkt
+  int16_t abs_x, abs_y;      // absolute Fingerposition, fuer die Verdeckungsmessung
   bool down;
   bool available;
 } CtrlStats;

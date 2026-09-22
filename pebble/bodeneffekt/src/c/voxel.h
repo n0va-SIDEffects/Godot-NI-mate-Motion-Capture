@@ -58,6 +58,9 @@ void voxel_set_hud(const char *l1, const char *l2);
 void voxel_set_text(int idx, const char *line);
 void voxel_set_flash(uint8_t frames);        // Rot-Blitz bei Bodenkontakt
 void voxel_set_agl8(int32_t agl8);           // Hoehe ueber Grund fuer den Schatten
+// Bildzeile des Bodenschattens im letzten Bild, oder -1, wenn er ausserhalb
+// lag. Der Duell-Lauf braucht sie, um zu pruefen, ob der Finger sie verdeckt.
+int voxel_shadow_row(void);
 
 // Stellschrauben, die die Messung gegeneinander stellt
 void voxel_set_rays(uint16_t rays);          // 200 oder 100 (dann 2 px je Spalte)
