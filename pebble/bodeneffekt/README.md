@@ -34,14 +34,22 @@ sind Emulatorzahlen und taugen nur als Beweis, dass die Messung funktioniert.
 
 ## Bauen und installieren
 
+**Nur messen, ohne Entwicklungsrechner:** `build/bodeneffekt.pbw` mit der
+Pebble-App auf dem Telefon oeffnen, die installiert auf die Uhr. Der
+Messbildschirm zeigt alle Ergebnisse selbst an; ein Log ist dafuer nicht noetig.
+
 ```bash
 uv tool install pebble-tool        # einmalig
 pebble sdk install latest          # einmalig (getestet mit 4.33.1)
 pebble build
 pebble install --emulator emery    # Emulator: prueft nur Lauffaehigkeit
-pebble install --cloudpebble       # echte Uhr ueber die Pebble-App (Dev Connect)
-pebble logs --cloudpebble | tee bodeneffekt.log
+pebble login                       # einmalig, fuer die CloudPebble-Verbindung
+pebble install --cloudpebble --logs | tee bodeneffekt.log   # echte Uhr
 ```
+
+Zeigt die Pebble-App unter Developer Connection keine IP, sondern nur
+"connected to CloudPebble", ist das der Normalfall: dann gilt `--cloudpebble`
+(bzw. `--phone` ohne IP), und `--phone <IP>` waere falsch.
 
 Im kopflosen Container braucht QEMU einen Wrapper, der `-display` und `-audio`
 aus den Argumenten entfernt und `-display none` anhaengt, gesetzt ueber
@@ -193,8 +201,12 @@ Variante 2 ist die eigentliche Antwort: so schnell laeuft das Spiel, wenn es so
 schnell laufen darf wie es kann. Up und Down schalten Strahlenzahl und
 Sichtweite um, damit sich die Rueckfallebenen gegeneinander messen lassen.
 
-Einmal je Sekunde stehen drei Zeilen im Log (waehrend eines Tests schweigt sie,
-weil jedes `APP_LOG` den App-Task blockiert):
+Die Ergebnisse stehen nach jedem Test **auf dem Bildschirm** (Gesamtzeit je
+Bild links, unsere eigene Rasterzeit rechts), zusammen mit der daraus
+abgeleiteten Zielbildrate — am Handgelenk ist damit nichts nachzuschlagen.
+
+Zusaetzlich stehen einmal je Sekunde drei Zeilen im Log (waehrend eines Tests
+schweigt es, weil jedes `APP_LOG` den App-Task blockiert):
 
 ```
 [BE] FLUG fps=30.2 rast=0.6/3ms voll=0.0ms heap=76604

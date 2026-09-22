@@ -56,11 +56,17 @@ Compositor.
 
 ## Messung B: dieselbe Frage mit dem echten Renderer (bodeneffekt, MESSUNG)
 
+**Ohne Entwicklungsrechner:** `bodeneffekt.pbw` mit der Pebble-App aufs Telefon
+und von dort auf die Uhr. Der Messbildschirm zeigt alle Ergebnisse selbst an,
+ein Log wird dafuer nicht gebraucht — abfotografieren genuegt.
+
+Mit Toolchain und eingeschalteter Developer Connection geht auch:
+
 ```bash
 cd pebble/bodeneffekt
 pebble build
-pebble install --cloudpebble
-pebble logs --cloudpebble | tee bodeneffekt.log
+pebble login                                  # einmalig, fuer die CloudPebble-Verbindung
+pebble install --cloudpebble --logs | tee bodeneffekt.log
 ```
 
 **Back kurz** wechselt zum Bildschirm MESSUNG. Dort:
@@ -71,7 +77,24 @@ pebble logs --cloudpebble | tee bodeneffekt.log
 | Up | Strahlenzahl 200 (1 px je Spalte) <-> 100 (2 px je Spalte) |
 | Down | Sichtweite 200 / 160 / 120 Zellen |
 
-Dreimal Select gibt drei Zeilen:
+Nach jedem Test steht das Ergebnis **auf der Uhr**:
+
+```
+MESSUNG  200 St 200 Z
+        Bild / rast
+Voll  32.9 / 1.2 ms
+10Z   32.8 / 0.1 ms
+Voxel 34.1 / 8.6 ms
+Ziel 25 fps (40ms)
+Welt 12ms heap 74k
+```
+
+Links die Gesamtzeit je Bild, rechts davon unsere eigene Rasterzeit. Die Zeile
+`Ziel` rechnet die Uhr aus der groesseren von Vollbild- und Voxelzeit aus, nach
+genau der Tabelle weiter unten. Steht `rast` deutlich unter der Gesamtzeit,
+begrenzt die Panel-Uebertragung und nicht der Renderer.
+
+Laeuft ein Log mit, stehen dieselben Zahlen ausfuehrlicher darin:
 
 ```
 [BE][PANEL] Vollbild:  300 Bilder, ... ms/Bild, ... fps, rast ... ms

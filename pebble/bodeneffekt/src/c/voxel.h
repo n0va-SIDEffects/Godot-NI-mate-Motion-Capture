@@ -40,7 +40,8 @@ typedef struct {
   uint32_t ms_per_frame_x10;
   uint32_t fps_x10;
   uint32_t render_ms_x10;
-  uint32_t result_x10[PANEL_VARIANTS];
+  uint32_t result_x10[PANEL_VARIANTS];        // ms je Bild, gesamt
+  uint32_t result_rast_x10[PANEL_VARIANTS];   // davon unsere eigene Rasterzeit
 } PanelStats;
 
 void voxel_init(Layer *layer);
@@ -50,7 +51,7 @@ void voxel_set_camera(const Camera *cam);
 
 // Der Renderer zeigt entweder die Szene (mit zwei HUD-Zeilen im unteren Band)
 // oder eine reine Textseite fuer den Messbildschirm.
-#define VOX_TEXT_LINES 7
+#define VOX_TEXT_LINES 8
 void voxel_set_scene(bool on);
 bool voxel_scene(void);
 void voxel_set_hud(const char *l1, const char *l2);

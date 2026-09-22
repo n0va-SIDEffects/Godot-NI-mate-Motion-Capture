@@ -15,7 +15,7 @@ static uint8_t s_flash;
 static int32_t s_agl8;
 static char s_hud1[48];
 static char s_hud2[48];
-static char s_text[VOX_TEXT_LINES][40];
+static char s_text[VOX_TEXT_LINES][32];
 static bool s_scene = true;
 static GFont s_font;
 static GFont s_font_bold;
@@ -454,6 +454,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
       s_ps.fps_x10 = (s_ps.frames * 10000) / total;
       s_ps.render_ms_x10 = (s_panel_render_sum * 10) / s_ps.frames;
       s_ps.result_x10[s_ps.variant] = s_ps.ms_per_frame_x10;
+      s_ps.result_rast_x10[s_ps.variant] = s_ps.render_ms_x10;
       s_ps.active = false;
       s_ps.done = true;
       APP_LOG(APP_LOG_LEVEL_INFO,
@@ -482,7 +483,7 @@ static void prv_update(Layer *layer, GContext *ctx) {
   } else {
     for (int i = 0; i < VOX_TEXT_LINES; i++) {
       graphics_draw_text(ctx, s_text[i], i == 0 ? s_font_bold : s_font,
-                         GRect(3, 6 + i * 22, SCR_W - 6, 22),
+                         GRect(3, 4 + i * 21, SCR_W - 6, 21),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
     }
   }

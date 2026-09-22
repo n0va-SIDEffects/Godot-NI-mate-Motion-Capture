@@ -43,26 +43,39 @@ static uint32_t s_sel_last_click_ms;
 
 static char s_l1[48];
 static char s_l2[48];
-static char s_t[VOX_TEXT_LINES][40];
+static char s_t[VOX_TEXT_LINES][32];
 
 // ---------------------------------------------------------------- Bildschirm
+// Die Uhr rechnet die Empfehlung selbst aus, damit am Handgelenk nichts
+// abgeschrieben und nachgeschlagen werden muss. Massgeblich ist die groessere
+// von Vollbild- und Voxelzeit: die echte Szene ist der Lastfall, das leere
+// Vollbild die Untergrenze der Uebertragung.
+static const char *prv_ziel(uint32_t voll_x10, uint32_t voxel_x10) {
+  const uint32_t t = voll_x10 > voxel_x10 ? voll_x10 : voxel_x10;
+  if (t == 0) return "-";
+  if (t < 280) return "30 fps (33ms)";
+  if (t < 400) return "25 fps (40ms)";
+  return "20 fps (50ms)";
+}
+
 static void prv_refresh_text(void) {
-  const VoxelStats *vs = voxel_stats();
   const PanelStats *ps = voxel_panel_stats();
   const WorldInfo *wi = world_info();
-  snprintf(s_t[0], sizeof(s_t[0]), "MESSUNG");
-  snprintf(s_t[1], sizeof(s_t[1]), "Strahlen %u (%u px)",
-           (unsigned)voxel_rays(), (unsigned)(SCR_W / voxel_rays()));
-  snprintf(s_t[2], sizeof(s_t[2]), "Sicht %u Zellen", (unsigned)voxel_sight_cells());
-  snprintf(s_t[3], sizeof(s_t[3]), "Vollbild %lu.%lu ms",
-           (unsigned long)(ps->result_x10[0] / 10), (unsigned long)(ps->result_x10[0] % 10));
-  snprintf(s_t[4], sizeof(s_t[4]), "10 Zeilen %lu.%lu ms",
-           (unsigned long)(ps->result_x10[1] / 10), (unsigned long)(ps->result_x10[1] % 10));
-  snprintf(s_t[5], sizeof(s_t[5]), "Voxel %lu.%lu ms",
-           (unsigned long)(ps->result_x10[2] / 10), (unsigned long)(ps->result_x10[2] % 10));
-  snprintf(s_t[6], sizeof(s_t[6]), "Welt %lums heap %lu",
-           (unsigned long)wi->gen_ms, (unsigned long)heap_bytes_free());
-  (void)vs;
+  static const char *name[PANEL_VARIANTS] = { "Voll ", "10Z  ", "Voxel" };
+  snprintf(s_t[0], sizeof(s_t[0]), "MESSUNG  %u St %u Z",
+           (unsigned)voxel_rays(), (unsigned)voxel_sight_cells());
+  snprintf(s_t[1], sizeof(s_t[1]), "        Bild / rast");
+  for (int v = 0; v < PANEL_VARIANTS; v++) {
+    snprintf(s_t[2 + v], sizeof(s_t[0]), "%s %lu.%lu / %lu.%lu ms", name[v],
+             (unsigned long)(ps->result_x10[v] / 10), (unsigned long)(ps->result_x10[v] % 10),
+             (unsigned long)(ps->result_rast_x10[v] / 10),
+             (unsigned long)(ps->result_rast_x10[v] % 10));
+  }
+  snprintf(s_t[5], sizeof(s_t[0]), "Ziel %s",
+           prv_ziel(ps->result_x10[0], ps->result_x10[2]));
+  snprintf(s_t[6], sizeof(s_t[0]), "Welt %lums heap %luk",
+           (unsigned long)wi->gen_ms, (unsigned long)(heap_bytes_free() / 1024));
+  snprintf(s_t[7], sizeof(s_t[0]), "Sel=Test Up=St Dn=Sicht");
   for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
 }
 
