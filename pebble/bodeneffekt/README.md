@@ -217,12 +217,62 @@ kommen von unten, also gilt alles ab 40 Pixel (rund 5 mm bei 202 ppi) oberhalb
 des Beruehrungspunkts als verdeckt. Waagerecht wird nicht geprueft, weil die
 Handflaeche breit aufliegt und eine Spaltenrechnung scheingenau waere.
 
-Sinnvoll sind drei Laeufe: Fingerstick mit umgekehrter Nicklage (Standard),
-Fingerstick ohne Umkehr (Doppelklick Select auf MESSUNG), und Tasten. Erst
-dann steht in Zahlen, ob die Umkehr das Problem loest oder nur verschiebt.
-
 Die gespeicherten Laeufe gelten fuer die Strecke, auf der sie geflogen wurden;
 wechselt der Tages-Seed, warnt der Bildschirm mit `andere Strecke!`.
+
+### Ergebnis: der Fingerstick ist durchgefallen
+
+![Duell auf der Uhr](docs/duell-hardware.jpg)
+
+Gemessen auf der Uhr, Strecke 20260923, je 60 Sekunden, Fingerstick mit
+umgekehrter Nicklage:
+
+| Profil | Sohle | Boden | Hoehe | **Blind** |
+|---|---|---|---|---|
+| Fingerstick | 17 % | 14 | 59 | **77 %** |
+| Tasten | 39 % | 34 | 26 | **1 %** |
+
+**Der Tastenmodus gewinnt in jeder Hinsicht, die zaehlt.** Er haelt den
+Bodeneffekt mehr als doppelt so lange (39 gegen 17 Prozent) und fliegt dabei
+weniger als halb so hoch (26 gegen 59 Zellen) — er tut also genau das, worum
+das Spiel geht. Die 34 Bodenkontakte sind der Preis des Tiefflugs, nicht ein
+Zeichen von Unkontrollierbarkeit.
+
+**Und die Umkehr der Nicklage rettet den Fingerstick nicht.** 77 Prozent
+Verdeckung, und das im Lauf *mit* der Umkehr, die genau dagegen gedacht war.
+
+Die Rechnung zeigt auch, warum, und die Ursache ist schlimmer als die Kritik
+der Jury. Der Schatten wandert ueber das Bodeneffekt-Fenster durch diese
+Bildzeilen:
+
+| Hoehe ueber Grund | Schattenzeile | Finger muesste tiefer liegen als |
+|---|---|---|
+| 2 Zellen | 160 | 200 |
+| 6 Zellen | 182 | 222 |
+| 11 Zellen | 210 | 250 |
+
+Das Display endet bei Zeile 227. **Ab etwa sechs Zellen ueber Grund gibt es
+keine Fingerposition mehr, die den Schatten frei laesst** — auch nicht am
+untersten Bildrand. Die Jury hat das Problem beim Steigen vermutet; tatsaechlich
+ist es strukturell. Schatten und Cockpitband belegen dieselben Bildzeilen, und
+das Bodeneffekt-Fenster reicht bis zwoelf Zellen.
+
+Damit ist die Frage aus dem Konzept beantwortet, und zwar gegen den
+Fingerstick in seiner jetzigen Form. Drei Wege fuehren weiter, und keiner ist
+umsonst:
+
+1. **Schatten nach oben holen** (Kamera weiter zurueck oder Horizont hoeher),
+   bis er ueber dem Cockpitband liegt. Loest die Geometrie, kostet aber den
+   Abstand zwischen Rumpf und Schatten, also gerade die Ablesbarkeit.
+2. **Touch an den Bildrand** statt ins untere Drittel: ein schmaler Streifen
+   als Stick, der Schatten bleibt mittig frei. Dann muss die Verdeckungsmessung
+   auch waagerecht pruefen.
+3. **Tilt statt Touch** (Profil B des Konzepts): keine Hand auf dem Glas. Das
+   Konzept haelt es beim Gehen selbst fuer unbrauchbar.
+
+Bis eine dieser Fragen entschieden ist, ist **Tasten das belastbarere Profil**,
+und das ist fuer ein Konzept, das Touch als Alleinstellungsmerkmal fuehrt, ein
+ernstes Ergebnis.
 
 ## Messung
 

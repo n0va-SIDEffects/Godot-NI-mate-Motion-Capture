@@ -233,8 +233,19 @@ Messgeruest in `pebble/schwebung`. Diese Punkte schlagen das Konzeptpapier.
   festen Zeitraster bestehen, siehe `pebble/schwebung/src/c/haptics.c`. Ob
   20-ms-Impulse getrennt ankommen, misst der LRA-Bildschirm des Messgeruests.
 - **Touch-Abtastrate und Ruhe-Jitter:** misst der STIMMEN-Bildschirm des
-  Messgeruests und zeigt sie live an. Davon haengt ab, ob der Fingerstick das
-  Standardprofil bleibt.
+  Messgeruests und zeigt sie live an.
+- **Fingerstick gegen Tasten: gemessen, und der Fingerstick faellt durch.**
+  Der DUELL-Bildschirm in `pebble/bodeneffekt` misst beide Profile ueber je
+  60 Sekunden auf derselben Strecke. Auf der Uhr: Tasten halten den
+  Bodeneffekt 39 Prozent der Zeit bei 26 Zellen mittlerer Hoehe, der
+  Fingerstick nur 17 Prozent bei 59 Zellen — und der Schatten liegt bei ihm zu
+  **77 Prozent der Zeit unter der Hand**, trotz umgekehrter Nicklage. Die
+  Ursache ist nicht das Steigen, wie die Jury vermutet hat, sondern die
+  Bildgeometrie: der Schatten wandert ueber das Bodeneffekt-Fenster durch die
+  Zeilen 160 bis 210, und ab rund sechs Zellen Hoehe gibt es auf 228 Zeilen
+  keine Fingerposition mehr, die ihn frei laesst. Der Fingerstick in der Form
+  des Konzepts ist damit erledigt; Einzelheiten und die drei Auswege im README
+  des Projekts.
 - **`time_ms()` springt gelegentlich um plus/minus 1000 ms**, und eine
   Aufrufpause ueber einer Sekunde verschluckt in der naiven Rechnung eine ganze
   Sekunde. Fertige Loesung: `pebble/schwebung/src/c/e1clock.c`.
