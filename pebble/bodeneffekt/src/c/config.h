@@ -50,6 +50,11 @@
 
 // Sichtweiten (Nebeldichte) als gemeinsame Stellschraube fuer Schwierigkeit
 // und Rechenbudget. Index 0 ist der Standard.
+// Das Konzept sieht die Sichtweite als Notbremse fuer die Bildrate vor. Die
+// Messung auf der Uhr zeigt, dass es die nicht braucht: nicht der Rasterizer
+// begrenzt, sondern die Panel-Uebertragung, und die haengt nicht an der Zahl
+// der Strahlenschritte. 200 Zellen bleiben der Standard; die kuerzeren Stufen
+// sind jetzt Schwierigkeitsgrade und Reserve fuer den Ton, nicht Notbremsen.
 #define SIGHT_COUNT 3
 #define SIGHT_FAR 200
 #define SIGHT_MID 160
@@ -106,7 +111,22 @@
 
 // ---------------------------------------------------------------- Zeiten
 #define GAME_TICK_MS 20
-#define RENDER_TICK_MS 33             // Startwert; die Messung setzt das Ziel
+
+// Gemessen auf der Uhr (Pebble Time 2, SDK 4.33.1, je 300 Bilder):
+//   Vollbild  37,1 ms je Bild, davon 0,3 ms eigene Rasterzeit
+//   10 Zeilen 37,1 ms je Bild, davon 0,1 ms
+//   Voxel     37,4 ms je Bild, davon 10,8 ms
+// Daraus folgen drei Dinge, und alle drei stehen gegen das Konzeptpapier:
+//   1. Ein leeres Vollbild kostet 37,1 ms. Die Obergrenze sind damit 27 fps,
+//      und die 30 fps des Konzepts sind nicht erreichbar. 40 ms ist das
+//      naechste Raster mit Reserve.
+//   2. Vollbild und zehn Zeilen kosten exakt gleich viel. Der Dirty-Row-Trick
+//      ist als Bandbreitentrick tot, wie die Quellenanalyse vorhergesagt hat.
+//   3. Die volle Szene kostet nur 0,3 ms mehr als das leere Bild, obwohl der
+//      Rasterizer 10,8 ms rechnet: 97 Prozent davon verschwinden hinter der
+//      Uebertragung. Der Renderer ist praktisch gratis, solange er unter dem
+//      Raster bleibt.
+#define RENDER_TICK_MS 40             // 25 fps, aus der Messung auf der Uhr
 #define LOG_TICK_MS 1000
 #define PANEL_TEST_FRAMES 300
 #define PANEL_VARIANTS 3              // 0 Vollbild, 1 zehn Zeilen, 2 echte Voxel-Szene

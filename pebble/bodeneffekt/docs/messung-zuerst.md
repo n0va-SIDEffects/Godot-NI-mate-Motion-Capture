@@ -1,5 +1,12 @@
 # Die erste Messung: was ein Vollbild auf der Uhr wirklich kostet
 
+> **Ergebnis liegt vor** (Pebble Time 2, SDK 4.33.1, je 300 Bilder):
+> Vollbild 37,1 ms, zehn Zeilen 37,1 ms, Voxel-Szene 37,4 ms bei 10,8 ms
+> eigener Rasterzeit. Zielbildrate 25 fps, `RENDER_TICK_MS` steht auf 40.
+> Die Auswertung steht im README. Diese Anleitung bleibt gueltig, um die
+> Messung nach Aenderungen zu wiederholen — besonders, sobald Ton dazukommt.
+
+
 Diese Seite ist die Anleitung fuer die Messung, die vor jeder weiteren
 Designentscheidung steht. Sie dauert am Handgelenk etwa zehn Minuten.
 

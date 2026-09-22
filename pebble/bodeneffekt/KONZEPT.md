@@ -191,17 +191,24 @@ Mitnehmenswerte Einzelideen aus der Bewertung:
 Aus der Analyse der PebbleOS-Quellen (Commit 5503dd4, Board obelix) und aus dem
 Messgeruest in `pebble/schwebung`. Diese Punkte schlagen das Konzeptpapier.
 
-- **Framebuffer-Semantik: beantwortet, und zwar ungünstig.**
-  `graphics_release_frame_buffer` meldet immer den ganzen Puffer als schmutzig,
-  und der Compositor ruft ohnehin `framebuffer_dirty_all`. Himmel-Caching und
-  Dirty-Row-Minimierung sparen also Rechenzeit, aber keine Uebertragung. Der
-  Kniff "Dirty-Row-Minimierung" faellt als Bandbreitentrick weg.
-- **Panel-Uebertragung: die eigentliche Grenze.** Die Bildausgabe laeuft auf
-  KernelMain, und das ist eine hoehere Prioritaet als die App und als der
-  Tonnachschub. Ein Vollbild kostet mehrere Durchlaeufe ueber 45.600 Byte. Die
-  Annahme "30 fps" ist damit optimistisch, sobald Ton dazukommt. Der
-  PANEL-Bildschirm des Messgeruests misst die echte Vollbildzeit; das ist die
-  erste Messung, die dieses Spiel braucht.
+- **Framebuffer-Semantik: beantwortet, und zwar ungünstig. Am Geraet
+  bestaetigt.** `graphics_release_frame_buffer` meldet immer den ganzen Puffer
+  als schmutzig, und der Compositor ruft ohnehin `framebuffer_dirty_all`.
+  Himmel-Caching und Dirty-Row-Minimierung sparen also Rechenzeit, aber keine
+  Uebertragung. Der Kniff "Dirty-Row-Minimierung" faellt als Bandbreitentrick
+  weg. Die Messung auf der Uhr bestaetigt das auf die Zehntelmillisekunde:
+  ein Vollbild und zehn geaenderte Zeilen kosten beide 37,1 ms.
+- **Panel-Uebertragung: die eigentliche Grenze, und inzwischen gemessen.** Die
+  Bildausgabe laeuft auf KernelMain, und das ist eine hoehere Prioritaet als die
+  App und als der Tonnachschub. Gemessen auf der Uhr (je 300 Bilder, siehe
+  `pebble/bodeneffekt/README.md`): **ein leeres Vollbild kostet 37,1 ms**, zehn
+  geaenderte Zeilen kosten exakt dasselbe, und die volle Voxel-Szene kostet
+  37,4 ms bei 10,8 ms eigener Rasterzeit. Folgen: **30 fps sind nicht
+  erreichbar** (die Obergrenze sind 27 fps, bevor Spielcode laeuft), das Ziel
+  sind 25 fps im 40-ms-Raster — und 97 Prozent der Rasterzeit verschwinden
+  hinter der Uebertragung, sodass pro Bild rund 29 ms CPU frei bleiben. Die
+  Sichtweite ist damit **keine Notbremse fuer die Bildrate mehr**, sondern nur
+  noch Schwierigkeitsgrad und Reserve fuer den Ton.
 - **PCM-Stream: vollstaendig vermessen.** Ring 8192 Byte (256 ms bei
   16 kHz/16 Bit). Die Firmware holt alle 32 ms genau 1024 Byte, auf dem
   Systemtask mit der niedrigsten Prioritaet, unterhalb der App und unterhalb

@@ -29,8 +29,9 @@ Panel-Uebertragung. Die vollstaendige Anleitung dazu steht in
 
 Deshalb hat dieses Projekt einen eigenen Messbildschirm, und
 `pebble/schwebung` (Bildschirm PANEL) liefert dieselbe Zahl unabhaengig vom
-Spiel. **Die Messung auf der echten Uhr steht noch aus**; alle Zahlen unten
-sind Emulatorzahlen und taugen nur als Beweis, dass die Messung funktioniert.
+Spiel. **Die Messung ist inzwischen gelaufen**, siehe unten: sie widerlegt die
+30 fps des Konzepts, bestaetigt den Quellenbefund zum Dirty-Row-Trick und
+verschenkt dem Spiel dafuer fast 30 ms Rechenzeit pro Bild.
 
 ## Bauen und installieren
 
@@ -220,7 +221,57 @@ Bildtimers in der letzten Sekunde, `schritte` die Zahl der Strahlenschritte im
 letzten Bild, `sohle` die Sekunden im Bodeneffekt-Fenster. `heap` kommt aus
 `heap_bytes_free()`.
 
-### Emulatorzahlen, Stand dieser Sitzung
+### Die Messung auf der Uhr
+
+![Messung auf der Uhr](docs/messung-hardware.jpg)
+
+Pebble Time 2, SDK 4.33.1, je 300 Bilder, 200 Strahlen, Sichtweite 200:
+
+| Variante | ms je Bild | davon eigene Rasterzeit |
+|---|---|---|
+| Vollbild | 37,1 | 0,3 |
+| 10 Zeilen | 37,1 | 0,1 |
+| Voxel-Szene | 37,4 | 10,8 |
+
+Welt aus dem Seed: 19 ms. Freier Heap: 74 KB.
+
+**Drei Befunde, und alle drei stehen gegen das Konzeptpapier.**
+
+**1. 30 fps sind nicht erreichbar.** Ein *leeres* Vollbild kostet 37,1 ms. Das
+sind 27 fps als absolute Obergrenze, bevor eine einzige Zeile Spielcode laeuft.
+Das naechste Raster mit Reserve sind 40 ms, also 25 fps; `RENDER_TICK_MS` steht
+jetzt dort.
+
+**2. Der Dirty-Row-Trick ist tot, wie vorhergesagt.** Vollbild und zehn Zeilen
+kosten auf die Zehntelmillisekunde dasselbe. Damit ist die Quellenanalyse am
+Geraet bestaetigt: `graphics_release_frame_buffer` meldet immer den ganzen
+Puffer als schmutzig, und Himmel-Caching spart nur CPU.
+
+**3. Der Rasterizer ist praktisch gratis — das ist die gute Nachricht.** Die
+volle Szene kostet 0,3 ms mehr als das leere Bild, obwohl der Rasterizer
+10,8 ms rechnet. 97 Prozent dieser Rechenzeit verschwinden hinter der
+Uebertragung, die auf KernelMain parallel laeuft. Anders gesagt: von den 40 ms
+eines Bildes sind rund 29 ms CPU frei, und zwar ohne dass die Bildrate es
+merkt.
+
+Daraus folgt eine Korrektur am Konzept, die dort nicht vorgesehen war: **die
+Sichtweite ist keine Notbremse fuer die Bildrate mehr.** Das Konzept haelt sie
+als gemeinsame Stellschraube fuer Schwierigkeit und Frame-Budget bereit, aber
+begrenzt wird nichts vom Rasterizer. 200 Zellen bleiben Standard; 160 und 120
+sind jetzt Schwierigkeitsgrade und Reserve fuer den Ton.
+
+Der Emulator-Faktor ist damit auch bekannt: Rasterzeit 0,8 ms dort gegen
+10,8 ms hier (Faktor 14), Weltgenerierung 2 ms gegen 19 ms (Faktor 10). Wer im
+Emulator misst, misst um eine Groessenordnung daneben.
+
+**Was diese Messung noch nicht sagt:** Sie lief ohne Ton. Der Audio-Nachschub
+der Firmware hat eine harte 32-ms-Frist und liegt auf der niedrigsten
+Prioritaet, unterhalb der App und unterhalb der Bildausgabe, die hier alle
+37 ms ein Vollbild schiebt. Ob unter dieser Last ueberhaupt ein sauberer Strom
+moeglich ist, muss Phase 3 messen; die freien 29 ms sind ein gutes Zeichen,
+aber kein Beweis.
+
+### Emulatorzahlen zum Vergleich
 
 Je 300 Bilder, `pebble install --emulator emery`, SDK 4.33.1.
 
@@ -249,15 +300,15 @@ Heightmap und Colormap sind statisch und werden nie freigegeben.
 
 ### Was auf der echten Uhr noch zu tun ist
 
-1. `pebble/schwebung`, Bildschirm PANEL: Vollbild gegen 10 Zeilen.
-2. Dieses Projekt, Bildschirm MESSUNG: alle drei Varianten, danach mit 100
-   Strahlen und mit Sichtweite 160 und 120 wiederholen.
-3. Aus der Vollbildzeit die Zielbildrate ableiten (Tabelle in
-   `docs/messung-zuerst.md`) und `RENDER_TICK_MS` und `SIGHT_FAR` in
-   `src/c/config.h` setzen.
-4. Beide Steuerprofile je zwei Laeufe gegeneinander, mit und ohne umgekehrte
+1. ~~Vollbildzeit messen und die Zielbildrate ableiten.~~ Erledigt, siehe oben.
+2. Beide Steuerprofile je zwei Laeufe gegeneinander, mit und ohne umgekehrte
    Nicklage. Die Frage ist nicht, welches sich besser anfuehlt, sondern ob der
    Finger den Bodenschatten verdeckt.
+3. Die Touch-Abtastrate am Handgelenk ablesen (`touch=` und `ivl=` im Log, oder
+   `pebble/schwebung`, Bildschirm STIMMEN). Davon haengt ab, ob der Fingerstick
+   das Standardprofil bleibt.
+4. Sobald Ton dazukommt: dieselbe Panel-Messung noch einmal, mit laufendem
+   Stream, und auf Aussetzer hoeren.
 
 ## Werkzeuge
 
