@@ -26,6 +26,7 @@ typedef struct {
   uint8_t schatten;      // Schattenlage
   uint8_t invert;        // Nicklage umgekehrt (nur die Finger-Profile)
   uint8_t rand_rechts;   // Randstreifen rechts statt links (nur ProfFingerRand)
+  uint8_t licht;         // Backlight dauerhaft an
 } Setup;
 
 void setup_init(void);
@@ -33,8 +34,12 @@ void setup_save(void);
 const Setup *setup_get(void);
 
 // Eine Zeile des Einstellungsbildschirms weiterschalten (0..SETUP_ZEILEN-1).
-#define SETUP_ZEILEN 4
+#define SETUP_ZEILEN 5
 void setup_naechster_wert(int zeile);
+// Backlight nach der Einstellung schalten. Getrennt von setup_naechster_wert,
+// damit der Aufruf auch beim Start und beim Zurueckkommen aus dem Hintergrund
+// passieren kann.
+void setup_licht_anwenden(void);
 void setup_text(int zeile, char *out, size_t n, bool markiert);
 
 const char *setup_profil_name(uint8_t p);      // kurz, fuer die Duell-Tabelle

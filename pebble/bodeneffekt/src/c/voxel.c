@@ -169,7 +169,10 @@ static void prv_draw_terrain(uint8_t *fb, uint16_t stride) {
   const int32_t hor0 = HORIZON_BASE + s_cam.pitch_px;
   for (int i = 0; i < cols; i++) {
     const int px = i * colw + (colw >> 1);
-    s_hor[i] = (int16_t)(hor0 + (((px - SCR_CX) * tan8) >> 8));
+    // Vorzeichen: neigt sich der Gleiter nach rechts, sieht man auf der
+    // rechten Bildseite mehr Boden, der Horizont liegt dort also HOEHER
+    // (kleineres y). Andersherum kippt das Bild gegen die Flugrichtung.
+    s_hor[i] = (int16_t)(hor0 - (((px - SCR_CX) * tan8) >> 8));
     s_yb[i] = SCR_H;
   }
 
@@ -350,12 +353,14 @@ static void prv_draw_shadow(uint8_t *fb, uint16_t stride) {
 // doppeltem Winkel, damit die Lage auf 1,5 Zoll ablesbar bleibt.
 static void prv_draw_glider(uint8_t *fb, uint16_t stride) {
   const int cy = setup_glider_row() + s_cam.pitch_px;
+  // Der Rumpf kippt im Bild um den vollen Rollwinkel, die Kamera nur um den
+  // halben; die Differenz ist genau das, was man am Sprite sehen soll.
   const int32_t tilt = s_cam.roll_deg8 * 2 / 256;        // Grad
   const uint8_t body = prv_argb(85, 85, 85);
   const uint8_t edge = prv_argb(255, 255, 255);
   for (int dx = -22; dx <= 22; dx++) {
     const int adx = dx < 0 ? -dx : dx;
-    const int wing = cy + (adx * 6) / 22 - (dx * tilt) / 55;
+    const int wing = cy + (adx * 6) / 22 + (dx * tilt) / 55;
     const int th = adx < 6 ? 5 : 2;
     for (int t = 0; t < th; t++) {
       const int y = wing + t;

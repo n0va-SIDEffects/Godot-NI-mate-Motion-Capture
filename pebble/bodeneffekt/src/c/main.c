@@ -88,13 +88,13 @@ static void prv_refresh_text(void) {
 
 static void prv_zeile_lauf(char *out, size_t n, const DuellLauf *l, const char *name) {
   if (!l->gueltig || l->dauer_ms == 0) {
-    snprintf(out, n, "%s  -", name);
+    snprintf(out, n, "%-5s   -", name);
     return;
   }
   const uint32_t sohle = (l->sohle_ms * 100) / l->dauer_ms;
   const uint32_t blind = l->schatten_ms ? (l->blind_ms * 100) / l->schatten_ms : 0;
   const uint32_t agl = l->proben ? (l->agl_sum8 / l->proben) >> 8 : 0;
-  snprintf(out, n, "%s %lu%% %uB %luh %lu%%", name, (unsigned long)sohle,
+  snprintf(out, n, "%-5s %lu%% %uB %luh %lu%%", name, (unsigned long)sohle,
            (unsigned)l->kontakte, (unsigned long)agl, (unsigned long)blind);
 }
 
@@ -120,9 +120,8 @@ static void prv_refresh_setup(void) {
   for (int i = 0; i < SETUP_ZEILEN; i++) {
     setup_text(i, s_t[1 + i], sizeof(s_t[0]), i == s_setup_zeile);
   }
-  snprintf(s_t[5], sizeof(s_t[0]), "Schatten hoch haelt ihn");
-  snprintf(s_t[6], sizeof(s_t[0]), "aus der Handzone.");
-  snprintf(s_t[7], sizeof(s_t[0]), "UpDn=Zeile Sel=Wert");
+  snprintf(s_t[6], sizeof(s_t[0]), "UpDn=Zeile  Sel=Wert");
+  snprintf(s_t[7], sizeof(s_t[0]), "Licht an kostet Akku");
   for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
 }
 
@@ -401,12 +400,14 @@ static void prv_focus(bool in_focus) {
   if (in_focus) {
     s_last_game_ms = 0;
     s_last_render_ms = 0;
+    setup_licht_anwenden();     // das System hat das Licht evtl. zurueckgesetzt
   }
 }
 
 static void prv_init(void) {
   bclock_init();
   setup_init();
+  setup_licht_anwenden();
   duell_init();
   s_window = window_create();
   window_set_click_config_provider(s_window, prv_click_config);
@@ -428,6 +429,7 @@ static void prv_deinit(void) {
   if (s_log_timer) app_timer_cancel(s_log_timer);
   s_game_timer = s_render_timer = s_log_timer = NULL;
   app_focus_service_unsubscribe();
+  light_enable(false);          // die Uhr nicht mit brennendem Licht verlassen
   window_destroy(s_window);
 }
 

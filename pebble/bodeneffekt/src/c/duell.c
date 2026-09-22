@@ -2,9 +2,22 @@
 #include "world.h"
 #include "setup.h"
 
-// Ein Lauf je Profil bleibt im Flash stehen, damit sich zwei Laeufe auch ueber
-// eine Pause hinweg vergleichen lassen.
+// Ein Lauf je Profil bleibt im Flash stehen, damit sich Laeufe auch ueber eine
+// Pause hinweg vergleichen lassen.
+//
+// Mit Version und Groesse davor, und das ist kein Zierrat: als aus zwei
+// Profilen vier wurden und der Lauf ein Feld dazubekam, hat der alte Datensatz
+// ohne diese Pruefung stillschweigend als neuer gelesen und alle gespeicherten
+// Laeufe entwertet. Passt eine der beiden Angaben nicht, wird verworfen statt
+// falsch ausgelegt.
 #define PERSIST_KEY_LAUF 100
+#define DUELL_FORMAT 2
+
+typedef struct {
+  uint16_t version;
+  uint16_t groesse;      // sizeof(DuellLauf) zur Kontrolle
+  uint8_t slots;
+} DuellKopf;
 
 static DuellLauf s_laeufe[ProfAnzahl];
 static DuellLauf *s_aktiv;
@@ -15,7 +28,16 @@ void duell_init(void) {
   s_aktiv = NULL;
   s_rest_ms = 0;
   if (persist_exists(PERSIST_KEY_LAUF)) {
-    persist_read_data(PERSIST_KEY_LAUF, s_laeufe, sizeof(s_laeufe));
+    struct { DuellKopf kopf; DuellLauf laeufe[ProfAnzahl]; } block;
+    const int n = persist_read_data(PERSIST_KEY_LAUF, &block, sizeof(block));
+    if (n == (int)sizeof(block) && block.kopf.version == DUELL_FORMAT &&
+        block.kopf.groesse == sizeof(DuellLauf) && block.kopf.slots == ProfAnzahl) {
+      memcpy(s_laeufe, block.laeufe, sizeof(s_laeufe));
+    } else {
+      APP_LOG(APP_LOG_LEVEL_INFO,
+              "[BE] gespeicherte Duell-Laeufe verworfen: fremdes Format");
+      persist_delete(PERSIST_KEY_LAUF);
+    }
   }
 }
 
@@ -71,7 +93,12 @@ bool duell_tick(uint32_t dt_ms, int32_t agl8, bool kontakt, bool in_effekt,
     s_rest_ms = 0;
     s_aktiv->gueltig = true;
     s_aktiv = NULL;
-    persist_write_data(PERSIST_KEY_LAUF, s_laeufe, sizeof(s_laeufe));
+    struct { DuellKopf kopf; DuellLauf laeufe[ProfAnzahl]; } block;
+    block.kopf = (DuellKopf){ .version = DUELL_FORMAT,
+                              .groesse = (uint16_t)sizeof(DuellLauf),
+                              .slots = ProfAnzahl };
+    memcpy(block.laeufe, s_laeufe, sizeof(s_laeufe));
+    persist_write_data(PERSIST_KEY_LAUF, &block, sizeof(block));
     return true;
   }
   s_rest_ms -= dt_ms;

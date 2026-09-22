@@ -276,6 +276,7 @@ Wahl und werden einzeln vom Duell gemessen. Die Einstellungen liegen im Flash.
 | Schatten | normal, hoch | wo der Schatten im Bild liegt |
 | Nicklage | umgekehrt, direkt | ziehen zum Steigen, oder druecken |
 | Randseite | links, rechts | welche Seite bei FingR den Stick traegt |
+| Licht | automatisch, dauernd an | Hintergrundbeleuchtung |
 
 **FingU** ist der gemessene, durchgefallene Stand: Cockpitband im unteren
 Drittel. **FingR** nimmt den Finger nur in einem 52 Pixel schmalen Streifen am
@@ -295,6 +296,11 @@ Die **Schattenlage** ist unabhaengig davon und wirkt auf jedes Profil:
 `hoch` holt den Schatten vollstaendig aus dem Bereich, in dem eine Hand liegen
 kann — und zahlt dafuer mit dem Abstand zum Rumpf, also mit genau der
 Ablesbarkeit, um die es geht. Welcher Preis kleiner ist, sagt das Duell.
+
+**Licht dauernd an** (`light_enable`) haelt die Beleuchtung unabhaengig vom
+Zeitgeber des Systems. Das kostet spuerbar Akku und taugt nicht fuer den
+Dauerbetrieb, ist aber beim Messen und beim Filmen unverzichtbar: sonst geht
+das Bild mitten im Lauf aus. Beim Beenden der App wird es wieder freigegeben.
 
 Die Verdeckungsmessung prueft seitdem auch **waagerecht**: verdeckt ist der
 Schatten nur, wenn der Finger auch nah genug an der Bildmitte liegt. Ohne das
