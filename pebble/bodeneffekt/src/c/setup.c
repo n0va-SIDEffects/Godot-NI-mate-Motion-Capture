@@ -7,7 +7,7 @@ static Setup s_setup;
 
 void setup_init(void) {
   s_setup = (Setup){ .profil = ProfFingerUnten, .schatten = SchattenNormal,
-                     .invert = 1, .rand_rechts = 0, .licht = 0 };
+                     .invert = 1, .rand_rechts = 0, .licht = 0, .horizont_alt = 0 };
   if (persist_exists(PERSIST_KEY_SETUP)) {
     struct { uint16_t version; uint16_t groesse; Setup setup; } block;
     const int n = persist_read_data(PERSIST_KEY_SETUP, &block, sizeof(block));
@@ -75,6 +75,7 @@ void setup_naechster_wert(int zeile) {
       s_setup.licht = s_setup.licht ? 0 : 1;
       setup_licht_anwenden();
       break;
+    case 5: s_setup.horizont_alt = s_setup.horizont_alt ? 0 : 1; break;
     default: return;
   }
   setup_save();
@@ -96,8 +97,12 @@ void setup_text(int zeile, char *out, size_t n, bool markiert) {
     case 3:
       snprintf(out, n, "%sRandseite %s", m, s_setup.rand_rechts ? "rechts" : "links");
       break;
-    default:
+    case 4:
       snprintf(out, n, "%sLicht %s", m, s_setup.licht ? "dauernd an" : "automatisch");
+      break;
+    default:
+      snprintf(out, n, "%sHorizont %s", m,
+               s_setup.horizont_alt ? "gegen Kurve" : "mit Kurve");
       break;
   }
 }

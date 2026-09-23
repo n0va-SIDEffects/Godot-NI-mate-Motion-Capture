@@ -12,7 +12,7 @@
 // Laeufe entwertet. Passt eine der beiden Angaben nicht, wird verworfen statt
 // falsch ausgelegt.
 #define PERSIST_KEY_LAUF 100
-#define DUELL_FORMAT 3
+#define DUELL_FORMAT 4
 
 typedef struct {
   uint16_t version;
@@ -62,13 +62,15 @@ void duell_start(void) {
   // eines davon, faengt sie von vorn an, sonst mischt der Mittelwert
   // Unvergleichbares.
   if (s_aktiv->laeufe == 0 || s_aktiv->seed != world_info()->seed ||
-      s_aktiv->schatten != setup_get()->schatten) {
+      s_aktiv->schatten != setup_get()->schatten ||
+      s_aktiv->horizont_alt != setup_get()->horizont_alt) {
     memset(s_aktiv, 0, sizeof(*s_aktiv));
   }
   s_aktiv->seed = world_info()->seed;
   s_aktiv->profil = p;
   s_aktiv->invert = control_pitch_invert() ? 1 : 0;
   s_aktiv->schatten = setup_get()->schatten;
+  s_aktiv->horizont_alt = setup_get()->horizont_alt;
   s_lauf_sohle_ms = 0;
   s_lauf_dauer_ms = 0;
   s_rest_ms = DUELL_DAUER_MS;

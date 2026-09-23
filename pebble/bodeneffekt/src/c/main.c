@@ -101,8 +101,9 @@ static void prv_zeile_lauf(char *out, size_t n, const DuellReihe *r, const char 
 }
 
 static void prv_refresh_duell(void) {
-  snprintf(s_t[0], sizeof(s_t[0]), "DUELL %s%s", setup_profil_name(control_profile()),
-           setup_get()->schatten == SchattenHoch ? " Sh" : "");
+  snprintf(s_t[0], sizeof(s_t[0]), "DUELL %s%s%s", setup_profil_name(control_profile()),
+           setup_get()->schatten == SchattenHoch ? " Sh" : "",
+           setup_get()->horizont_alt ? " Hg" : "");
   snprintf(s_t[1], sizeof(s_t[0]), "     Sohl Bod Hoe Blind");
   bool fremd = false;
   const uint32_t seed = world_info()->seed;
@@ -134,8 +135,7 @@ static void prv_refresh_setup(void) {
   for (int i = 0; i < SETUP_ZEILEN; i++) {
     setup_text(i, s_t[1 + i], sizeof(s_t[0]), i == s_setup_zeile);
   }
-  snprintf(s_t[6], sizeof(s_t[0]), "UpDn=Zeile  Sel=Wert");
-  snprintf(s_t[7], sizeof(s_t[0]), "Licht an kostet Akku");
+  snprintf(s_t[7], sizeof(s_t[0]), "UpDn=Zeile  Sel=Wert");
   for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
 }
 

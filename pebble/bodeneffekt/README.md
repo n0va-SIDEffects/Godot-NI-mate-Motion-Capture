@@ -382,6 +382,40 @@ ein Lauf mal drei Wiederholungen sind neun Laeufe, aus denen sich etwas
 ableiten laesst. **Uebrig bleiben FingU, FingF und Tast**, je dreimal, bei
 Schattenlage `normal`.
 
+### Die Reparatur von FingF wirkt — und der Roll-Fix faellt auf
+
+![Nach dem Roll-Fix](docs/duell-nach-rollfix.jpg)
+
+| Profil | Sohle | Boden | Hoehe | Blind |
+|---|---|---|---|---|
+| FingU | 11 % | 9 | 51 | 48 % |
+| FingR | 5 % | 7 | 70 | 11 % |
+| Tilt | 5 % | 4 | 53 | 0 % |
+| Tast | **3 %** | 3 | 49 | 0 % |
+| **FingF** | **15 %** | 15 | **42 %** | 23 % |
+
+**FingF ist nach der Reparatur das beste Profil dieser Reihe**: von 2 auf 15
+Prozent Sohlenzeit, von 77 auf 42 Zellen mittlerer Hoehe. Roll und Steigen an
+verschiedenen Fingern war also tatsaechlich der Fehler, nicht das Touch-Prinzip.
+
+**Tast dagegen steht bei 3 Prozent.** Der Verlauf ueber vier Reihen, je ein
+Lauf: 39, 43, **11, 3**. Die ersten beiden liegen vor der Korrektur der
+Horizontkippung, die letzten beiden danach. Das sieht nicht nach Streuung aus,
+das sieht nach einem Effekt aus.
+
+Die Korrektur selbst ist geometrisch richtig: neigt sich der Gleiter nach
+rechts, sieht man rechts mehr Boden, der Horizont gehoert dort hoeher. Aber
+richtig heisst nicht unbedingt besser steuerbar, und die vorherigen Laeufe sind
+mit der anderen Darstellung geflogen und gelernt worden. Ob der Einbruch
+Umgewoehnung ist oder ein echter Nachteil, laesst sich nicht erraten, deshalb
+steht die Kippung jetzt im Setup zur Wahl (`Horizont mit Kurve` / `gegen
+Kurve`) und wird in der Reihe mitgefuehrt: wechselt sie, faengt die Reihe neu
+an. Die Kopfzeile des Duells zeigt `Hg`, wenn die alte Fassung aktiv ist.
+
+**Alle Zahlen dieser Reihe stehen weiter auf je einem Lauf.** Bei einer
+gemessenen Spanne von 3 bis 43 Prozent im selben Profil heisst das: noch immer
+nichts davon ist belastbar.
+
 ### Die frueheren Zahlen, Stand vor dem Randprofil
 
 ![Duell auf der Uhr](docs/duell-hardware.jpg)

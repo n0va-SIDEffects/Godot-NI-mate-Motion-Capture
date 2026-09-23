@@ -36,6 +36,7 @@ typedef struct {
   uint8_t profil;
   uint8_t invert;
   uint8_t schatten;
+  uint8_t horizont_alt;
 } DuellReihe;
 
 // Ein Lauf hat drei Phasen: Vorlauf (Countdown, es wird nichts gewertet und

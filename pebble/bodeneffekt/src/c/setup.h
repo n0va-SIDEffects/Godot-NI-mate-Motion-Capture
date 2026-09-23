@@ -34,6 +34,12 @@ typedef struct {
   uint8_t invert;        // Nicklage umgekehrt (nur die Finger-Profile)
   uint8_t rand_rechts;   // Randstreifen rechts statt links (nur ProfFingerRand)
   uint8_t licht;         // Backlight dauerhaft an
+  // Kippt der Horizont mit der Kurve oder gegen sie? Die erste Fassung kippte
+  // gegen die Kurve, was geometrisch falsch ist. Nach der Korrektur ist die
+  // Sohlenzeit des Tastenprofils von 39/43 auf 11/3 Prozent gefallen - das
+  // kann Umgewoehnung sein oder ein echter Nachteil. Solange das offen ist,
+  // gehoert es umschaltbar und in die Reihe geschrieben, statt erraten.
+  uint8_t horizont_alt;
 } Setup;
 
 void setup_init(void);
@@ -41,7 +47,7 @@ void setup_save(void);
 const Setup *setup_get(void);
 
 // Eine Zeile des Einstellungsbildschirms weiterschalten (0..SETUP_ZEILEN-1).
-#define SETUP_ZEILEN 5
+#define SETUP_ZEILEN 6
 void setup_naechster_wert(int zeile);
 // Backlight nach der Einstellung schalten. Getrennt von setup_naechster_wert,
 // damit der Aufruf auch beim Start und beim Zurueckkommen aus dem Hintergrund

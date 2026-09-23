@@ -167,12 +167,15 @@ static void prv_draw_terrain(uint8_t *fb, uint16_t stride) {
   const int32_t c_roll = cos_lookup(roll_ang);
   const int32_t tan8 = c_roll ? (int32_t)((sin_lookup(roll_ang) * 256) / c_roll) : 0;
   const int32_t hor0 = HORIZON_BASE + s_cam.pitch_px;
+  const bool alt = setup_get()->horizont_alt != 0;
   for (int i = 0; i < cols; i++) {
     const int px = i * colw + (colw >> 1);
     // Vorzeichen: neigt sich der Gleiter nach rechts, sieht man auf der
     // rechten Bildseite mehr Boden, der Horizont liegt dort also HOEHER
-    // (kleineres y). Andersherum kippt das Bild gegen die Flugrichtung.
-    s_hor[i] = (int16_t)(hor0 - (((px - SCR_CX) * tan8) >> 8));
+    // (kleineres y). Die Einstellung 'gegen Kurve' stellt die alte, falsche
+    // Fassung wieder her, damit sich beide messen lassen.
+    const int32_t kipp = (((px - SCR_CX) * tan8) >> 8);
+    s_hor[i] = (int16_t)(alt ? hor0 + kipp : hor0 - kipp);
     s_yb[i] = SCR_H;
   }
 
@@ -360,7 +363,10 @@ static void prv_draw_glider(uint8_t *fb, uint16_t stride) {
   const uint8_t edge = prv_argb(255, 255, 255);
   for (int dx = -22; dx <= 22; dx++) {
     const int adx = dx < 0 ? -dx : dx;
-    const int wing = cy + (adx * 6) / 22 + (dx * tilt) / 55;
+    // Der Rumpf folgt derselben Einstellung wie der Horizont, sonst passt die
+    // Lage des Gleiters nicht mehr zur Welt hinter ihm.
+    const int kipp = (dx * tilt) / 55;
+    const int wing = cy + (adx * 6) / 22 + (setup_get()->horizont_alt ? -kipp : kipp);
     const int th = adx < 6 ? 5 : 2;
     for (int t = 0; t < th; t++) {
       const int y = wing + t;
