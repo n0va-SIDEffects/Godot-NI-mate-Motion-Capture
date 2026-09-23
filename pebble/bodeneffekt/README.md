@@ -261,7 +261,53 @@ Was den Vergleich sonst noch kaputt macht:
   verglichen werden sollen — sie wirkt auf beide. Erst alle Profile mit
   `normal`, dann bei Bedarf alle mit `hoch`.
 
-### Ergebnis: der Fingerstick ist durchgefallen
+### Ergebnis: nicht die Verdeckung war das Problem
+
+![Alle vier Profile](docs/duell-alle-vier.jpg)
+
+Alle vier Kandidaten auf derselben Strecke (20260923), je 60 Sekunden:
+
+| Profil | Sohle | Boden | Hoehe | Blind |
+|---|---|---|---|---|
+| FingU (unten) | 12 % | 10 | 48 | 75 % |
+| FingR (Rand) | 7 % | 4 | 68 | 12 % |
+| Tilt | 4 % | 4 | 59 | **0 %** |
+| **Tast** | **43 %** | 34 | **24** | 6 % |
+
+**Die Verdeckung liess sich loesen, und es hat nichts genutzt.** Von FingU
+ueber FingR zu Tilt faellt `Blind` von 75 auf 12 auf 0 Prozent — und die
+Sohlenzeit faellt mit, von 12 auf 7 auf 4. Das Profil ganz ohne Hand auf dem
+Glas ist das schlechteste von allen.
+
+Damit ist die Kritik der Jury zwar bestaetigt, aber als Nebenschauplatz: der
+Fingerstick verdeckt den Schatten, nur liegt es nicht daran, dass er verliert.
+
+**Was die Profile wirklich trennt, ist das Hoehenmodell.** Tast ist das einzige
+mit Flappy-Steuerung — halten heisst steigen, loslassen heisst sinken — und das
+einzige, das die Kernmechanik erreicht: 43 Prozent Sohlenzeit bei 24 Zellen
+mittlerer Hoehe, wo alle anderen zwischen 48 und 68 Zellen herumhaengen. Die
+drei Verlierer haben gemeinsam, dass die Hoehe aus einer *Auslenkung* kommt,
+die man halten muss. Auf 1,5 Zoll, im Tiefflug, mit zwei Zellen Spielraum nach
+unten, ist das offenbar nicht zu dosieren.
+
+Die 34 Bodenkontakte von Tast sind kein Gegenargument: pro Bodenkontakt liefert
+es 1,26 Prozentpunkte Sohlenzeit, ungefaehr so viel wie FingU mit 1,20 — es
+fliegt nur die ganze Zeit dort unten, wo es darauf ankommt.
+
+**Daraus folgt der naechste Kandidat, und er steht im Setup: `FingF`.** Das
+Flappy-Modell auf dem Finger — Finger liegt, der Gleiter steigt; Finger weg, er
+sinkt; der Versatz nach x bleibt der Roll. Weil die Hochachse des Fingers dabei
+nichts mehr steuert, darf er unten am Rand liegen bleiben, wo er nichts
+verdeckt. Wenn die These stimmt, dass das Hoehenmodell entscheidet und nicht
+das Eingabegeraet, muss FingF in die Naehe der 43 Prozent kommen. Tut es das
+nicht, ist Touch als Hauptsteuerung erledigt und das Konzept braucht eine
+andere Erzaehlung.
+
+Die 6 Prozent `Blind` bei Tast sind ein Messartefakt: die Steuerung braucht das
+Glas nicht, aber ein Handballen streift es gelegentlich trotzdem. Bei den
+tastengesteuerten Profilen ist die Spalte ohne Aussage.
+
+### Die frueheren Zahlen, Stand vor dem Randprofil
 
 ![Duell auf der Uhr](docs/duell-hardware.jpg)
 

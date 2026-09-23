@@ -48,12 +48,12 @@ void flight_step(uint32_t dt_ms) {
   s_f.y16 += (int32_t)(((int64_t)cos_lookup(s_f.yaw) * dist16) >> 16);
 
   // Hoehe: zwei Modelle, damit sich beide Profile gegeneinander testen lassen.
-  if (control_profile() != ProfTasten) {
+  if (!setup_profil_ist_flappy(control_profile())) {
     // Der Versatz (oder die Neigung) ist eine Steigrate, nicht eine Hoehe: der
     // Gleiter haelt die Hoehe, sobald die Eingabe zur Mitte zurueckkommt.
     s_f.vz8 = (in->climb_cmd * STICK_CLIMB_CELLS_S * 256) / 256;
   } else {
-    // Flappy: Select liegt = steigen, sonst sinken.
+    // Flappy: Eingabe liegt an = steigen, sonst sinken.
     const int32_t acc = in->climb_held ? FLAP_ACC_CELLS_S2 : -FLAP_GRAV_CELLS_S2;
     s_f.vz8 += (acc * 256 * dt) / 1000;
     const int32_t vmax = FLAP_VZ_MAX_CELLS_S * 256;

@@ -44,12 +44,17 @@ const char *setup_profil_name(uint8_t p) {
     case ProfFingerUnten: return "FingU";
     case ProfFingerRand:  return "FingR";
     case ProfTilt:        return "Tilt";
+    case ProfFingerFlappy: return "FingF";
     default:              return "Tast";
   }
 }
 
 bool setup_profil_ist_touch(uint8_t p) {
-  return p == ProfFingerUnten || p == ProfFingerRand;
+  return p == ProfFingerUnten || p == ProfFingerRand || p == ProfFingerFlappy;
+}
+
+bool setup_profil_ist_flappy(uint8_t p) {
+  return p == ProfTasten || p == ProfFingerFlappy;
 }
 
 int setup_cam_back_cells(void) {

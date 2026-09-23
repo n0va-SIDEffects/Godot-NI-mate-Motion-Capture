@@ -160,7 +160,14 @@ void control_tick(uint32_t now) {
     s_rate_t0 = now;
   }
 
-  if (setup_profil_ist_touch(s_profile)) {
+  if (s_profile == ProfFingerFlappy) {
+    // Die Hochachse des Fingers steuert nichts: der Finger darf unten liegen
+    // bleiben. Liegt er, steigt der Gleiter; nimmt man ihn weg, sinkt er.
+    s_out.roll_cmd = s_down ? prv_curve(s_st.dx) : 0;
+    s_out.climb_cmd = 0;
+    s_out.climb_held = s_down;
+    s_out.precision = s_btn_select;
+  } else if (setup_profil_ist_touch(s_profile)) {
     if (s_down) {
       s_out.roll_cmd = prv_curve(s_st.dx);
       int32_t c = prv_curve(s_st.dy);

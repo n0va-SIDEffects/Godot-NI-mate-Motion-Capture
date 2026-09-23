@@ -1,6 +1,7 @@
 #include "duell.h"
 #include "world.h"
 #include "setup.h"
+#include <stddef.h>
 
 // Ein Lauf je Profil bleibt im Flash stehen, damit sich Laeufe auch ueber eine
 // Pause hinweg vergleichen lassen.
@@ -32,9 +33,20 @@ void duell_init(void) {
   if (persist_exists(PERSIST_KEY_LAUF)) {
     struct { DuellKopf kopf; DuellLauf laeufe[ProfAnzahl]; } block;
     const int n = persist_read_data(PERSIST_KEY_LAUF, &block, sizeof(block));
-    if (n == (int)sizeof(block) && block.kopf.version == DUELL_FORMAT &&
-        block.kopf.groesse == sizeof(DuellLauf) && block.kopf.slots == ProfAnzahl) {
-      memcpy(s_laeufe, block.laeufe, sizeof(s_laeufe));
+    // Weniger Slots als heute ist in Ordnung: ein spaeter angehaengtes Profil
+    // darf die bereits geflogenen Laeufe nicht wegwerfen. Nur Version und
+    // Satzgroesse muessen stimmen, sonst laege der Inhalt falsch ausgelegt vor.
+    //
+    // offsetof statt sizeof(DuellKopf): der Kopf ist 6 Byte gross, liegt im
+    // Block aber auf 8 gepolstert, weil DuellLauf auf 4 ausgerichtet ist. Mit
+    // sizeof faellt die Rechnung um genau diese zwei Byte daneben, und jeder
+    // gespeicherte Lauf waere beim naechsten neuen Profil weg gewesen.
+    const int erwartet = (int)offsetof(__typeof__(block), laeufe) +
+                         (int)block.kopf.slots * (int)sizeof(DuellLauf);
+    if (n >= (int)sizeof(DuellKopf) && block.kopf.version == DUELL_FORMAT &&
+        block.kopf.groesse == sizeof(DuellLauf) &&
+        block.kopf.slots <= ProfAnzahl && n == erwartet) {
+      memcpy(s_laeufe, block.laeufe, (size_t)block.kopf.slots * sizeof(DuellLauf));
     } else {
       APP_LOG(APP_LOG_LEVEL_INFO,
               "[BE] gespeicherte Duell-Laeufe verworfen: fremdes Format");

@@ -12,7 +12,14 @@ typedef enum {
   ProfFingerRand  = 1,   // schmaler Streifen am Bildrand, Mitte bleibt frei
   ProfTilt        = 2,   // Neigungssensor, gar keine Hand auf dem Glas
   ProfTasten      = 3,   // Up/Down Roll, Select halten steigen (Flappy)
-  ProfAnzahl      = 4,
+  // Aus der Messung entstanden: nicht die Verdeckung trennt die Profile,
+  // sondern das Hoehenmodell. Dieses hier nimmt das Flappy-Modell der Tasten
+  // und legt es auf den Finger - und weil dabei die Hochachse des Fingers
+  // nichts mehr steuert, darf er ganz unten liegen bleiben, wo er nichts
+  // verdeckt. Neue Werte gehoeren ans Ende, sonst verschieben sich die
+  // gespeicherten Laeufe.
+  ProfFingerFlappy = 4,  // Finger liegt = steigen, Versatz nach x = Roll
+  ProfAnzahl      = 5,
 } Profil;
 
 typedef enum {
@@ -44,6 +51,9 @@ void setup_text(int zeile, char *out, size_t n, bool markiert);
 
 const char *setup_profil_name(uint8_t p);      // kurz, fuer die Duell-Tabelle
 bool setup_profil_ist_touch(uint8_t p);
+// Flappy heisst: die Hoehe kommt aus Halten und Loslassen, nicht aus einer
+// Auslenkung. Genau das trennt in der Messung 43 Prozent Sohlenzeit von 4.
+bool setup_profil_ist_flappy(uint8_t p);
 
 // Aus der Schattenlage abgeleitete Geometrie. Beide Werte brauchen Renderer
 // und Flugmodell, und sie muessen zusammenpassen, sonst steht der Schatten

@@ -246,6 +246,16 @@ Messgeruest in `pebble/schwebung`. Diese Punkte schlagen das Konzeptpapier.
   keine Fingerposition mehr, die ihn frei laesst. Der Fingerstick in der Form
   des Konzepts ist damit erledigt; Einzelheiten und die drei Auswege im README
   des Projekts.
+- **Und die Verdeckung war doch nicht die Ursache.** Die vollstaendige Reihe
+  ueber vier Profile zeigt: mit dem Randstreifen faellt die Verdeckung von 75
+  auf 12 Prozent, mit dem Neigungssensor auf null — und die Sohlenzeit faellt
+  mit, von 12 ueber 7 auf 4 Prozent. Das Profil ganz ohne Hand auf dem Glas ist
+  das schlechteste. Was die Profile trennt, ist das **Hoehenmodell**: die
+  Tasten sind das einzige Profil mit Flappy-Steuerung (halten = steigen) und
+  das einzige, das die Kernmechanik erreicht (43 Prozent Sohlenzeit bei 24
+  Zellen Hoehe). Eine Hoehe, die aus einer gehaltenen Auslenkung kommt, ist auf
+  1,5 Zoll im Tiefflug offenbar nicht zu dosieren. Der naechste Test heisst
+  deshalb `FingF`: Flappy auf dem Finger.
 - **`time_ms()` springt gelegentlich um plus/minus 1000 ms**, und eine
   Aufrufpause ueber einer Sekunde verschluckt in der naiven Rechnung eine ganze
   Sekunde. Fertige Loesung: `pebble/schwebung/src/c/e1clock.c`.

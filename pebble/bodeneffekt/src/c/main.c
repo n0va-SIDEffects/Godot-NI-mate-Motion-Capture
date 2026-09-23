@@ -109,13 +109,15 @@ static void prv_refresh_duell(void) {
     prv_zeile_lauf(s_t[2 + p], sizeof(s_t[0]), l, setup_profil_name((uint8_t)p));
     if (l->gueltig && l->seed != seed) fremd = true;
   }
-  snprintf(s_t[6], sizeof(s_t[0]), fremd ? "andere Strecke!" : "Strecke %lu",
-           (unsigned long)seed);
-  // Jeder Lauf ueberschreibt den vorigen desselben Profils; die Nummer macht
-  // sichtbar, der wievielte gerade in der Tabelle steht.
+  // Fuenf Profile fuellen den Bildschirm bis auf eine Zeile; Strecke, Laufnummer
+  // und die Warnung teilen sie sich.
   const DuellLauf *akt = duell_ergebnis(control_profile());
-  snprintf(s_t[7], sizeof(s_t[0]), "Sel=Lauf 60s   Nr %u",
-           (unsigned)akt->nummer);
+  if (fremd) {
+    snprintf(s_t[7], sizeof(s_t[0]), "andere Strecke!  Nr %u", (unsigned)akt->nummer);
+  } else {
+    snprintf(s_t[7], sizeof(s_t[0]), "Str %lu  Nr %u",
+             (unsigned long)seed, (unsigned)akt->nummer);
+  }
   for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
 }
 
