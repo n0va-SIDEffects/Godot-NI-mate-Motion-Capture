@@ -161,12 +161,29 @@ void control_tick(uint32_t now) {
   }
 
   if (s_profile == ProfFingerFlappy) {
-    // Die Hochachse des Fingers steuert nichts: der Finger darf unten liegen
-    // bleiben. Liegt er, steigt der Gleiter; nimmt man ihn weg, sinkt er.
-    s_out.roll_cmd = s_down ? prv_curve(s_st.dx) : 0;
+    // Der Finger macht nur die Hoehe: liegt er, steigt der Gleiter; nimmt man
+    // ihn weg, sinkt er. Weil weder Hoch- noch Querachse des Fingers etwas
+    // steuern, darf er unten am Rand liegen bleiben, wo er nichts verdeckt.
+    //
+    // Der Roll liegt auf Up und Down, und das ist der Kern des Versuchs: nur
+    // so haengen Rollen und Steigen an verschiedenen Fingern. Die erste
+    // Fassung legte beides auf denselben Finger, und weil man zum Rollen
+    // auflegen muss und Auflegen Steigen heisst, kam sie nie nach unten:
+    // 2 Prozent Sohlenzeit bei 77 Zellen mittlerer Hoehe, das Schlechteste
+    // von allem Gemessenen.
+    if (s_btn_up && !s_btn_down) {
+      s_btn_roll -= BTN_ROLL_STEP / 4;
+    } else if (s_btn_down && !s_btn_up) {
+      s_btn_roll += BTN_ROLL_STEP / 4;
+    } else {
+      s_btn_roll -= s_btn_roll / 6;
+    }
+    if (s_btn_roll > 256) s_btn_roll = 256;
+    if (s_btn_roll < -256) s_btn_roll = -256;
+    s_out.roll_cmd = s_btn_roll;
     s_out.climb_cmd = 0;
     s_out.climb_held = s_down;
-    s_out.precision = s_btn_select;
+    s_out.precision = false;
   } else if (setup_profil_ist_touch(s_profile)) {
     if (s_down) {
       s_out.roll_cmd = prv_curve(s_st.dx);

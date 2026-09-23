@@ -294,7 +294,10 @@ Die 34 Bodenkontakte von Tast sind kein Gegenargument: pro Bodenkontakt liefert
 es 1,26 Prozentpunkte Sohlenzeit, ungefaehr so viel wie FingU mit 1,20 — es
 fliegt nur die ganze Zeit dort unten, wo es darauf ankommt.
 
-**Daraus folgt der naechste Kandidat, und er steht im Setup: `FingF`.** Das
+**Nachtrag: beide Schluesse aus dieser Tabelle waren falsch.** Die naechste
+Runde hat sie umgeworfen, siehe unten.
+
+**Daraus folgte der naechste Kandidat `FingF`:** Das
 Flappy-Modell auf dem Finger — Finger liegt, der Gleiter steigt; Finger weg, er
 sinkt; der Versatz nach x bleibt der Roll. Weil die Hochachse des Fingers dabei
 nichts mehr steuert, darf er unten am Rand liegen bleiben, wo er nichts
@@ -306,6 +309,47 @@ andere Erzaehlung.
 Die 6 Prozent `Blind` bei Tast sind ein Messartefakt: die Steuerung braucht das
 Glas nicht, aber ein Handballen streift es gelegentlich trotzdem. Bei den
 tastengesteuerten Profilen ist die Spalte ohne Aussage.
+
+### Und dann kam die Runde, die alles umwarf
+
+![FingF](docs/duell-fingf.jpg)
+
+| Profil | Sohle | Boden | Hoehe | Blind |
+|---|---|---|---|---|
+| Tast (neuer Lauf) | **11 %** | 11 | 48 | 0 % |
+| FingF | 2 % | 2 | 77 | 42 % |
+
+**Tast, dasselbe Profil auf derselben Strecke, faellt von 43 auf 11 Prozent.**
+Ueber drei Reihen gemessen: 39, 43, 11. Die Streuung eines einzelnen Profils
+ist damit groesser als der gesamte Abstand zwischen den Profilen (4 bis 12).
+**Ein Lauf je Profil traegt keine Aussage**, und die Schlussfolgerung der
+vorigen Runde — "das Hoehenmodell entscheidet" — stand auf genau einem Lauf.
+Sie ist damit nicht widerlegt, aber sie war nie belegt.
+
+**FingF ist mit 2 Prozent das schlechteste Profil ueberhaupt**, bei 77 Zellen
+mittlerer Hoehe, der hoechsten von allen. Der Grund ist ein Konstruktionsfehler
+und kein Messwert: Roll und Steigen hingen am selben Finger. Wer rollen will,
+muss auflegen, und Auflegen heisst steigen — das Profil konnte gar nicht nach
+unten. Die 42 Prozent Verdeckung kommen dazu, weil der Finger dabei mitten im
+Bild liegen bleibt statt unten.
+
+Zwei Konsequenzen, beide eingebaut:
+
+**Das Duell sammelt jetzt ueber mehrere Laeufe.** Die Tabelle zeigt hinter dem
+Profilnamen die Zahl der Laeufe und mittelt ueber sie; `Bod` ist ab jetzt
+Bodenkontakte *je Lauf*. Die Fusszeile zeigt die Spanne zwischen bestem und
+schlechtestem Lauf des aktuellen Profils — erst daran sieht man, ob ein
+Mittelwert etwas wert ist. **Up** verwirft die Reihe des aktuellen Profils.
+Wechselt die Strecke oder die Schattenlage, faengt die Reihe von selbst neu an,
+damit der Mittelwert nichts Unvergleichbares mischt.
+
+**FingF rollt jetzt ueber Up und Down**, der Finger macht nur noch die Hoehe.
+Damit haengen Rollen und Steigen an verschiedenen Fingern, und weil weder Hoch-
+noch Querachse des Fingers etwas steuert, darf er unten am Rand liegen bleiben.
+Erst in dieser Fassung testet das Profil wirklich die These, um die es geht.
+
+**Belastbar ist bisher nichts.** Drei Laeufe je Profil waeren das Minimum,
+bevor eine Zahl aus dieser Tabelle in eine Designentscheidung eingeht.
 
 ### Die frueheren Zahlen, Stand vor dem Randprofil
 

@@ -86,16 +86,18 @@ static void prv_refresh_text(void) {
   for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
 }
 
-static void prv_zeile_lauf(char *out, size_t n, const DuellLauf *l, const char *name) {
-  if (!l->gueltig || l->dauer_ms == 0) {
-    snprintf(out, n, "%-5s   -", name);
+static void prv_zeile_lauf(char *out, size_t n, const DuellReihe *r, const char *name) {
+  if (r->laeufe == 0 || r->dauer_ms == 0) {
+    snprintf(out, n, "%-5s  -", name);
     return;
   }
-  const uint32_t sohle = (l->sohle_ms * 100) / l->dauer_ms;
-  const uint32_t blind = l->schatten_ms ? (l->blind_ms * 100) / l->schatten_ms : 0;
-  const uint32_t agl = l->proben ? (l->agl_sum8 / l->proben) >> 8 : 0;
-  snprintf(out, n, "%-5s %lu%% %uB %luh %lu%%", name, (unsigned long)sohle,
-           (unsigned)l->kontakte, (unsigned long)agl, (unsigned long)blind);
+  const uint32_t sohle = (r->sohle_ms * 100) / r->dauer_ms;
+  const uint32_t blind = r->schatten_ms ? (r->blind_ms * 100) / r->schatten_ms : 0;
+  const uint32_t agl = r->proben ? (r->agl_sum8 / r->proben) >> 8 : 0;
+  const uint32_t bod = r->kontakte / r->laeufe;      // je Lauf, nicht Summe
+  snprintf(out, n, "%-5s%u %lu%% %luB %luh %lu%%", name, (unsigned)r->laeufe,
+           (unsigned long)sohle, (unsigned long)bod, (unsigned long)agl,
+           (unsigned long)blind);
 }
 
 static void prv_refresh_duell(void) {
@@ -105,18 +107,24 @@ static void prv_refresh_duell(void) {
   bool fremd = false;
   const uint32_t seed = world_info()->seed;
   for (int p = 0; p < ProfAnzahl; p++) {
-    const DuellLauf *l = duell_ergebnis((uint8_t)p);
+    const DuellReihe *l = duell_ergebnis((uint8_t)p);
     prv_zeile_lauf(s_t[2 + p], sizeof(s_t[0]), l, setup_profil_name((uint8_t)p));
-    if (l->gueltig && l->seed != seed) fremd = true;
+    if (l->laeufe && l->seed != seed) fremd = true;
   }
   // Fuenf Profile fuellen den Bildschirm bis auf eine Zeile; Strecke, Laufnummer
   // und die Warnung teilen sie sich.
-  const DuellLauf *akt = duell_ergebnis(control_profile());
+  const DuellReihe *akt = duell_ergebnis(control_profile());
   if (fremd) {
-    snprintf(s_t[7], sizeof(s_t[0]), "andere Strecke!  Nr %u", (unsigned)akt->nummer);
+    snprintf(s_t[7], sizeof(s_t[0]), "andere Strecke!");
+  } else if (akt->laeufe > 1) {
+    // Die Spanne des aktuellen Profils: bei einem Lauf sagt der Mittelwert
+    // nichts, erst der Abstand zwischen bestem und schlechtestem Lauf zeigt,
+    // wie belastbar er ist.
+    snprintf(s_t[7], sizeof(s_t[0]), "%s %u-%u%%  Up=neu",
+             setup_profil_name(control_profile()),
+             (unsigned)akt->sohle_min, (unsigned)akt->sohle_max);
   } else {
-    snprintf(s_t[7], sizeof(s_t[0]), "Str %lu  Nr %u",
-             (unsigned long)seed, (unsigned)akt->nummer);
+    snprintf(s_t[7], sizeof(s_t[0]), "Str %lu  Up=neu", (unsigned long)seed);
   }
   for (int i = 0; i < VOX_TEXT_LINES; i++) voxel_set_text(i, s_t[i]);
 }
@@ -327,6 +335,12 @@ static void prv_select_up(ClickRecognizerRef r, void *ctx) {
 }
 
 static void prv_up_down(ClickRecognizerRef r, void *ctx) {
+  if (s_screen == ScrDuell) {
+    duell_reihe_loeschen(control_profile());
+    prv_refresh_duell();
+    layer_mark_dirty(s_layer);
+    return;
+  }
   if (s_screen == ScrSetup) {
     s_setup_zeile = (s_setup_zeile + SETUP_ZEILEN - 1) % SETUP_ZEILEN;
     prv_refresh_setup();
