@@ -351,6 +351,37 @@ Erst in dieser Fassung testet das Profil wirklich die These, um die es geht.
 **Belastbar ist bisher nichts.** Drei Laeufe je Profil waeren das Minimum,
 bevor eine Zahl aus dieser Tabelle in eine Designentscheidung eingeht.
 
+### Die Verdeckung ist am Handgelenk kein Problem
+
+Das Urteil des Spielers nach allen Laeufen: der Finger vor dem Bodenschatten
+stoert beim Fliegen nicht. Damit faellt die Kritik, die diese ganze Messreihe
+ausgeloest hat, als Entscheidungskriterium weg — und die Zahlen widersprechen
+dem nicht, im Gegenteil:
+
+| Profil | Blind | Sohle |
+|---|---|---|
+| FingU | 75 % | 12 % |
+| FingF | 42 % | 2 % |
+| FingR | 12 % | 7 % |
+| Tilt | 0 % | 4 % |
+
+Das Profil mit der **hoechsten** Verdeckung hat die **beste** Sohlenzeit. Der
+Zusammenhang ist nicht schwach, er ist umgekehrt. `Blind` bleibt als Messwert
+im Duell stehen, weil er billig ist und die Behauptung der Jury weiter
+dokumentiert, aber er ist **kein Kriterium mehr** dafuer, welches Profil
+gewinnt.
+
+Zwei Dinge, die daraufhin gebaut wurden, sind damit Antworten auf ein Problem,
+das keines ist: der Randstreifen `FingR` und die Schattenlage `hoch`. Beide
+bleiben waehlbar — sie kosten nichts —, aber sie gehoeren nicht mehr in die
+Testmatrix.
+
+Das ist vor allem eine Ersparnis. Fuenf Profile mal zwei Schattenlagen mal ein
+Lauf sind zehn Laeufe, aus denen sich nichts ableiten laesst; drei Profile mal
+ein Lauf mal drei Wiederholungen sind neun Laeufe, aus denen sich etwas
+ableiten laesst. **Uebrig bleiben FingU, FingF und Tast**, je dreimal, bei
+Schattenlage `normal`.
+
 ### Die frueheren Zahlen, Stand vor dem Randprofil
 
 ![Duell auf der Uhr](docs/duell-hardware.jpg)
