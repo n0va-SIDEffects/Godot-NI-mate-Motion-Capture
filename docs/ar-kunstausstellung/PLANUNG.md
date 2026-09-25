@@ -1,181 +1,255 @@
 # AR-Kunstausstellung: echte Bilder zum Leben erwecken
 
-**Status:** Ideensammlung und Planung (Stand 25.09.2026)
-**Ziel:** Besucher:innen richten ihr Handy (oder ein Leihgerät) auf ein echtes Gemälde, und das Bild beginnt sich zu bewegen, zu klingen oder über den Rahmen hinauszuwachsen.
+**Status:** Planung, Version 2 (Stand 25.09.2026)
+**Ziel:** Besucher:innen richten ihr eigenes Handy auf ein abstraktes Gemälde, und das Bild beginnt leise zu leben: Es atmet, fliesst, schimmert, klingt.
 
 ---
 
-## 1. Wie das technisch funktioniert
+## 0. Was feststeht
 
-Das Gemälde selbst ist der Marker (*Image Tracking*, auch *Natural Feature Tracking*).
+| Frage | Entscheidung | Konsequenz |
+|---|---|---|
+| Art der Bilder | **Eher abstrakt** | Die Trackbarkeit ist das Hauptrisiko und muss **zuerst** getestet werden (Abschnitt 3) |
+| Künstlerin | **Macht mit** | Sie wird Mitgestalterin der digitalen Ebene, nicht nur „Lieferantin“ (Abschnitt 6) |
+| Geräte | **Eigene Handys (BYOD)** | **WebAR**: QR-Code scannen, ohne App, läuft im Browser auf iOS und Android |
+| Stimmung | **Poetisch, subtil** | Keine Effekte, die aus dem Bild in den Raum gehen. Alles bleibt **im Bild**, und dafür genügt WebAR völlig |
+| Anzahl Bilder | **Noch offen** | Die Architektur muss beliebig skalieren (Abschnitt 5.1) |
+| Erstes Beispielwerk | **Relief aus gefalteten, bedruckten Papiermodulen** (kein flaches Gemälde) | Hervorragend trackbar, braucht aber Relief-spezifische Regeln (Abschnitt 4) |
+| Prozessvideo | **Gibt es noch keines** | Idee 5 („Das Bild entsteht“) nur, wenn die Künstlerin künftig filmt |
 
-1. Von jedem Bild gibt es ein **Referenzfoto**. Daraus berechnet die Software markante Merkmale, etwa Kanten, Kontraste und Details.
-2. Die Kamera erkennt diese Merkmale live im Raum und berechnet **Position, Winkel und Abstand** des Bildes (Pose).
-3. Auf genau diese Fläche wird der digitale Inhalt gelegt: ein Video, eine 3D-Szene, Partikel oder Sound.
-4. Der „Magic Moment“ entsteht, wenn der Inhalt **exakt wie das Original beginnt** und erst dann lebendig wird.
+### Technik-Entscheid: WebAR
+- **Stack:** MindAR (Image Tracking, Open Source) + three.js, als statische Web-App über HTTPS gehostet.
+- **Alternative Engine:** Die Open-Source-8th-Wall-Engine (Image Targets, MIT-Lizenz) als Plan B, falls MindAR bei den abstrakten Bildern schlecht trackt. Es lohnt sich, im Tracking-Test **beide** zu prüfen.
+- **Nicht mehr im Rennen:**
+  - Unity-App: Installationshürde, für subtile Effekte nicht nötig.
+  - Artivive: App-Pflicht, wenig Kontrolle. Als 10-Minuten-Schnelltest aber weiterhin brauchbar.
+  - Snapchat: Branding, Datenschutz.
 
 ---
 
-## 2. Die grosse Grundsatzentscheidung: Wie kommt die AR aufs Handy?
+## 1. Der Kerngedanke: Das Bild nicht überdecken, sondern **das echte Bild selbst bewegen**
 
-| Weg | Wie | + | − | Eignung |
+Gerade bei abstrakten Bildern mit Farbflächen fällt jeder Farbunterschied zwischen Kamerabild und Overlay sofort auf. Ein darübergelegtes Video wirkt dann schnell wie ein „Aufkleber“.
+
+**Lösung:** Der Grossteil der Effekte arbeitet **direkt mit dem Live-Kamerabild**. Die App weiss durch das Tracking genau, wo das Gemälde im Kamerabild liegt. Ein Shader verformt, belichtet oder färbt genau diese Pixel sanft um.
+
+**Vorteile:**
+- **Perfekte Farbtreue:** Es ist ja das echte Bild, inklusive Raumlicht, Glanz und Weissabgleich des Handys.
+- **Winzige Datenmenge:** Ein paar KB Code plus Masken statt vieler MB Video. Das ist ideal für BYOD mit schwachem Empfang.
+- **Generativ:** Nie zweimal gleich, kein sichtbarer Loop.
+- **Skaliert:** Ein Effekt-Baukasten wird für alle Bilder wiederverwendet (Abschnitt 5.2).
+
+Wo es echte Bewegtbilder braucht, etwa das Entstehen des Bildes (Idee 5), kommen **maskierte Video-Overlays** dazu, die farblich an das Kamerabild angeglichen werden.
+
+---
+
+## 2. Ideen für abstrakte, poetische Bilder
+
+Typ: 🎨 = Shader auf Live-Kamerabild · 🎞 = Video-Overlay · 🔊 = Klang
+
+| # | Idee | Beschreibung | Typ | Aufwand |
 |---|---|---|---|---|
-| **A: Fertige Plattform (Artivive)** | Artivive-App, Bild + Video hochladen | In Stunden startklar, speziell für Kunst gemacht, Free-Plan zum Testen (Pro ca. 14 €/Monat) | Besucher:innen müssen die Artivive-App installieren, wenig kreative Kontrolle, im Kern nur Video-Overlay | **Perfekt für einen schnellen Test**, für die finale Ausstellung eher begrenzt |
-| **B: WebAR (MindAR + three.js oder 8th-Wall-Engine)** | QR-Code scannen, die AR startet im Browser | **Keine App-Installation**, läuft auf iOS und Android, volle kreative Kontrolle, Open Source und ohne Lizenzkosten, selbst gehostet | Tracking etwas weniger stabil als nativ, Inhalt verschwindet, sobald das Bild aus dem Sichtfeld ist, Performance auf alten Handys | **Meine Empfehlung als Hauptweg**, wenn die Effekte „im Rahmen“ bleiben |
-| **C: Native App (Unity + AR Foundation)** | Eigene App mit ARKit/ARCore | Bestes Tracking, echte 3D-Welt, Inhalte können **aus dem Bild in den Raum** fliegen, Occlusion und Raumklang | App-Store-Veröffentlichung, Installationshürde, deutlich mehr Entwicklungsaufwand | Wenn es spektakulär sein soll, am besten **mit Leih-iPads** |
-| **D: Snapchat-Lens (Lens Studio)** | Lens mit Marker-Tracking | Sehr gutes Tracking, kostenlos. Der Louvre macht das seit Feb. 2026 mit sechs Werken | Braucht Snapchat, Snap-Branding, Datenschutzfragen, Plattformabhängigkeit | Eher für ein junges Publikum und Marketing |
+| 1 | **Das Bild atmet** | Farbfelder dehnen sich minimal aus und ziehen sich zusammen, sehr langsam, wie ein Atemzug. Die Sättigung pulsiert kaum merklich | 🎨 | klein |
+| 2 | **Farbe fliesst weiter** | Pinselspuren und Verläufe bewegen sich entlang ihrer eigenen Richtung weiter, als wäre die Farbe noch nass | 🎨 | mittel |
+| 3 | **Wanderndes Streiflicht** | Ein virtuelles Licht streift über die Oberfläche und zeigt die Pastosität und die Pinselstruktur. **Das Licht kommt von dort, wo man steht**, denn die Handyposition ist bekannt: Man hält das Licht in der Hand | 🎨 | mittel (braucht Normal-Map, siehe 5.3) |
+| 4 | **Schimmern / Glimmen** | Einzelne Farbbereiche beginnen leicht zu leuchten, wie Glut oder Sonnenlicht auf Wasser | 🎨 | klein |
+| 5 | **Das Bild entsteht** | Zeitraffer des echten Malprozesses: Das Bild baut sich Schicht für Schicht auf und endet exakt im fertigen Werk. **Die Künstlerin filmt dafür ihren Malprozess** | 🎞 | mittel |
+| 6 | **Zeitschichten** | Frühere Zustände des Bildes (übermalte Schichten, Varianten) scheinen durch. Die Künstlerin fotografiert Zwischenstände | 🎞/🎨 | klein bis mittel |
+| 7 | **Handy als Lupe** | Nur in einem weichen Kreis um die Bildmitte des Handys wird das Bild lebendig, man „erforscht“ es mit dem Handy | 🎨 | klein (kombinierbar mit allem) |
+| 8 | **Stillhalten wird belohnt** | Das Bild erwacht erst, wenn man ein paar Sekunden ruhig davor steht. Wer hektisch wischt, sieht nichts. Das passt zu einer kontemplativen Ausstellung | 🎨 | klein (Logik-Baustein) |
+| 9 | **Das Bild klingt** | Jede Farbzone hat einen Klang. Wo das Handy hinschaut, erklingt diese Zone, und so entsteht ein generatives Hörbild. Möglich wäre eine Zusammenarbeit mit einer Komponist:in oder Musiker:innen des Hauses | 🔊 | mittel |
+| 10 | **Die Stimme der Künstlerin** | Ein Satz, ein Gedanke, ein Flüstern. Oder Worte, die als Schrift kurz im Bild auftauchen und wieder zerfallen | 🔊/🎨 | klein |
+| 11 | **Tageszeit & Wetter** | Das Bild verhält sich morgens anders als abends, z.B. kühler oder wärmer, schneller oder langsamer. Jeder Besuch ist anders | 🎨 | klein |
+| 12 | **Auflösen & Zurückfinden** | Ein Bildteil zerfällt in Farbstaub und setzt sich wieder zusammen | 🎨 | mittel |
 
-**Nicht empfehlenswert (Stand heute):**
-- **Adobe Aero** wurde im Nov./Dez. 2025 eingestellt.
-- **8th Wall als gehostete Plattform** gibt es seit 28.02.2026 nicht mehr. Die Engine inkl. *Image Targets* ist aber als Open Source (MIT) unter 8thwall.org verfügbar und damit eine gute Option für Weg B.
-- **Unreal Engine (Handheld AR):** Image Tracking gilt laut Community-Forum seit UE5 als unzuverlässig.
-- **Godot:** Das ARCore-Plugin für Godot 4 ist noch Work-in-Progress, und es gibt kein ausgereiftes Image Tracking für iOS. Für diese Ausstellung ist Godot deshalb nicht produktionsreif. Das Motion-Capture-Wissen aus diesem Repo lässt sich aber für die Inhalte nutzen (siehe Idee 10).
-
-### Empfehlung in einem Satz
-**Zuerst mit Artivive oder einem MindAR-Test die Trackbarkeit der echten Bilder prüfen. Danach mit WebAR (MindAR/8th-Wall-Engine + three.js) produzieren, und nur für einzelne Highlight-Effekte, die in den Raum gehen sollen, eine Unity-App auf Leih-iPads.**
-
----
-
-## 3. Ideen-Pool: Was kann ein Bild „tun“?
-
-Legende Technik: 🌐 = geht mit WebAR · 📱 = braucht eine native App (Welt-Tracking)
-
-### Stufe 1: Das Bild atmet (subtil, poetisch)
-1. **Cinemagraph-Effekt** 🌐: Nur einzelne Elemente bewegen sich, etwa Wolken, Wasser, Kerzenflamme, Haare im Wind oder blinzelnde Augen. Der Rest bleibt still. Das wirkt oft am magischsten.
-2. **2.5D-Parallax** 🌐: Das Bild wird in Ebenen zerlegt (Vorder-, Mittel- und Hintergrund). Beim Bewegen des Handys verschieben sich die Ebenen, und das Bild bekommt echte Tiefe.
-3. **Tageszeit / Jahreszeiten** 🌐: Die Szene wechselt langsam von Tag zu Nacht oder vom Sommer in den Winter.
-4. **Klanglandschaft** 🌐: Das Bild bekommt seinen Sound, etwa Meeresrauschen, Stimmengewirr oder Vogelgezwitscher.
-
-### Stufe 2: Das Bild erzählt
-5. **Fenster in eine andere Welt (Portal)** 🌐: Das Bild wird zum Fenster. Dahinter liegt eine echte 3D-Szene (Blender-Rekonstruktion), in die man je nach Blickwinkel hineinschaut. Weil die Pose bekannt ist, funktioniert die Perspektive automatisch korrekt. Das ist das gleiche Prinzip wie Off-Axis-Projection im Disguise-Umfeld.
-6. **Entstehungsgeschichte** 🌐: Unterzeichnung, Röntgenbild, verworfene Varianten (Pentimenti) oder ein Zeitraffer, wie das Bild Schicht für Schicht entstanden ist.
-7. **Die Künstler:in spricht** 🌐: Die Künstler:in erscheint neben dem Bild oder die Stimme führt durch Details. Das ist ein Audioguide mit Bild.
-8. **Versteckte Details / Taschenlampe** 🌐: Das Handy wirkt wie eine Lampe oder Lupe und legt im Bild eine verborgene Ebene frei, etwa Symbole, Texte oder eine zweite Geschichte.
-
-### Stufe 3: Das Bild bricht aus (spektakulär)
-9. **Aus dem Rahmen heraus** 📱: Vögel fliegen aus dem Bild in den Raum, Farbe tropft über die Wand auf den Boden, Nebel quillt heraus, Figuren steigen aus dem Rahmen.
-10. **Theater-Crossover: Schauspieler:innen animieren die Figuren** 🌐/📱: Figuren im Bild bewegen sich mit echter Motion-Capture von Ensemblemitgliedern (NI mate/Kinect → Blender, also die Pipeline aus diesem Repo). Denkbar ist auch eine Verbindung zu einer laufenden Produktion am Haus.
-11. **Bilder reden miteinander** 🌐: Eine Figur verlässt Bild A und taucht in Bild B wieder auf. So entsteht eine Geschichte oder Schnitzeljagd quer durch die Ausstellung, mit „Sammelmoment“ am Ende.
-12. **Interaktion** 🌐: Man tippt auf Elemente, neigt das Handy (Wasser schwappt) oder pustet ins Mikrofon (Wind bewegt die Szene).
-
-### Bonus: Hybrid mit Projektion (ganz dein Revier)
-13. **Ein „Teaser-Bild“ per Projection Mapping** statt AR: Ein Werk wird für alle sichtbar per Projektion lebendig. Das ist der Einstieg in die Ausstellung, der ohne Handy funktioniert und barrierearm ist. Er macht Lust auf die AR-Bilder.
-
-**Tipp zur Dramaturgie:** Nicht jedes Bild braucht die gleiche Stufe. Eine gute Mischung wäre z.B. 60 % subtil (Stufe 1), 30 % erzählend und 1–2 echte „Wow“-Bilder.
+**Dramaturgie-Idee:** Jedes Bild bekommt **eine** Eigenschaft, nicht fünf. Das eine Bild atmet, das nächste klingt, das dritte zeigt seine Entstehung. Dazu ein roter Faden, den die Künstlerin vorgibt, z.B. „Zeit“, „Atem“ oder „Erinnerung“.
 
 ---
 
-## 4. Content-Pipeline (mit deinen Tools)
+## 3. Das Hauptrisiko: Tracking bei abstrakten Bildern
 
+Image Tracking braucht **viele markante, ungleichmässig verteilte Details**. Abstrakte Kunst ist dafür sehr unterschiedlich gut geeignet:
+
+| Bildtyp | Trackbarkeit |
+|---|---|
+| Gestisch, pastos, viele Pinselspuren, Linien, Kratzer, Collage | ✅ gut |
+| Mischung aus Flächen und Strukturen | 🟡 meist ok, kommt auf die Verteilung an |
+| Grosse Farbfelder, weiche Verläufe (à la Rothko) | ❌ schwierig |
+| Monochrom, sehr dunkel, glänzend, hinter Glas | ❌ schwierig |
+| Wiederholende Muster / Raster | ❌ verwechselbar, instabil |
+
+### Strategie (in dieser Reihenfolge)
+1. **Referenzfoto vor Ort unter Ausstellungslicht.** Streiflicht auf pastoser Farbe erzeugt zusätzliche Details, die ein flacher Scan nicht hat.
+2. **Jedes Bild früh testen** mit einem Score und einer Heatmap, wo Merkmale gefunden werden. Dazu ein Test mit echtem Handy vor dem Bild, aus verschiedenen Abständen und Winkeln.
+3. **Schwache Bilder:** Tracking-Engine vergleichen (MindAR vs. 8th-Wall-Engine), Referenzfoto optimieren (Ausschnitt, Auflösung, Kontrast).
+4. **Neue Werke:** Die Künstlerin kann bewusst Struktur einbauen (feine Linien, Kratzspuren, Textur in Flächen), ohne dass es ihre Bildsprache verändert.
+5. **Notlösung „Anker daneben“:** Eine von der Künstlerin gestaltete kleine Karte oder ein Bildschild neben dem Werk dient als Tracking-Anker. Einschränkung: Bei WebAR muss dieser Anker im Kamerabild bleiben (kein Welt-Tracking).
+6. **Ehrliche Alternative:** Nicht jedes Bild muss AR haben. Ein Werk, das nicht trackt, kann nur „klingen“ (Audio). Das passt zu einer poetischen Ausstellung sogar gut.
+
+---
+
+## 4. Erstes Beispielwerk: Falt-Relief (Werk A)
+
+Das Werk besteht aus Hunderten gefalteter Papiermodule aus bedruckten Blättern (Text- und Programmfragmente, z.B. „Wert“, „Vorlage“, „(guitar)“, „piano“, Daten wie „22.5“/„30.5“), angeordnet in einem Raster und in einem Goldrahmen. Die Farben sind Rot, Schwarz, Weiss und Grau mit Akzenten in Türkis und Gelb. Es ist ein **Relief** mit echter Tiefe.
+
+> Foto und Heatmap sind bewusst **nicht** im Repo (Rechte der Künstlerin).
+
+### 4.1 Tracking-Check (Handyfoto vom 25.09.2026, SIFT-Analyse auf 768 × 1024 px)
+
+| Messung | Ergebnis | Bewertung |
+|---|---|---|
+| Tracking-Merkmale gesamt | ca. 11 900 | ✅ sehr hoch |
+| Abdeckung (8 × 8-Raster, ≥ 15 Merkmale pro Zelle) | **100 %**, min. 41 pro Zelle | ✅ gleichmässig über die ganze Fläche |
+| „Zwillinge“ (gleiche Merkmale an anderer Stelle) | ca. 1,6 % | ✅ Das Raster wiederholt sich zwar, der Aufdruck macht aber jedes Modul einzigartig |
+| Simuliert 30° schräg | 3205 bestätigte Treffer, Positionsfehler 0,1 px | ✅ |
+| Simuliert 45° schräg | 367 Treffer, 0,2 px | 🟡 reicht noch, der Spielraum wird kleiner |
+| Simuliert weit weg (35 % Grösse) | 911 Treffer | ✅ |
+| Simuliert Unschärfe / dunkler Raum | 422 / 859 Treffer | ✅ |
+
+**Fazit:** Das ist fast der Idealfall für Image Tracking, viel besser als ein typisches abstraktes Gemälde.
+
+**Aber:** Die Simulation behandelt das Werk als flaches Bild. In echt ist es ein Relief. Schräg betrachtet verdecken sich die Falten gegenseitig und die Schatten ändern sich, das Bild sieht also anders aus als das Referenzfoto. Der echte Handytest vor dem Werk bleibt deshalb Pflicht.
+
+### 4.2 Relief-spezifische Regeln
+- **Referenzfoto exakt frontal**, gleichmässig ausgeleuchtet, **unter dem finalen Ausstellungslicht**. Das Testfoto ist leicht schräg und oben dunkler, das reicht für den Check, aber nicht als finales Target.
+- **Den Goldrahmen aus dem Target zuschneiden:** Er spiegelt, und die Spiegelung ändert sich mit dem Blickwinkel.
+- **Mehrere Referenzfotos** (frontal, ca. 25° links, 25° rechts) als Targets für **dasselbe** Werk verwenden. MindAR kann mehrere Targets in einer Datei, und das fängt die Relief-Parallaxe ab.
+- **Idealer Betrachtungsbereich:** frontal ±30°. Eine Bodenmarkierung hilft, den richtigen Standort zu finden.
+- **Physische Masse** und **Relieftiefe** messen (wie weit stehen die Module vor?).
+- Optional ein **3D-Scan** (Photogrammetrie, z.B. RealityScan/Polycam, oder iPhone-LiDAR). Damit sitzen 3D-Elemente mit korrekter Tiefe auf dem Relief.
+
+### 4.3 Ideen speziell für dieses Werk
+
+| # | Idee | Beschreibung | Typ | Aufwand |
+|---|---|---|---|---|
+| A1 | **Welle über dem Feld** | Eine langsame Welle läuft durch das Raster, und jedes Modul neigt sich minimal, wie Wind über ein Blumenfeld oder Schuppen, die sich aufstellen. Umgesetzt auf dem Live-Kamerabild, pro Rasterzelle. **Empfohlen als erster Prototyp:** braucht keine zusätzlichen Assets und zeigt das Prinzip sofort | 🎨 | klein bis mittel |
+| A2 | **Entfalten** | Das Modul in der Bildmitte des Handys faltet sich langsam auf, wird wieder zum flachen, bedruckten Blatt, man kann den Text lesen, und dann faltet es sich zurück. *„Was war das Papier, bevor es Kunst wurde?“* Das ist das poetische Herz des Werks. Dafür braucht es die Faltart von der Künstlerin und ein Scan eines ungefalteten Blatts. Umsetzung als Falt-Animation in Blender (3D, lokal an einem Modul) | 3D/🎞 | mittel bis gross |
+| A3 | **Worte steigen auf** | Die aufgedruckten Wörter („Wert“, „Vorlage“ …) lösen sich aus den Falten, treiben kurz im Raum vor dem Relief, formen einen Satz der Künstlerin und sinken zurück. Das Material selbst spricht | 🎨/3D | mittel |
+| A4 | **Streiflicht** | Beim Relief besonders stark: Ein virtuelles Licht folgt dem Standort der Betrachter:in, und die Faltenschatten wandern mit. Die Normal-Map entsteht per Photometric Stereo (5.3); das Relief ist dafür der perfekte Fall | 🎨 | mittel |
+| A5 | **Rot als Herzschlag** | Nur die roten Fragmente glimmen in einem ruhigen Puls. Technisch sehr einfach, weil Rot sich klar vom Rest abhebt | 🎨 | klein |
+| A6 | **Klang der Herkunft** | Falls das Papier aus Konzert- oder Veranstaltungsprogrammen stammt (Gitarre, Piano …): Die Module klingen nach den Konzerten, die darauf angekündigt waren. Wo das Handy hinschaut, hört man ein Fragment | 🔊 | mittel |
+
+**Kombi-Vorschlag:** A1 (Welle) als ruhiger Grundzustand. Wer still steht, erlebt A2: ein einzelnes Modul entfaltet sich (Modifikator „Stillhalten wird belohnt“).
+
+---
+
+## 5. Technik-Konzept
+
+### 5.1 Architektur: ein Link pro Bild
 ```
-Gemälde ──► Referenzfoto ──► Ebenen & Tiefe ──► Animation ──► Export ──► AR-Build
-            (vor Ort,         (Photoshop,       (AE, Blender,  (MP4/WebM,
-             Ausst.-Licht)     Depth-Map)        KI-Video)      glTF, Audio)
+QR-Code am Bild ──► https://…/?werk=03 ──► lädt NUR Werk 03
+                                            ├─ target.mind      (Tracking-Daten)
+                                            ├─ config.json      (Effekt + Parameter)
+                                            ├─ maske-*.png      (wo der Effekt wirkt)
+                                            ├─ normal.png       (optional, Streiflicht)
+                                            └─ prozess.mp4 / klang.mp3 (optional)
 ```
+- **Skaliert auf beliebig viele Bilder**, weil jede Seite nur ein Tracking-Ziel lädt. Das bedeutet schnelle Erkennung und keine Verwechslung.
+- **Neue Werke hinzufügen** heisst: Ordner anlegen, Referenzfoto rein, Masken rein, config ausfüllen. Das geht ohne Programmieren.
+- **Kleine Datenmenge:** Shader-Effekte brauchen nur wenige hundert KB pro Werk.
 
-1. **Referenzfoto**: frontal, perspektivisch entzerrt, farbtreu, ohne Rahmen zugeschnitten. **Am besten vor Ort unter der finalen Ausstellungsbeleuchtung** fotografieren. Physische Masse des Bildes notieren (Breite × Höhe in cm).
-2. **Ebenen & Tiefe**: In Photoshop die Figuren freistellen und die verdeckten Bereiche mit Generative Fill auffüllen. Für die Tiefenkarte eignen sich z.B. Depth Anything oder Marigold.
-3. **Animation**:
-   - **After Effects**: Puppet Pins, Displacement, Partikel, 2.5D-Kamera.
-   - **Blender**: Camera Projection (Bild auf 3D-Geometrie projizieren, im Prinzip Projection Mapping), Rigging, Mocap.
-   - **KI-Video (Image-to-Video)**, z.B. MiniMax H3 mit **First/Last-Frame = Originalgemälde**. So startet und endet das Video exakt auf dem echten Bild, und es entsteht ein nahtloser Loop mit perfektem Übergang.
-4. **Export**:
-   - WebAR: MP4 (H.264) für Vollflächen-Overlays. Für Transparenz „stacked alpha“ (Farbe oben, Alpha unten, Shader setzt es zusammen), weil das auf iOS und Android gleichermassen funktioniert.
-   - Echtzeit-3D: glTF/GLB, Texturen komprimiert.
-   - Audio: kurze Loops, AAC/Opus.
+### 5.2 Effekt-Baukasten
+Einmal gebaute Effekte werden pro Bild nur **parametrisiert**:
+- `atmen`, `fliessen`, `streiflicht`, `schimmern`, `aufloesen`, `zeitschichten`, `video`, `klang`
+- plus **Modifikatoren**: `lupe`, `stillhalten`, `tageszeit`
+- Die **Masken** (Graustufenbilder) definieren, **wo** im Bild der Effekt wirkt. Die **Künstlerin malt die Masken selbst**, etwa in Photoshop oder auf einem Ausdruck mit Pinsel, der dann gescannt wird. So entscheidet sie, wo ihr Bild lebt.
 
-**Grobe Aufwandsschätzung pro Bild** (sehr grob, hängt stark vom Motiv ab):
-- Cinemagraph / subtile Animation: ca. 1–3 Tage
-- 2.5D-Parallax mit Sound: ca. 2–4 Tage
-- 3D-Portal oder „Aus dem Rahmen“: ca. 1–2 Wochen
+### 5.3 Normal-Map fürs Streiflicht (Idee 3)
+Methode aus der Museumsfotografie (Photometric Stereo / RTI):
+- Das Bild wird mit **fixer Kamera** und 4–8 Aufnahmen aus **verschiedenen Lichtrichtungen** fotografiert.
+- Daraus lässt sich die echte Oberflächenstruktur (Normal-Map) berechnen.
+- Das geht mit Equipment aus deiner Abteilung in ca. 30 Minuten pro Bild.
 
----
+### 5.4 Malprozess-Video (Idee 5)
+- Kamera **fix von oben bzw. frontal** auf die Leinwand, konstantes Licht, Intervall- oder Zeitrafferaufnahme.
+- In der Postproduktion wird das Video per Perspektivkorrektur auf das finale Referenzfoto ausgerichtet und farblich angeglichen.
+- Das letzte Bild muss **exakt** dem fertigen Werk entsprechen. Dann kommt der Übergang zum echten Bild nahtlos.
 
-## 5. Knackpunkte bei echten Bildern (unbedingt früh testen!)
+### 5.5 UX für eigene Handys
+- **Einstieg:** kleiner, dezenter QR-Code am Bildschild. Optional zusätzlich ein NFC-Tag, dann genügt Antippen.
+- **Onboarding:** ein dunkler Screen, ein Satz („Halte dein Handy ruhig vor das Bild.“), Kamera-Freigabe mit kurzer Begründung. Kein technisches UI, keine Buttons im Bild.
+- **Ton:** standardmässig leise bzw. aus, mit dem Hinweis „Mit Kopfhörern erleben“. So spielen nicht zehn Handys gleichzeitig durcheinander.
+- **Fallback:** Wenn ein Handy kein WebAR kann (sehr alt, Kamera verweigert), zeigt die Seite ein Video des Effekts, damit niemand leer ausgeht.
+- **Datenschutz:** Das Kamerabild bleibt auf dem Handy, es wird nichts hochgeladen. Kein Tracking, höchstens anonyme Zählung pro Werk (z.B. Matomo). Die Kamera braucht HTTPS.
+- **Sprache:** DE, optional EN.
 
-### Trackbarkeit
-- **Gut:** detailreiche, kontrastreiche Bilder mit viel Struktur.
-- **Schlecht:** monochrome Flächen, sehr dunkle Bilder, minimalistische oder abstrakte Farbfelder, sich wiederholende Muster.
-- **Heikel:** Serien mit ähnlichen Motiven, weil die Bilder verwechselt werden können.
-- **Test-Tools:** Das ARCore-Tool `arcoreimg` bewertet Bilder mit 0–100 Punkten (≥ 75 empfohlen). Der MindAR-Compiler zeigt die gefundenen Merkmale an.
-
-### Licht & Oberfläche
-- **Glas im Rahmen** spiegelt und stört das Tracking stark. Deshalb entspiegeltes Museumsglas oder kein Glas verwenden.
-- **Glänzender Firnis und harte Spots** erzeugen Hotspots. Das Licht mit der Lichtabteilung abstimmen.
-- Das Licht zwischen Referenzfoto und Ausstellung **nicht mehr ändern**.
-
-### Der Look (damit es nicht „aufgeklebt“ wirkt)
-- Kamerabild und gerenderter Inhalt unterscheiden sich in Farbe, Helligkeit und Rauschen.
-  - **Lösung 1:** **Nur die bewegten Bereiche maskiert überlagern.** Der Rest bleibt echtes Kamerabild, und kleine Tracking-Wackler fallen kaum auf.
-  - **Lösung 2:** Overlay farblich an das Kamerabild angleichen, leichtes Grain hinzufügen und die Ränder weich einblenden.
-  - **Profi-Trick:** Das **Live-Kamerabild selbst als Textur** verwenden und verformen. Dann stimmt die Farbe automatisch.
-- Beim Erkennen **sanft einblenden**, damit das Bild „erwacht“ statt umzuschalten.
-- Gegen Zittern hilft ein Glättungsfilter (z.B. One-Euro-Filter) auf der Pose.
-
-### Raum & Besucherfluss
-- AR-Nutzer:innen bleiben länger stehen und blockieren die Sicht. **Bodenmarkierung für den optimalen Abstand** und Platz vor den AR-Bildern einplanen.
-- Grosse Bilder brauchen mehr Abstand, damit die Kamera das ganze Bild erfasst.
-- **Ton:** Viele Handys mit Lautsprecher gleichzeitig ergeben Chaos. Besser Kopfhörer empfehlen oder leise Sounds und Untertitel einsetzen.
-
-### Infrastruktur
-- **WLAN/Mobilfunk** im Ausstellungsraum prüfen (Keller, dicke Mauern?). Die Inhalte vorab laden, als PWA cachen oder ein lokales WLAN einrichten.
-- **Geräte:** Bei BYOD (eigene Handys) läuft es von der Performance her auch auf alten Android-Geräten? Leihgeräte (z.B. iPads) im Kiosk-Modus bzw. mit „Geführtem Zugriff“ brauchen Ladestation, Diebstahlschutz und Reinigung.
-- Akku und Wärme: AR ist Schwerarbeit fürs Handy.
-
-### Rechtliches (kein Rechtsrat, aber wichtig)
-- **Urheberrecht:** Bei lebenden (und bis 70 Jahre nach dem Tod) Künstler:innen braucht es deren **Einverständnis**, denn das Werk wird digital verändert. In der Schweiz betrifft das das Recht auf Werkintegrität (Art. 11 URG). Am schönsten ist es, die Künstler:innen **als Mitgestaltende** einzubeziehen.
-- **Datenschutz:** WebAR verarbeitet das Kamerabild lokal im Browser, ohne Upload. Das sollte man auch so kommunizieren. Analytics nur datenschutzfreundlich einsetzen (z.B. Matomo/Plausible).
-
-### Barrierefreiheit
-- Untertitel, Audiodeskription, grosse Schrift.
-- Alternative für Menschen ohne Smartphone: Leihgeräte oder Projektions-Teaser (Idee 13).
+### 5.6 Testgeräte
+Mindestens: ein aktuelles iPhone, ein älteres iPhone (z.B. SE/8), ein aktuelles Android, ein **günstiges, älteres Android** (Samsung-A-Serie o.ä.). Im Team herumfragen, wer alte Handys in der Schublade hat.
 
 ---
 
-## 6. Phasenplan
+## 6. Zusammenarbeit mit der Künstlerin
+
+- **Kick-off-Workshop (2–3 h):** Was bedeutet „lebendig“ für ihre Arbeit? Rhythmus, Geste, Zeit, Material? Welche Werke? Dazu gleich vor Ort 2–3 Bilder mit dem Handy testen.
+- **Sie gestaltet mit:**
+  - Masken malen (wo lebt das Bild?)
+  - Effekt und Tempo pro Bild wählen
+  - Malprozess filmen (bei neuen Werken)
+  - Zwischenstände fotografieren
+  - Stimme oder Text beisteuern
+  - evtl. von Hand gemalte Animationselemente
+- **Für neue Werke:** Tracking-freundliche Struktur mitdenken (Abschnitt 3).
+- **Vereinbarung schriftlich festhalten:**
+  - Einverständnis zur digitalen Veränderung (Werkintegrität, Art. 11 URG)
+  - Nutzung der Referenzfotos
+  - Online-Verfügbarkeit (wie lange? Nach Ausstellungsende abschalten?)
+  - Nennung
+  - Honorar
+
+---
+
+## 7. Phasenplan
 
 | Phase | Inhalt | Dauer (grob) |
 |---|---|---|
-| **0: Klärung** | Offene Fragen beantworten (siehe unten), Budget, Team, Termin | 1 Woche |
-| **1: Tracking-Test** | 3–5 echte Bilder fotografieren, mit Artivive (gratis) **und** einem MindAR-Test prüfen: Welche Bilder tracken gut? | 1–2 Tage |
-| **2: Proof of Concept** | **Ein** Bild komplett durchziehen: Referenzfoto → Animation → WebAR → Test vor Ort unter echtem Licht | 1–2 Wochen |
-| **3: Konzept & Dramaturgie** | Welches Bild bekommt welche Idee? Rote Linie durch die Ausstellung | 1 Woche |
-| **4: Content-Produktion** | Animationen pro Bild, Sound | je nach Anzahl Bilder |
-| **5: App/Web-Build** | Onboarding („Richte dein Handy auf ein Bild“), Scan-Hinweise, Inhalte, Offline-Caching, Analytics | 2–4 Wochen (parallel zu 4) |
-| **6: Test vor Ort** | Verschiedene Geräte (auch alte Androids!), Licht, Besucher-Test mit Kolleg:innen | 1 Woche |
-| **7: Eröffnung & Betrieb** | QR-Codes/Beschilderung, Support-Person, Leihgeräte-Management, Auswertung | laufend |
+| **1: Kick-off mit der Künstlerin** | Workshop, Werkauswahl, 3–5 Referenzfotos machen | 1 Tag |
+| **2: Tracking-Check** | Alle Kandidaten-Bilder auf Trackbarkeit prüfen (Score, Heatmap, Handytest vor Ort) | 1–3 Tage |
+| **3: Prototyp „Welle“ (Werk A)** | WebAR + Shader auf Live-Kamerabild, Test vor dem echten Relief mit mehreren Handys | 1–2 Wochen |
+| **4: Effekt-Baukasten** | Die weiteren Effekte bauen, Konfiguration pro Werk, Onboarding, Fallback | 2–4 Wochen |
+| **5: Produktion pro Werk** | Masken (Künstlerin), Parameter, optional Normal-Maps, Prozessvideos, Klang | je nach Anzahl Bilder, ca. 0,5–2 Tage pro Werk |
+| **6: Test vor Ort** | Finales Licht, alle Testgeräte, Probe-Publikum (Kolleg:innen, Freundeskreis) | 1 Woche |
+| **7: Eröffnung & Betrieb** | QR-Schilder, Hosting, Ansprechperson, Abschalttermin | laufend |
+
+**Aufwand pro Werk:** Nach dem Baukasten ist ein Werk mit einem Shader-Effekt ca. ein halber Tag, mit Prozessvideo oder Klang eher 1–2 Tage.
 
 ---
 
-## 7. Offene Fragen an Mike
+## 8. Noch offene Fragen
 
-1. **Wie viele Bilder** und welche Art? Malerei, Fotografie, Grafik? Gegenständlich oder abstrakt?
-2. **Wer sind die Künstler:innen?** Leben sie noch und sind sie beteiligt, oder sind es gemeinfreie Werke?
-3. **Wann und wo?** Eröffnungstermin, Ausstellungsort (im Theater? Galerie?), Laufzeit?
-4. **Handys der Besucher:innen oder Leihgeräte?** Oder beides?
-5. **Budget und Team:** Machst du das mit deiner Abteilung selbst, oder gibt es externe Unterstützung für die Programmierung?
-6. **Welche Wirkung ist gewünscht:** eher poetisch und subtil oder spektakulär mit Wow-Effekt?
-7. **Zielgruppe:** Kunstpublikum, Familien, Schulklassen, Theaterpublikum?
-8. Gibt es eine **Verbindung zu einer Produktion** am Haus?
+1. **Existieren die Bilder schon, oder entstehen (auch) neue Werke für die Ausstellung?** Das ist wichtig für das Prozessvideo und für tracking-freundliche Struktur.
+2. **Sind die anderen Werke auch Falt-Reliefs**, oder gibt es auch flache Bilder? Hinter Glas?
+3. **Werk A:** Masse (B × H) und Relieftiefe? Gehört der Goldrahmen zum Werk? **Woher stammt das Papier** (Programmhefte? Flyer? Von welchen Veranstaltungen?) Das ist wichtig für A2, A3 und A6. Welche Faltart ist es?
+4. **Wann und wo** ist die Ausstellung? Wie ist der Handyempfang dort, gibt es Gäste-WLAN?
+5. **Ton gewünscht?** Wenn ja: Stimme der Künstlerin, Klanglandschaft, Musik?
+6. **Hosting/Domain:** über das Theater (Datenschutzvorgaben der IT?) oder extern?
+7. **Wer baut was?** Die WebAR-App und den Effekt-Baukasten kann ich programmieren. Was übernimmt dein Team bei Foto, Normal-Maps, Video und Sound?
+
+---
+
+## 9. Nächste Schritte
+
+- [x] Erstes Beispielwerk erhalten (Werk A, Falt-Relief), Tracking-Check per Foto: sehr gut (Abschnitt 4.1)
+- [ ] Weitere Werke fotografieren und prüfen (Handyfoto frontal reicht für den ersten Check)
+- [ ] Von Werk A: **ein sauberes Frontalfoto** (ganzes Werk, möglichst gleichmässiges Licht, ohne Schräglage) plus Masse
+- [ ] **Prototyp „Welle“ (A1)** bauen: WebAR-Seite, die das echte Relief im Kamerabild sanft wogen lässt, zum Testen per QR-Code direkt vor dem Werk
+- [ ] Kick-off-Termin mit der Künstlerin (Faltart, Herkunft des Papiers, Ideen A1–A6 besprechen)
 
 ---
 
-## 8. Mögliche nächste Schritte
+## Anhang: Verworfene Optionen (Version 1)
 
-- [ ] Fragen aus Abschnitt 7 klären
-- [ ] 3–5 Referenzfotos von echten Bildern machen (möglichst vor Ort, frontal, gutes Licht)
-- [ ] **WebAR-Test-Prototyp** (MindAR + three.js): Bild hochladen, Video hochladen, per QR-Code aufs Handy, direkt vor dem Gemälde testen. Das kann ich bauen.
-- [ ] Ein Bild als Proof of Concept auswählen
-
----
+- **Native Unity-App** (Effekte in den Raum, Leih-iPads): für subtile, bildgebundene Effekte und BYOD nicht nötig.
+- **Artivive:** Besucher:innen müssten eine App installieren. Taugt aber als schneller Tracking-Test.
+- **Snapchat-Lens:** Snapchat-Pflicht, Branding, Datenschutz.
+- **Unreal / Godot:** Image Tracking auf dem Handy nicht zuverlässig bzw. nicht produktionsreif.
+- **Adobe Aero:** Seit Ende 2025 eingestellt.
 
 ### Quellen
-- 8th Wall Open Source: https://www.8thwall.com/blog/post/208587408737/8th-wall-open-source
+- MindAR: https://github.com/hiukim/mind-ar-js · Doku: https://hiukim.github.io/mind-ar-js-doc/
+- 8th Wall Open Source (Image Targets, MIT): https://www.8thwall.com/blog/post/208587408737/8th-wall-open-source
 - Adobe Aero End of Support: https://helpx.adobe.com/aero/aero-end-of-support-faq.html
 - Artivive Pricing: https://www.artivive.com/pricing
-- MindAR: https://github.com/hiukim/mind-ar-js
-- AR Foundation Image Tracking (Limits ARKit ≤ 100 / ARCore ≤ 1000 Bilder pro Library): https://docs.unity3d.com/Packages/com.unity.xr.arfoundation@6.1/manual/features/image-tracking/artrackedimagemanager.html
+- AR Foundation Image Tracking: https://docs.unity3d.com/Packages/com.unity.xr.arfoundation@6.1/manual/features/image-tracking/artrackedimagemanager.html
 - Godot ARCore Plugin (WIP): https://github.com/GodotVR/godot_arcore
-- Unreal UE5 Image Tracking Probleme: https://forums.unrealengine.com/t/image-tracking-not-working-on-ue5-0-arkit-arcore/791248
+- Unreal UE5 Image Tracking: https://forums.unrealengine.com/t/image-tracking-not-working-on-ue5-0-arkit-arcore/791248
 - Louvre × Snapchat (2026): https://newsroom.snap.com/the-incredible-unknowns
-- Lens Studio Marker Tracking: https://developers.snap.com/lens-studio/features/ar-tracking/world/marker-tracking
